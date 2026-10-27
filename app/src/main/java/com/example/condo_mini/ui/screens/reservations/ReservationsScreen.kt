@@ -2,7 +2,6 @@ package com.example.condo_mini.ui.screens.reservations
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,27 +9,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Celebration
-import androidx.compose.material.icons.filled.MeetingRoom
-import androidx.compose.material.icons.filled.OutdoorGrill
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -43,9 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,6 +39,7 @@ import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
 import com.example.condo_mini.domain.model.ReservationStatus
+import com.example.condo_mini.ui.components.AreaCoverCard
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.Eyebrow
 import com.example.condo_mini.ui.components.LoadingState
@@ -61,7 +48,6 @@ import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.SectionHeader
 import com.example.condo_mini.ui.components.StatusChip
 import com.example.condo_mini.ui.components.StatusTone
-import com.example.condo_mini.ui.theme.Ivory
 import com.example.condo_mini.ui.util.formatDate
 import com.example.condo_mini.ui.util.monthShort
 import com.example.condo_mini.ui.util.toBrl
@@ -135,7 +121,7 @@ fun ReservationsScreen(
         }
         item { SectionHeader("Espaços do condomínio", modifier = Modifier.padding(horizontal = 4.dp)) }
         items(uiState.areas, key = { it.id }) { area ->
-            AreaCard(area, onClick = { onAreaClick(area) })
+            AreaCoverCard(area, onClick = if (area.isClosed) null else ({ onAreaClick(area) }))
         }
     }
 
@@ -159,66 +145,6 @@ fun ReservationsScreen(
                 }
             }
         )
-    }
-}
-
-/** Capa com gradiente no lugar da foto do espaço (troque por imagens reais quando houver). */
-@Composable
-private fun AreaCard(area: CommonArea, onClick: () -> Unit) {
-    val visual = area.visual()
-    Surface(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.extraLarge,
-        color = visual.end,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(148.dp)
-                .background(Brush.linearGradient(listOf(visual.start, visual.end)))
-        ) {
-            Icon(
-                imageVector = visual.icon,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.09f),
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .offset(x = 24.dp)
-                    .size(150.dp)
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(22.dp)
-            ) {
-                Eyebrow(
-                    text = "Até ${area.capacity} pessoas · ${if (area.fee > 0) area.fee.toBrl() else "Cortesia"}",
-                    color = Ivory.copy(alpha = 0.75f)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        area.name,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Ivory,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = Ivory.copy(alpha = 0.85f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Text(
-                    area.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Ivory.copy(alpha = 0.7f),
-                    maxLines = 1
-                )
-            }
-        }
     }
 }
 
@@ -397,14 +323,4 @@ private fun BookingSheet(
             }
         }
     }
-}
-
-private data class AreaVisual(val icon: ImageVector, val start: Color, val end: Color)
-
-private fun CommonArea.visual(): AreaVisual = when (id) {
-    "a1" -> AreaVisual(Icons.Default.Celebration, Color(0xFF3B3226), Color(0xFF1C1813))
-    "a2" -> AreaVisual(Icons.Default.OutdoorGrill, Color(0xFF4A2F24), Color(0xFF1F1511))
-    "a3" -> AreaVisual(Icons.Default.Restaurant, Color(0xFF2C3A33), Color(0xFF131A16))
-    "a4" -> AreaVisual(Icons.Default.SportsSoccer, Color(0xFF243247), Color(0xFF111824))
-    else -> AreaVisual(Icons.Default.MeetingRoom, Color(0xFF34303F), Color(0xFF16141C))
 }

@@ -34,6 +34,17 @@ fun LocalDateTime.formatDateTime(): String = format(dateTimeFormatter)
 
 fun YearMonth.formatMonth(): String = format(monthFormatter).replaceFirstChar { it.titlecase(ptBr) }
 
+private val monthNameFormatter = DateTimeFormatter.ofPattern("MMMM", ptBr)
+
+/** "dezembro" */
+fun YearMonth.monthName(): String = format(monthNameFormatter)
+
+/** "1,2 MB", "340 KB" */
+fun Long.formatFileSize(): String = when {
+    this >= 1_048_576 -> String.format(ptBr, "%.1f MB", this / 1_048_576.0)
+    else -> "${(this / 1024).coerceAtLeast(1)} KB"
+}
+
 /** "há 3 horas", "ontem", "há 5 dias"... */
 fun LocalDateTime.relative(now: LocalDateTime = LocalDateTime.now()): String {
     val minutes = ChronoUnit.MINUTES.between(this, now)

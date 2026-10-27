@@ -8,8 +8,14 @@ data class CommonArea(
     val description: String,
     val capacity: Int,
     val fee: Double,
-    val rules: String
-)
+    val rules: String,
+    /** Chave do ícone escolhido pela administração (ver `AreaIcon`). */
+    val iconKey: String = "",
+    /** Motivo da interdição; `null` quando o espaço está liberado. */
+    val closedReason: String? = null
+) {
+    val isClosed: Boolean get() = closedReason != null
+}
 
 enum class ReservationPeriod(val label: String, val hours: String) {
     MORNING("Manhã", "08h às 12h"),

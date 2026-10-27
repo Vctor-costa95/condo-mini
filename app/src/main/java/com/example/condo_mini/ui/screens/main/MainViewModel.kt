@@ -8,6 +8,7 @@ import com.example.condo_mini.domain.model.ParcelStatus
 import com.example.condo_mini.domain.model.ReservationStatus
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
+import com.example.condo_mini.domain.repository.DirectoryRepository
 import com.example.condo_mini.domain.repository.OccurrenceRepository
 import com.example.condo_mini.domain.repository.ParcelRepository
 import com.example.condo_mini.domain.repository.ReservationRepository
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -26,7 +28,8 @@ class MainViewModel(
     sessionRepository: SessionRepository = AppContainer.sessionRepository,
     private val parcelRepository: ParcelRepository = AppContainer.parcelRepository,
     private val occurrenceRepository: OccurrenceRepository = AppContainer.occurrenceRepository,
-    private val reservationRepository: ReservationRepository = AppContainer.reservationRepository
+    private val reservationRepository: ReservationRepository = AppContainer.reservationRepository,
+    private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository
 ) : ViewModel() {
 
     val user: StateFlow<User?> = sessionRepository.currentUser
@@ -36,6 +39,7 @@ class MainViewModel(
         .flatMapLatest { user ->
             when (user?.role) {
                 UserRole.MANAGER -> managerBadges()
+                UserRole.ADMIN -> adminBadges()
                 null -> flowOf(emptyMap())
                 else -> residentBadges(user.unit)
             }
@@ -50,6 +54,11 @@ class MainViewModel(
             AppTab.PARCELS to parcels.count { it.status == ParcelStatus.WAITING },
             AppTab.OCCURRENCES to occurrences.count { it.status == OccurrenceStatus.NEEDS_INFO }
         )
+    }
+
+    // Moradores cadastrados que ainda não foram alocados em um apartamento.
+    private fun adminBadges(): Flow<Map<AppTab, Int>> = directoryRepository.observeUsers().map { users ->
+        mapOf(AppTab.ADMIN_USERS to users.count { it.role == UserRole.RESIDENT && it.unit.isBlank() })
     }
 
     private fun managerBadges(): Flow<Map<AppTab, Int>> = combine(

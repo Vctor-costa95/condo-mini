@@ -2,6 +2,7 @@ package com.example.condo_mini.domain.repository
 
 import com.example.condo_mini.domain.model.Bill
 import com.example.condo_mini.domain.model.CommonArea
+import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.Notice
 import com.example.condo_mini.domain.model.NoticeCategory
 import com.example.condo_mini.domain.model.Occurrence
@@ -9,12 +10,14 @@ import com.example.condo_mini.domain.model.OccurrenceCategory
 import com.example.condo_mini.domain.model.Parcel
 import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
+import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 import java.time.LocalDate
+import java.time.YearMonth
 
 interface SessionRepository {
     val currentUser: StateFlow<User?>
@@ -54,6 +57,15 @@ interface ReservationRepository {
     suspend fun cancel(reservationId: String)
     suspend fun approve(reservationId: String)
     suspend fun reject(reservationId: String, reason: String)
+
+    /** Cria o espaço quando [CommonArea.id] está vazio; senão atualiza. */
+    suspend fun saveArea(area: CommonArea): CommonArea
+
+    /** Remove o espaço e cancela as reservas futuras dele. */
+    suspend fun deleteArea(areaId: String)
+
+    /** Interdita com um motivo, ou libera quando [reason] é `null`. */
+    suspend fun setAreaClosed(areaId: String, reason: String?)
 }
 
 interface BillRepository {
@@ -62,6 +74,26 @@ interface BillRepository {
 
     /** Arquivo PDF do boleto, pronto para exibir ou compartilhar. */
     suspend fun billPdf(bill: Bill, payer: User): File
+
+    /** PDFs enviados pela administração, de todas as unidades. */
+    fun observeUnitDocuments(): Flow<List<UnitDocument>>
+
+    /** Envia o PDF de [reference] para [unit], substituindo o anterior do mesmo mês. */
+    suspend fun uploadUnitDocument(unit: String, reference: YearMonth, sourceUri: String): Result<UnitDocument>
+    suspend fun deleteUnitDocument(documentId: String)
+}
+
+/** Unidades e cadastros de pessoas (visão do administrador). */
+interface DirectoryRepository {
+    fun observeUnits(): Flow<List<CondoUnit>>
+    fun observeUsers(): Flow<List<User>>
+
+    /** Cria o cadastro quando [User.id] está vazio; senão atualiza. */
+    suspend fun saveUser(user: User): User
+    suspend fun deleteUser(userId: String)
+
+    /** Aloca o usuário em [unit]; texto vazio deixa o cadastro sem unidade. */
+    suspend fun assignUnit(userId: String, unit: String)
 }
 
 interface ParcelRepository {

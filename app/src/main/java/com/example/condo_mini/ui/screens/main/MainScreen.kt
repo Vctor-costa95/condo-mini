@@ -25,11 +25,17 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Deck
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Deck
 import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -66,6 +72,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
+import com.example.condo_mini.ui.screens.admin.areas.AdminAreasRoute
+import com.example.condo_mini.ui.screens.admin.units.AdminUnitsRoute
+import com.example.condo_mini.ui.screens.admin.users.AdminUsersRoute
 import com.example.condo_mini.ui.screens.manager.notices.ManagerNoticesRoute
 import com.example.condo_mini.ui.screens.manager.occurrences.ManagerOccurrencesRoute
 import com.example.condo_mini.ui.screens.manager.reservations.ManagerReservationsRoute
@@ -98,14 +107,20 @@ enum class AppTab(
     // Síndico
     MANAGER_NOTICES("manager_notices", "Avisos", "Mural", Icons.Filled.Campaign, Icons.Outlined.Campaign),
     MANAGER_RESERVATIONS("manager_reservations", "Reservas", "Aprovações", Icons.Filled.EventAvailable, Icons.Outlined.EventAvailable),
-    MANAGER_OCCURRENCES("manager_occurrences", "Ocorrências", "Ocorrências", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook);
+    MANAGER_OCCURRENCES("manager_occurrences", "Ocorrências", "Ocorrências", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook),
 
-    val isHome: Boolean get() = this == NOTICES || this == MANAGER_NOTICES
+    // Administrador
+    ADMIN_UNITS("admin_units", "Unidades", "Unidades", Icons.Filled.Apartment, Icons.Outlined.Apartment),
+    ADMIN_USERS("admin_users", "Cadastros", "Cadastros", Icons.Filled.Groups, Icons.Outlined.Groups),
+    ADMIN_AREAS("admin_areas", "Espaços", "Espaços", Icons.Filled.Deck, Icons.Outlined.Deck);
+
+    val isHome: Boolean get() = this == NOTICES || this == MANAGER_NOTICES || this == ADMIN_UNITS
 
     companion object {
         /** Abas visíveis por perfil; a primeira é a tela inicial. */
         fun forRole(role: UserRole?): List<AppTab> = when (role) {
             UserRole.MANAGER -> listOf(MANAGER_NOTICES, MANAGER_RESERVATIONS, MANAGER_OCCURRENCES)
+            UserRole.ADMIN -> listOf(ADMIN_UNITS, ADMIN_USERS, ADMIN_AREAS)
             else -> listOf(NOTICES, RESERVATIONS, BILLS, PARCELS, OCCURRENCES)
         }
     }
@@ -197,6 +212,11 @@ fun MainScreen(
             composable(AppTab.MANAGER_RESERVATIONS.route) { ManagerReservationsRoute(snackbarHostState) }
             composable(AppTab.MANAGER_OCCURRENCES.route) { ManagerOccurrencesRoute(snackbarHostState) }
 
+            // Administrador
+            composable(AppTab.ADMIN_UNITS.route) { AdminUnitsRoute(snackbarHostState) }
+            composable(AppTab.ADMIN_USERS.route) { AdminUsersRoute() }
+            composable(AppTab.ADMIN_AREAS.route) { AdminAreasRoute() }
+
             composable(PROFILE_ROUTE) { ProfileRoute(onLogoutClick = onLogoutClick) }
         }
     }
@@ -211,14 +231,16 @@ private fun MainHeader(
     onBackClick: () -> Unit
 ) {
     val firstName = user?.name?.substringBefore(" ").orEmpty()
-    val isManager = user?.role == UserRole.MANAGER
+    // Síndico e administrador veem o condomínio todo, não uma unidade.
+    val isStaff = user?.role == UserRole.MANAGER || user?.role == UserRole.ADMIN
     val (eyebrow, title) = when {
         isProfile -> "Conta" to "Meu perfil"
         tab.isHome -> {
             val hello = if (firstName.isBlank()) "Bem-vindo" else "Olá, $firstName"
-            (if (isManager) "${greeting()} · Síndico" else greeting()) to hello
+            (if (isStaff) "${greeting()} · ${user?.role?.label}" else greeting()) to hello
         }
-        isManager -> "Gestão do condomínio" to tab.title
+        user?.role == UserRole.ADMIN -> "Administração" to tab.title
+        isStaff -> "Gestão do condomínio" to tab.title
         else -> user?.unit.orEmpty() to tab.title
     }
 

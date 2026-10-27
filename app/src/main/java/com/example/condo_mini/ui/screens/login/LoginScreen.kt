@@ -92,7 +92,7 @@ fun LoginScreen(
                     .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf(UserRole.RESIDENT to "Morador", UserRole.MANAGER to "Síndico").forEach { (role, label) ->
+                listOf(UserRole.RESIDENT to "Morador", UserRole.MANAGER to "Síndico", UserRole.ADMIN to "Admin").forEach { (role, label) ->
                     PillChip(
                         selected = uiState.role == role,
                         onClick = { onRoleChanged(role) },

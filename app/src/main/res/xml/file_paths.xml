@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="bills" path="bills/" />
+    <!-- PDFs de boleto enviados pelo administrador -->
+    <files-path name="unit_bills" path="bills/" />
     <!-- Destino das fotos tiradas pela câmera do sistema -->
     <files-path name="occurrence_photos" path="occurrence_photos/" />
 </paths>

@@ -1,9 +1,6 @@
 package com.example.condo_mini.domain.model
 
-/**
- * Perfis de acesso do app. Esta primeira versão implementa apenas a
- * experiência do [RESIDENT]; os demais perfis ganham telas próprias depois.
- */
+/** Perfis de acesso do app. O [DOORMAN] ainda não tem telas próprias. */
 enum class UserRole(val label: String) {
     ADMIN("Administrador"),
     MANAGER("Síndico"),

@@ -15,14 +15,15 @@ import java.util.UUID
 
 class FakeReservationRepository : ReservationRepository {
 
-    private val areas = listOf(
+    private val areas = MutableStateFlow(listOf(
         CommonArea(
             id = "a1",
             name = "Salão de festas",
             description = "Salão climatizado com cozinha equipada e banheiros.",
             capacity = 80,
             fee = 150.0,
-            rules = "Limpeza por conta do morador. Som até 22h."
+            rules = "Limpeza por conta do morador. Som até 22h.",
+            iconKey = "party"
         ),
         CommonArea(
             id = "a2",
@@ -30,7 +31,8 @@ class FakeReservationRepository : ReservationRepository {
             description = "Área coberta com churrasqueira, pia e mesas.",
             capacity = 30,
             fee = 80.0,
-            rules = "Trazer carvão. Devolver a área limpa."
+            rules = "Trazer carvão. Devolver a área limpa.",
+            iconKey = "grill"
         ),
         CommonArea(
             id = "a3",
@@ -38,7 +40,8 @@ class FakeReservationRepository : ReservationRepository {
             description = "Cozinha gourmet integrada com mesa para 12 pessoas.",
             capacity = 12,
             fee = 100.0,
-            rules = "Proibido uso de som alto."
+            rules = "Proibido uso de som alto.",
+            iconKey = "gourmet"
         ),
         CommonArea(
             id = "a4",
@@ -46,7 +49,8 @@ class FakeReservationRepository : ReservationRepository {
             description = "Quadra coberta para futebol, vôlei e basquete.",
             capacity = 20,
             fee = 0.0,
-            rules = "Uso de calçado adequado obrigatório."
+            rules = "Uso de calçado adequado obrigatório.",
+            iconKey = "court"
         ),
         CommonArea(
             id = "a5",
@@ -54,23 +58,24 @@ class FakeReservationRepository : ReservationRepository {
             description = "Sala com TV, mesa e 8 cadeiras.",
             capacity = 8,
             fee = 0.0,
-            rules = "Reserva máxima de um período por dia."
+            rules = "Reserva máxima de um período por dia.",
+            iconKey = "meeting"
         )
-    )
+    ))
 
     private val today = LocalDate.now()
 
     // Reservas de outras unidades: simulam indisponibilidade e alimentam a fila do síndico.
     private val reservations = MutableStateFlow(
         listOf(
-            Reservation("r1", areas[0], today.plusDays(3), ReservationPeriod.NIGHT, "Apto 302 - Bloco B", ReservationStatus.CONFIRMED, "Marina Costa"),
-            Reservation("r2", areas[1], today.plusDays(2), ReservationPeriod.AFTERNOON, "Apto 104 - Bloco A", ReservationStatus.CONFIRMED, "Paulo Mendes"),
-            Reservation("r3", areas[0], today.plusDays(7), ReservationPeriod.AFTERNOON, "Apto 201 - Bloco C", ReservationStatus.PENDING, "Helena Rocha"),
-            Reservation("r4", areas[2], today.plusDays(5), ReservationPeriod.NIGHT, "Apto 503 - Bloco B", ReservationStatus.PENDING, "Ricardo Alves")
+            Reservation("r1", areas.value[0], today.plusDays(3), ReservationPeriod.NIGHT, "Apto 302 - Bloco B", ReservationStatus.CONFIRMED, "Marina Costa"),
+            Reservation("r2", areas.value[1], today.plusDays(2), ReservationPeriod.AFTERNOON, "Apto 104 - Bloco A", ReservationStatus.CONFIRMED, "Paulo Mendes"),
+            Reservation("r3", areas.value[0], today.plusDays(7), ReservationPeriod.AFTERNOON, "Apto 201 - Bloco C", ReservationStatus.PENDING, "Helena Rocha"),
+            Reservation("r4", areas.value[2], today.plusDays(5), ReservationPeriod.NIGHT, "Apto 503 - Bloco B", ReservationStatus.PENDING, "Ricardo Alves")
         )
     )
 
-    override fun observeAreas(): Flow<List<CommonArea>> = MutableStateFlow(areas)
+    override fun observeAreas(): Flow<List<CommonArea>> = areas
 
     override fun observeReservations(unit: String): Flow<List<Reservation>> =
         reservations.map { list ->
@@ -97,8 +102,11 @@ class FakeReservationRepository : ReservationRepository {
         residentName: String
     ): Result<Reservation> {
         delay(400)
-        val area = areas.firstOrNull { it.id == areaId }
+        val area = areas.value.firstOrNull { it.id == areaId }
             ?: return Result.failure(IllegalArgumentException("Área não encontrada."))
+        area.closedReason?.let {
+            return Result.failure(IllegalStateException("Espaço interditado: $it"))
+        }
         if (date.isBefore(today)) {
             return Result.failure(IllegalArgumentException("Escolha uma data a partir de hoje."))
         }
@@ -132,6 +140,39 @@ class FakeReservationRepository : ReservationRepository {
         delay(300)
         updateReservation(reservationId) {
             it.copy(status = ReservationStatus.REJECTED, rejectionReason = reason.trim().ifBlank { null })
+        }
+    }
+
+    override suspend fun saveArea(area: CommonArea): CommonArea {
+        delay(250)
+        val saved = if (area.id.isBlank()) area.copy(id = UUID.randomUUID().toString()) else area
+        areas.update { list ->
+            if (list.any { it.id == saved.id }) list.map { if (it.id == saved.id) saved else it } else list + saved
+        }
+        // Reservas guardam uma cópia do espaço: mantém nome e ícone em dia.
+        reservations.update { list -> list.map { if (it.area.id == saved.id) it.copy(area = saved) else it } }
+        return saved
+    }
+
+    override suspend fun deleteArea(areaId: String) {
+        delay(250)
+        areas.update { list -> list.filterNot { it.id == areaId } }
+        reservations.update { list ->
+            list.map {
+                if (it.area.id == areaId && !it.date.isBefore(today) && it.status.holdsSlot()) {
+                    it.copy(status = ReservationStatus.CANCELED)
+                } else {
+                    it
+                }
+            }
+        }
+    }
+
+    override suspend fun setAreaClosed(areaId: String, reason: String?) {
+        val normalized = reason?.trim()?.ifBlank { "Em manutenção" }
+        areas.update { list -> list.map { if (it.id == areaId) it.copy(closedReason = normalized) else it } }
+        reservations.update { list ->
+            list.map { if (it.area.id == areaId) it.copy(area = it.area.copy(closedReason = normalized)) else it }
         }
     }
 
