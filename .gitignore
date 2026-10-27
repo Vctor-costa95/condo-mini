@@ -2,12 +2,9 @@
 .gradle
 .kotlin
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# Configurações do Android Studio são da máquina; só o estilo de código é compartilhado.
+/.idea/*
+!/.idea/codeStyles/
 .DS_Store
 /build
 /captures
