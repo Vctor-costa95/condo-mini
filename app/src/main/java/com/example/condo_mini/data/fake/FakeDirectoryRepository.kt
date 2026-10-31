@@ -5,6 +5,7 @@ import com.example.condo_mini.domain.model.Condominium
 import com.example.condo_mini.domain.model.Tower
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
+import com.example.condo_mini.domain.model.withUnits
 import com.example.condo_mini.domain.repository.DirectoryRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import java.text.Normalizer
 import java.util.UUID
 
 /** Três condomínios de formatos bem diferentes; o primeiro é o dos dados das outras telas. */
@@ -52,7 +54,9 @@ class FakeDirectoryRepository : DirectoryRepository {
 
     private val users = MutableStateFlow(
         listOf(
-            resident("u1", "Ana Ribeiro", "Apto 101 - Bloco A"),
+            // Caso raro, mas real: a Ana também é dona da cobertura do mesmo bloco.
+            resident("u1", "Ana Ribeiro", "Apto 101 - Bloco A")
+                .withUnits(listOf("Apto 101 - Bloco A", "Apto 1402 - Bloco A")),
             resident("u2", "Paulo Mendes", "Apto 104 - Bloco A"),
             resident("u3", "Clara Mendes", "Apto 104 - Bloco A"),
             resident("u4", "Marina Costa", "Apto 302 - Bloco B"),
@@ -88,10 +92,10 @@ class FakeDirectoryRepository : DirectoryRepository {
         condos.update { list ->
             if (list.any { it.id == saved.id }) list.map { if (it.id == saved.id) saved else it } else list + saved
         }
-        // Moradores de apartamentos que deixaram de existir ficam sem unidade.
+        // Apartamentos que deixaram de existir saem do cadastro de quem morava neles.
         val labels = saved.units.map { it.label }.toSet()
         users.update { list ->
-            list.map { if (it.condoId == saved.id && it.unit.isNotBlank() && it.unit !in labels) it.copy(unit = "") else it }
+            list.map { if (it.condoId == saved.id) it.withUnits(it.units.filter { unit -> unit in labels }) else it }
         }
         return saved
     }
@@ -119,8 +123,23 @@ class FakeDirectoryRepository : DirectoryRepository {
     }
 
     override suspend fun assignUnit(userId: String, unit: String) {
-        users.update { list -> list.map { if (it.id == userId) it.copy(unit = unit) else it } }
+        users.update { list -> list.map { if (it.id == userId) it.withUnits(it.units + unit) else it } }
     }
+
+    override suspend fun removeUnit(userId: String, unit: String) {
+        users.update { list -> list.map { if (it.id == userId) it.withUnits(it.units - unit) else it } }
+    }
+
+    override fun findUser(name: String, role: UserRole): User? {
+        val needle = name.normalized()
+        if (needle.isBlank()) return null
+        val candidates = users.value.filter { it.role == role }
+        return candidates.firstOrNull { it.name.normalized() == needle }
+            ?: candidates.filter { it.name.normalized().substringBefore(" ") == needle }.singleOrNull()
+    }
+
+    private fun String.normalized(): String =
+        Normalizer.normalize(trim().lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
 
     private fun resident(id: String, name: String, unit: String, condoId: String = DEFAULT_CONDO_ID): User {
         val email = name.lowercase()

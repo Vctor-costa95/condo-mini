@@ -8,6 +8,10 @@ enum class UserRole(val label: String) {
     RESIDENT("Morador")
 }
 
+/**
+ * [unit] é o apartamento em uso agora (o que o morador está vendo no app);
+ * [units] são todos os apartamentos ligados ao cadastro — quase sempre só um.
+ */
 data class User(
     val id: String,
     val name: String,
@@ -16,5 +20,14 @@ data class User(
     val email: String = "",
     val phone: String = "",
     /** Condomínio do cadastro; vazio para o administrador, que gerencia vários. */
-    val condoId: String = ""
-)
+    val condoId: String = "",
+    val units: List<String> = listOfNotNull(unit.takeIf { it.isNotBlank() })
+) {
+    val hasManyUnits: Boolean get() = units.size > 1
+}
+
+/** Troca a lista de apartamentos mantendo [User.unit] dentro dela. */
+fun User.withUnits(list: List<String>): User {
+    val distinct = list.filter { it.isNotBlank() }.distinct()
+    return copy(units = distinct, unit = unit.takeIf { it in distinct } ?: distinct.firstOrNull().orEmpty())
+}

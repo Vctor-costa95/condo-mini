@@ -14,14 +14,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.outlined.Search
@@ -35,6 +38,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -218,7 +222,7 @@ fun AdminUsersScreen(
 
 @Composable
 private fun UserCard(user: User, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val missingUnit = user.role == UserRole.RESIDENT && user.unit.isBlank()
+    val missingUnit = user.role == UserRole.RESIDENT && user.units.isEmpty()
     CondoCard(onClick = onClick, contentPadding = PaddingValues(16.dp), modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             InitialsAvatar(user.name, size = 44.dp)
@@ -226,7 +230,10 @@ private fun UserCard(user: User, onClick: () -> Unit, modifier: Modifier = Modif
             Column(modifier = Modifier.weight(1f)) {
                 Text(user.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    user.unit.ifBlank { user.email.ifBlank { "Sem contato" } },
+                    when {
+                        user.units.size > 1 -> "${user.units.first()} +${user.units.size - 1}"
+                        else -> user.unit.ifBlank { user.email.ifBlank { "Sem contato" } }
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -328,7 +335,27 @@ private fun UserFormSheet(
 
             if (form.needsUnit) {
                 Spacer(modifier = Modifier.height(8.dp))
-                SectionHeader("Unidade", trailing = form.unit.ifBlank { "Nenhuma" })
+                SectionHeader(
+                    if (form.units.size > 1) "Unidades" else "Unidade",
+                    trailing = if (form.units.isEmpty()) "Nenhuma" else "${form.units.size}"
+                )
+                if (form.units.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        form.units.forEach { label ->
+                            ChosenUnitChip(label, onRemove = { onChange { it.toggleUnit(label) } })
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                Text(
+                    "Toque para ligar um apartamento. Raramente alguém tem mais de um, mas dá: é só tocar em outro.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
                 if (towers.size > 1) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(towers, key = { it.first }) { (id, name) ->
@@ -357,8 +384,8 @@ private fun UserFormSheet(
                 ) {
                     floorUnits.forEach { unit ->
                         PillChip(
-                            selected = form.unit == unit.label,
-                            onClick = { onChange { it.copy(unit = if (it.unit == unit.label) "" else unit.label) } },
+                            selected = unit.label in form.units,
+                            onClick = { onChange { it.toggleUnit(unit.label) } },
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(unit.number, style = MaterialTheme.typography.labelLarge)
@@ -413,4 +440,24 @@ private fun chipsPerRow(count: Int): Int = when {
     count <= 6 -> 3
     count <= 8 -> 4
     else -> 5
+}
+
+/** Apartamento já ligado ao cadastro; o X desfaz. */
+@Composable
+private fun ChosenUnitChip(label: String, onRemove: () -> Unit) {
+    Surface(
+        onClick = onRemove,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.labelLarge)
+            Spacer(modifier = Modifier.width(6.dp))
+            Icon(Icons.Default.Close, contentDescription = "Remover $label", modifier = Modifier.size(16.dp))
+        }
+    }
 }

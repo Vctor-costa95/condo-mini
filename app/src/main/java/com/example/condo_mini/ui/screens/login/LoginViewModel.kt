@@ -48,6 +48,15 @@ class LoginViewModel(
         return true
     }
 
+    /**
+     * Depois do login: quem tem mais de um apartamento e não digitou qual
+     * escolhe na tela seguinte.
+     */
+    fun needsUnitChoice(): Boolean {
+        val user = sessionRepository.currentUser.value ?: return false
+        return user.hasManyUnits && _uiState.value.unitNumber.trim() !in user.units
+    }
+
     fun logout() {
         sessionRepository.logout()
         _uiState.update {

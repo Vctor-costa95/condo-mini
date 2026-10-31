@@ -20,6 +20,20 @@ class FakeParcelRepository(
         fun photo(id: String, kind: Kind, carrier: String, code: String) =
             Uri.fromFile(photos.photo(id, kind, carrier, code)).toString()
 
+        // Os exemplos completos são da unidade padrão; as demais têm uma encomenda própria,
+        // para a troca de apartamento mostrar dados diferentes.
+        if (unit != FakeSessionRepository.DEFAULT_UNIT) {
+            emit(
+                listOf(
+                    Parcel(
+                        "p5", "Caixa de vinhos", "Evino", "Porteiro José", now.minusHours(5), "5306",
+                        ParcelStatus.WAITING, photoUrl = photo("p5", Kind.BOX, "Evino", "5306")
+                    )
+                )
+            )
+            return@flow
+        }
+
         emit(
             listOf(
                 Parcel(

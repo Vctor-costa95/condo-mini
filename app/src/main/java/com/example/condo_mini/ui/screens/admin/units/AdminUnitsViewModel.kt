@@ -89,7 +89,9 @@ class AdminUnitsViewModel(
         // O síndico também mora no condomínio: conta como ocupante.
         val residentsByUnit = users
             .filter { it.role == UserRole.RESIDENT || it.role == UserRole.MANAGER }
-            .groupBy { it.unit }
+            // Quem tem dois apartamentos aparece nos dois.
+            .flatMap { user -> user.units.map { unit -> unit to user } }
+            .groupBy({ it.first }, { it.second })
         val monthDocs = documents.filter { it.reference == filters.month }.associateBy { it.unit }
         AdminUnitsUiState(
             isLoading = false,
@@ -117,7 +119,7 @@ class AdminUnitsViewModel(
                     unit = unit,
                     residents = residentsByUnit[unit.label].orEmpty(),
                     documents = documents.filter { it.unit == unit.label }.sortedByDescending { it.reference },
-                    unassigned = users.filter { it.role == UserRole.RESIDENT && it.unit.isBlank() }
+                    unassigned = users.filter { it.role == UserRole.RESIDENT && it.units.isEmpty() }
                 )
             },
             uploading = uploading,
@@ -160,10 +162,14 @@ class AdminUnitsViewModel(
         }
     }
 
-    fun onUnassign(user: User) {
+    fun onUnassign(user: User, unit: CondoUnit) {
         viewModelScope.launch {
-            directoryRepository.assignUnit(user.id, "")
-            userMessage.value = "${user.name} ficou sem unidade."
+            directoryRepository.removeUnit(user.id, unit.label)
+            userMessage.value = if (user.hasManyUnits) {
+                "${user.name} saiu do ${unit.label}."
+            } else {
+                "${user.name} ficou sem unidade."
+            }
         }
     }
 

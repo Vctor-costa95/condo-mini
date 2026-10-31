@@ -23,7 +23,8 @@ data class UserForm(
     val email: String = "",
     val phone: String = "",
     val role: UserRole = UserRole.RESIDENT,
-    val unit: String = "",
+    /** Apartamentos ligados ao cadastro; o primeiro é o principal. */
+    val units: List<String> = emptyList(),
     /** Bloco e andar abertos no seletor de unidade; vazios = primeiro de cada. */
     val towerId: String = "",
     val floor: Int = 0,
@@ -34,6 +35,9 @@ data class UserForm(
 
     /** Porteiros e administradores não moram no condomínio. */
     val needsUnit: Boolean get() = role == UserRole.RESIDENT || role == UserRole.MANAGER
+
+    /** Toca no apartamento: entra se não estava, sai se estava. */
+    fun toggleUnit(label: String): UserForm = copy(units = if (label in units) units - label else units + label)
 }
 
 data class AdminUsersUiState(
@@ -72,10 +76,10 @@ class AdminUsersViewModel(
             counts = mapOf<UserRole?, Int>(null to users.size) + UserRole.entries.associateWith { r -> users.count { it.role == r } },
             users = users
                 .filter { role == null || it.role == role }
-                .filter { needle.isBlank() || "${it.name} ${it.unit} ${it.email}".normalized().contains(needle) }
+                .filter { needle.isBlank() || "${it.name} ${it.units.joinToString(" ")} ${it.email}".normalized().contains(needle) }
                 // Moradores sem unidade primeiro: são os que pedem ação.
-                .sortedWith(compareBy<User>({ !(it.role == UserRole.RESIDENT && it.unit.isBlank()) }, { it.name })),
-            withoutUnit = users.count { it.role == UserRole.RESIDENT && it.unit.isBlank() },
+                .sortedWith(compareBy<User>({ !(it.role == UserRole.RESIDENT && it.units.isEmpty()) }, { it.name })),
+            withoutUnit = users.count { it.role == UserRole.RESIDENT && it.units.isEmpty() },
             units = units,
             form = form,
             userMessage = message
@@ -98,7 +102,7 @@ class AdminUsersViewModel(
         // Abre o seletor já no bloco e andar do apartamento atual.
         val current = uiState.value.units.firstOrNull { it.label == user.unit }
         form.value = UserForm(
-            user.id, user.name, user.email, user.phone, user.role, user.unit,
+            user.id, user.name, user.email, user.phone, user.role, user.units,
             towerId = current?.towerId.orEmpty(),
             floor = current?.floor ?: 0
         )
@@ -125,14 +129,16 @@ class AdminUsersViewModel(
         }
         form.update { it?.copy(isSaving = true) }
         viewModelScope.launch {
+            val units = if (current.needsUnit) current.units else emptyList()
             val saved = directoryRepository.saveUser(
                 User(
                     id = current.id,
                     name = current.name.trim(),
-                    unit = if (current.needsUnit) current.unit else "",
+                    unit = units.firstOrNull().orEmpty(),
                     role = current.role,
                     email = current.email.trim(),
-                    phone = current.phone.trim()
+                    phone = current.phone.trim(),
+                    units = units
                 )
             )
             form.value = null

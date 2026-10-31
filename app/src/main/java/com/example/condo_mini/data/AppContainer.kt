@@ -31,7 +31,7 @@ object AppContainer {
         appContext = context.applicationContext
     }
 
-    val sessionRepository: SessionRepository by lazy { FakeSessionRepository() }
+    val sessionRepository: SessionRepository by lazy { FakeSessionRepository(directoryRepository) }
     val noticeRepository: NoticeRepository by lazy { FakeNoticeRepository() }
     val reservationRepository: ReservationRepository by lazy { FakeReservationRepository() }
     val billRepository: BillRepository by lazy {

@@ -126,7 +126,7 @@ fun AdminUnitsRoute(
             onUploadPdf = { onUploadPdf(detail.unit) },
             onDeleteDocument = viewModel::onDeleteDocument,
             onAssign = { viewModel.onAssign(it, detail.unit) },
-            onUnassign = viewModel::onUnassign,
+            onUnassign = { viewModel.onUnassign(it, detail.unit) },
             onDismiss = viewModel::onCloseUnit
         )
     }
@@ -464,7 +464,8 @@ private fun UnitDetailSheet(
                 )
             }
             detail.residents.forEach { resident ->
-                PersonRow(resident) {
+                val others = resident.units.filter { it != detail.unit.label }
+                PersonRow(resident, note = others.takeIf { it.isNotEmpty() }?.joinToString(prefix = "Também no ")) {
                     TextButton(onClick = { onUnassign(resident) }) {
                         Text("Desalocar", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge)
                     }
@@ -574,7 +575,7 @@ private fun UnitDetailSheet(
 }
 
 @Composable
-internal fun PersonRow(user: User, trailing: @Composable () -> Unit) {
+internal fun PersonRow(user: User, note: String? = null, trailing: @Composable () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -592,6 +593,9 @@ internal fun PersonRow(user: User, trailing: @Composable () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            note?.let {
+                Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+            }
         }
         trailing()
     }

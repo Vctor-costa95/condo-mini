@@ -23,6 +23,9 @@ import java.time.YearMonth
 interface SessionRepository {
     val currentUser: StateFlow<User?>
     fun login(name: String, unit: String, role: UserRole)
+
+    /** Troca o apartamento em uso por outro dos [User.units] do morador. */
+    fun selectUnit(unit: String)
     fun logout()
     fun updateContact(email: String, phone: String)
 }
@@ -108,8 +111,17 @@ interface DirectoryRepository {
     suspend fun saveUser(user: User): User
     suspend fun deleteUser(userId: String)
 
-    /** Aloca o usuário em [unit]; texto vazio deixa o cadastro sem unidade. */
+    /** Liga o usuário a mais um apartamento, mantendo os que ele já tem. */
     suspend fun assignUnit(userId: String, unit: String)
+
+    /** Desliga o usuário de [unit]; os outros apartamentos dele continuam. */
+    suspend fun removeUnit(userId: String, unit: String)
+
+    /**
+     * Cadastro usado no login, em qualquer condomínio: nome completo, ou só o primeiro
+     * nome quando ele não se repete. No backend, isso vira a autenticação.
+     */
+    fun findUser(name: String, role: UserRole): User?
 }
 
 interface ParcelRepository {

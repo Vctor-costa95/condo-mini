@@ -96,6 +96,7 @@ import com.example.condo_mini.ui.screens.occurrences.OccurrencesRoute
 import com.example.condo_mini.ui.screens.parcels.ParcelsRoute
 import com.example.condo_mini.ui.screens.profile.ProfileRoute
 import com.example.condo_mini.ui.screens.reservations.ReservationsRoute
+import com.example.condo_mini.ui.screens.units.UnitSwitcherSheet
 import java.time.LocalTime
 
 /** Todas as abas do app; [AppTab.forRole] define quais aparecem para cada perfil. */
@@ -164,6 +165,7 @@ fun MainScreen(
     val isFullScreen = currentDestination?.route == BILL_PDF_ROUTE || currentDestination?.route == CONDO_EDITOR_ROUTE
     val adminCondo by viewModel.adminCondo.collectAsStateWithLifecycle()
     var showCondoPicker by rememberSaveable { mutableStateOf(false) }
+    var showUnitSwitcher by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -177,6 +179,7 @@ fun MainScreen(
                     isProfile = isProfile,
                     condoName = adminCondo?.name,
                     onCondoClick = { showCondoPicker = true },
+                    onUnitClick = { showUnitSwitcher = true },
                     onProfileClick = { navController.navigate(PROFILE_ROUTE) { launchSingleTop = true } },
                     onBackClick = { navController.popBackStack() }
                 )
@@ -258,6 +261,10 @@ fun MainScreen(
             onDismiss = { showCondoPicker = false }
         )
     }
+
+    if (showUnitSwitcher) {
+        UnitSwitcherSheet(onDismiss = { showUnitSwitcher = false })
+    }
 }
 
 @Composable
@@ -267,19 +274,21 @@ private fun MainHeader(
     isProfile: Boolean,
     condoName: String?,
     onCondoClick: () -> Unit,
+    onUnitClick: () -> Unit,
     onProfileClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val firstName = user?.name?.substringBefore(" ").orEmpty()
+    val hello = if (firstName.isBlank()) "Bem-vindo" else "Olá, $firstName"
     // O administrador gerencia vários condomínios: o nome do atual abre a troca.
     val showsCondo = user?.role == UserRole.ADMIN && !isProfile
+    // Morador com mais de um apartamento: o apartamento em uso abre a troca, em todas as abas.
+    val showsUnit = user?.role == UserRole.RESIDENT && user.hasManyUnits && !isProfile
     val (eyebrow, title) = when {
         isProfile -> "Conta" to "Meu perfil"
         showsCondo -> condoName.orEmpty() to tab.title
-        tab.isHome -> {
-            val hello = if (firstName.isBlank()) "Bem-vindo" else "Olá, $firstName"
-            (if (user?.role == UserRole.MANAGER) "${greeting()} · Síndico" else greeting()) to hello
-        }
+        showsUnit -> user?.unit.orEmpty() to if (tab.isHome) hello else tab.title
+        tab.isHome -> (if (user?.role == UserRole.MANAGER) "${greeting()} · Síndico" else greeting()) to hello
         user?.role == UserRole.MANAGER -> "Gestão do condomínio" to tab.title
         else -> user?.unit.orEmpty() to tab.title
     }
@@ -305,11 +314,14 @@ private fun MainHeader(
             modifier = Modifier.weight(1f)
         ) { (eyebrowText, titleText) ->
             Column {
-                if (showsCondo) {
+                if (showsCondo || showsUnit) {
                     Row(
                         modifier = Modifier
                             .clip(MaterialTheme.shapes.small)
-                            .clickable(onClickLabel = "Trocar de condomínio", onClick = onCondoClick)
+                            .clickable(
+                                onClickLabel = if (showsCondo) "Trocar de condomínio" else "Trocar de apartamento",
+                                onClick = if (showsCondo) onCondoClick else onUnitClick
+                            )
                             .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
