@@ -22,6 +22,9 @@ data class UserForm(
     val name: String = "",
     val email: String = "",
     val phone: String = "",
+    /** Usuário de acesso; a senha só vem preenchida quando for trocar. */
+    val login: String = "",
+    val password: String = "",
     val role: UserRole = UserRole.RESIDENT,
     /** Apartamentos ligados ao cadastro; o primeiro é o principal. */
     val units: List<String> = emptyList(),
@@ -75,7 +78,7 @@ class AdminUsersViewModel(
             counts = mapOf<UserRole?, Int>(null to users.size) + UserRole.entries.associateWith { r -> users.count { it.role == r } },
             users = users
                 .filter { role == null || it.role == role }
-                .filter { needle.isBlank() || "${it.name} ${it.units.joinToString(" ")} ${it.email}".normalized().contains(needle) }
+                .filter { needle.isBlank() || "${it.name} ${it.units.joinToString(" ")} ${it.email} ${it.login}".normalized().contains(needle) }
                 // Moradores sem unidade primeiro: são os que pedem ação.
                 .sortedWith(compareBy<User>({ !(it.role == UserRole.RESIDENT && it.units.isEmpty()) }, { it.name })),
             withoutUnit = users.count { it.role == UserRole.RESIDENT && it.units.isEmpty() },
@@ -102,7 +105,7 @@ class AdminUsersViewModel(
     }
 
     fun onEditUser(user: User) {
-        form.value = UserForm(user.id, user.name, user.email, user.phone, user.role, user.units)
+        form.value = UserForm(user.id, user.name, user.email, user.phone, user.login, role = user.role, units = user.units)
     }
 
     fun onDismissForm() {
@@ -118,6 +121,11 @@ class AdminUsersViewModel(
         val error = when {
             current.name.isBlank() -> "Informe o nome."
             current.email.isNotBlank() && !current.email.contains("@") -> "E-mail inválido."
+            current.login.isBlank() -> "Crie um usuário para a pessoa entrar no app."
+            current.login.trim().contains(" ") -> "O usuário não pode ter espaços."
+            !directoryRepository.isLoginAvailable(current.login, current.id) -> "Esse usuário já é de outro cadastro."
+            current.isNew && current.password.length < 6 -> "A senha precisa ter pelo menos 6 caracteres."
+            !current.isNew && current.password.isNotEmpty() && current.password.length < 6 -> "A senha nova precisa ter pelo menos 6 caracteres."
             else -> null
         }
         if (error != null) {
@@ -135,6 +143,9 @@ class AdminUsersViewModel(
                     role = current.role,
                     email = current.email.trim(),
                     phone = current.phone.trim(),
+                    login = current.login.trim().lowercase(),
+                    // Em branco na edição: o repositório mantém a senha atual.
+                    password = current.password,
                     units = units
                 )
             )

@@ -13,6 +13,7 @@ import com.example.condo_mini.domain.model.OccurrenceCategory
 import com.example.condo_mini.domain.model.Parcel
 import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
+import com.example.condo_mini.domain.model.ServiceBooking
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
@@ -24,7 +25,8 @@ import java.time.YearMonth
 
 interface SessionRepository {
     val currentUser: StateFlow<User?>
-    fun login(name: String, unit: String, role: UserRole)
+    /** Entra com usuário e senha; perfil e apartamentos vêm do cadastro. */
+    fun login(login: String, password: String): Boolean
 
     /** Troca o apartamento em uso por outro dos [User.units] do morador. */
     fun selectUnit(unit: String)
@@ -72,6 +74,23 @@ interface ReservationRepository {
 
     /** Interdita com um motivo, ou libera quando [reason] é `null`. */
     suspend fun setAreaClosed(areaId: String, reason: String?)
+}
+
+/** Mudanças e reparos: o morador pede, o síndico aprova. */
+interface ServiceBookingRepository {
+    fun observeBookings(condoId: String, unit: String): Flow<List<ServiceBooking>>
+
+    /** Todos os pedidos do condomínio (visão do síndico). */
+    fun observeAllBookings(condoId: String): Flow<List<ServiceBooking>>
+
+    /** Períodos do dia que já têm mudança: só uma por manhã e uma por tarde. */
+    suspend fun takenMovePeriods(condoId: String, date: LocalDate): Set<ReservationPeriod>
+
+    /** Registra o pedido como aguardando aprovação. */
+    suspend fun request(booking: ServiceBooking): Result<ServiceBooking>
+    suspend fun cancel(bookingId: String)
+    suspend fun approve(bookingId: String): Result<ServiceBooking>
+    suspend fun reject(bookingId: String, reason: String)
 }
 
 interface BillRepository {
@@ -124,10 +143,13 @@ interface DirectoryRepository {
     suspend fun removeUnit(userId: String, unit: String)
 
     /**
-     * Cadastro usado no login, em qualquer condomínio: nome completo, ou só o primeiro
-     * nome quando ele não se repete. No backend, isso vira a autenticação.
+     * Cadastro com esse usuário e senha, em qualquer condomínio, ou null.
+     * No backend, isso vira a autenticação.
      */
-    fun findUser(name: String, role: UserRole): User?
+    fun authenticate(login: String, password: String): User?
+
+    /** Se o usuário de acesso ainda não pertence a outro cadastro. */
+    fun isLoginAvailable(login: String, exceptUserId: String = ""): Boolean
 }
 
 interface ParcelRepository {

@@ -78,7 +78,7 @@ class FakeDirectoryRepository : DirectoryRepository {
             resident("u32", "Camila Duarte", "", "c3"),
             // A administradora atende todos os condomínios.
             User("u99", "Renata Prime", "", UserRole.ADMIN, "renata@primeadm.com.br", "(11) 97700-1122")
-        )
+        ).map { it.withDemoAccess() }
     )
 
     override fun observeCondos(): Flow<List<Condominium>> = condos
@@ -119,6 +119,10 @@ class FakeDirectoryRepository : DirectoryRepository {
         delay(250)
         var saved = if (user.id.isBlank()) user.copy(id = UUID.randomUUID().toString()) else user
         if (saved.condoId.isBlank() && saved.role != UserRole.ADMIN) saved = saved.copy(condoId = _selectedCondoId.value)
+        // Senha em branco na edição mantém a atual.
+        if (saved.password.isEmpty()) {
+            saved = saved.copy(password = users.value.firstOrNull { it.id == saved.id }?.password.orEmpty())
+        }
         users.update { list ->
             if (list.any { it.id == saved.id }) list.map { if (it.id == saved.id) saved else it } else list + saved
         }
@@ -137,16 +141,32 @@ class FakeDirectoryRepository : DirectoryRepository {
         users.update { list -> list.map { if (it.id == userId) it.withUnits(it.units - unit) else it } }
     }
 
-    override fun findUser(name: String, role: UserRole): User? {
-        val needle = name.normalized()
+    override fun authenticate(login: String, password: String): User? {
+        val needle = login.normalized()
         if (needle.isBlank()) return null
-        val candidates = users.value.filter { it.role == role }
-        return candidates.firstOrNull { it.name.normalized() == needle }
-            ?: candidates.filter { it.name.normalized().substringBefore(" ") == needle }.singleOrNull()
+        // Senha confere exatamente; o usuário não liga para maiúsculas nem acentos.
+        return users.value.firstOrNull { it.login.normalized() == needle && it.password == password }
+    }
+
+    override fun isLoginAvailable(login: String, exceptUserId: String): Boolean {
+        val needle = login.normalized()
+        return users.value.none { it.id != exceptUserId && it.login.normalized() == needle }
     }
 
     private fun String.normalized(): String =
         Normalizer.normalize(trim().lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
+
+    /**
+     * Um cadastro de cada perfil vira conta de teste, sem senha, com o nome do perfil
+     * como usuário; os demais entram com "nome.sobrenome" e [DEMO_PASSWORD].
+     */
+    private fun User.withDemoAccess(): User {
+        val testLogin = TEST_LOGINS[id]
+        return copy(
+            login = testLogin ?: name.split(" ").let { "${it.first()}.${it.last()}" }.normalized(),
+            password = if (testLogin != null) "" else DEMO_PASSWORD
+        )
+    }
 
     private fun resident(id: String, name: String, unit: String, condoId: String = DEFAULT_CONDO_ID): User {
         val email = name.lowercase()
@@ -157,5 +177,15 @@ class FakeDirectoryRepository : DirectoryRepository {
 
     companion object {
         const val DEFAULT_CONDO_ID = "c1"
+
+        private const val DEMO_PASSWORD = "condo123"
+
+        /** Ana (morador com dois apartamentos), Carlos, José e Renata. */
+        private val TEST_LOGINS = mapOf(
+            "u1" to "morador",
+            "u11" to "sindico",
+            "u12" to "porteiro",
+            "u99" to "admin"
+        )
     }
 }

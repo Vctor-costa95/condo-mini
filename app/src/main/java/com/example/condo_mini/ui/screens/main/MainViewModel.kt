@@ -13,6 +13,7 @@ import com.example.condo_mini.domain.repository.DirectoryRepository
 import com.example.condo_mini.domain.repository.OccurrenceRepository
 import com.example.condo_mini.domain.repository.ParcelRepository
 import com.example.condo_mini.domain.repository.ReservationRepository
+import com.example.condo_mini.domain.repository.ServiceBookingRepository
 import com.example.condo_mini.domain.repository.SessionRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(
@@ -30,7 +32,8 @@ class MainViewModel(
     private val parcelRepository: ParcelRepository = AppContainer.parcelRepository,
     private val occurrenceRepository: OccurrenceRepository = AppContainer.occurrenceRepository,
     private val reservationRepository: ReservationRepository = AppContainer.reservationRepository,
-    private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository
+    private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository,
+    private val serviceBookingRepository: ServiceBookingRepository = AppContainer.serviceBookingRepository
 ) : ViewModel() {
 
     val user: StateFlow<User?> = sessionRepository.currentUser
@@ -46,7 +49,7 @@ class MainViewModel(
     val badges: StateFlow<Map<AppTab, Int>> = user
         .flatMapLatest { user ->
             when (user?.role) {
-                UserRole.MANAGER -> managerBadges()
+                UserRole.MANAGER -> managerBadges(user.condoId)
                 UserRole.ADMIN -> adminBadges()
                 null -> flowOf(emptyMap())
                 UserRole.DOORMAN -> doormanBadges(user.condoId)
@@ -65,23 +68,31 @@ class MainViewModel(
         )
     }
 
-    // Encomendas que ainda esperam o morador vir buscar.
-    private fun doormanBadges(condoId: String): Flow<Map<AppTab, Int>> =
-        parcelRepository.observeAllParcels(condoId).map { parcels ->
-            mapOf(AppTab.DOORMAN_PARCELS to parcels.count { it.status == ParcelStatus.WAITING })
-        }
+    // Encomendas que ainda esperam o morador vir buscar e mudanças/reparos aprovados para hoje.
+    private fun doormanBadges(condoId: String): Flow<Map<AppTab, Int>> = combine(
+        parcelRepository.observeAllParcels(condoId),
+        serviceBookingRepository.observeAllBookings(condoId)
+    ) { parcels, services ->
+        val today = LocalDate.now()
+        mapOf(
+            AppTab.DOORMAN_PARCELS to parcels.count { it.status == ParcelStatus.WAITING },
+            AppTab.DOORMAN_SCHEDULE to services.count { it.status == ReservationStatus.CONFIRMED && it.date == today }
+        )
+    }
 
     // Moradores cadastrados que ainda não foram alocados em um apartamento.
     private fun adminBadges(): Flow<Map<AppTab, Int>> = directoryRepository.observeUsers().map { users ->
         mapOf(AppTab.ADMIN_USERS to users.count { it.role == UserRole.RESIDENT && it.units.isEmpty() })
     }
 
-    private fun managerBadges(): Flow<Map<AppTab, Int>> = combine(
+    private fun managerBadges(condoId: String): Flow<Map<AppTab, Int>> = combine(
         reservationRepository.observeAllReservations(),
+        serviceBookingRepository.observeAllBookings(condoId),
         occurrenceRepository.observeAllOccurrences()
-    ) { reservations, occurrences ->
+    ) { reservations, services, occurrences ->
         mapOf(
-            AppTab.MANAGER_RESERVATIONS to reservations.count { it.status == ReservationStatus.PENDING },
+            AppTab.MANAGER_RESERVATIONS to reservations.count { it.status == ReservationStatus.PENDING } +
+                services.count { it.status == ReservationStatus.PENDING },
             AppTab.MANAGER_OCCURRENCES to occurrences.count {
                 it.status == OccurrenceStatus.OPEN || it.status == OccurrenceStatus.IN_REVIEW
             }

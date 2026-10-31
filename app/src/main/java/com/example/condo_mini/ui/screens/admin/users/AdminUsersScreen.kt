@@ -330,6 +330,34 @@ private fun UserFormSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader("Acesso ao app")
+            OutlinedTextField(
+                value = form.login,
+                onValueChange = { value -> onChange { it.copy(login = value) } },
+                label = { Text("Usuário") },
+                placeholder = { Text("Ex.: ana.ribeiro") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                colors = condoTextFieldColors(),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = form.password,
+                onValueChange = { value -> onChange { it.copy(password = value) } },
+                label = { Text(if (form.isNew) "Senha" else "Nova senha") },
+                supportingText = {
+                    Text(if (form.isNew) "Pelo menos 6 caracteres. Passe para a pessoa junto com o usuário." else "Deixe em branco para manter a senha atual.")
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium,
+                colors = condoTextFieldColors(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                modifier = Modifier.fillMaxWidth()
+            )
+
             if (form.needsUnit) {
                 Spacer(modifier = Modifier.height(8.dp))
                 SectionHeader(

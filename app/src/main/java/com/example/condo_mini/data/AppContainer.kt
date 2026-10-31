@@ -14,6 +14,7 @@ import com.example.condo_mini.data.fake.FakeParcelRepository
 import com.example.condo_mini.data.fake.ParcelPhotoGenerator
 import com.example.condo_mini.data.fake.FakeReservationRepository
 import com.example.condo_mini.data.fake.FakeSessionRepository
+import com.example.condo_mini.data.fake.FakeServiceBookingRepository
 import com.example.condo_mini.domain.repository.BillRepository
 import com.example.condo_mini.domain.repository.DirectoryRepository
 import com.example.condo_mini.domain.repository.DocumentRepository
@@ -22,6 +23,7 @@ import com.example.condo_mini.domain.repository.OccurrenceRepository
 import com.example.condo_mini.domain.repository.ParcelRepository
 import com.example.condo_mini.domain.repository.ReservationRepository
 import com.example.condo_mini.domain.repository.SessionRepository
+import com.example.condo_mini.domain.repository.ServiceBookingRepository
 
 /**
  * DI manual. Troque as implementações fake pelas reais (API/Room) quando o
@@ -38,6 +40,7 @@ object AppContainer {
     val sessionRepository: SessionRepository by lazy { FakeSessionRepository(directoryRepository) }
     val noticeRepository: NoticeRepository by lazy { FakeNoticeRepository() }
     val reservationRepository: ReservationRepository by lazy { FakeReservationRepository() }
+    val serviceBookingRepository: ServiceBookingRepository by lazy { FakeServiceBookingRepository() }
     val billRepository: BillRepository by lazy {
         FakeBillRepository(BillPdfGenerator(appContext), UnitDocumentStore(appContext))
     }
