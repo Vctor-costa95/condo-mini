@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.GROUND_FLOOR
@@ -54,7 +55,9 @@ fun UnitPicker(
     modifier: Modifier = Modifier,
     initialUnit: String? = selected.firstOrNull(),
     unitCaption: (CondoUnit) -> String? = { null },
-    showSummary: Boolean = true
+    showSummary: Boolean = true,
+    /** Espaços e botões menores, para caber numa tela só junto com o resto do formulário. */
+    compact: Boolean = false
 ) {
     val start = remember(units) { units.firstOrNull { it.label == initialUnit } }
     var towerId by rememberSaveable { mutableStateOf(start?.towerId.orEmpty()) }
@@ -68,11 +71,12 @@ fun UnitPicker(
     val currentFloor = floor.takeIf { it in floors } ?: floors.firstOrNull() ?: 0
     val floorUnits = towerUnits.filter { it.floor == currentFloor }
 
+    val stepGap = if (compact) 14.dp else 20.dp
     Column(modifier = modifier) {
         if (showSummary) {
             val chosen = units.firstOrNull { it.label in selected }
             SelectionSummary(chosen, chosen?.let(unitCaption))
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(stepGap))
         }
 
         if (towers.size > 1) {
@@ -85,7 +89,7 @@ fun UnitPicker(
                     floor = -1
                 }
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(stepGap))
         }
 
         StepLabel("Andar")
@@ -99,6 +103,7 @@ fun UnitPicker(
                     label = if (value == GROUND_FLOOR) "T" else "$value",
                     spokenLabel = floorLabel(value),
                     selected = value == currentFloor,
+                    size = if (compact) 40.dp else 44.dp,
                     onClick = {
                         towerId = currentTower
                         floor = value
@@ -107,7 +112,7 @@ fun UnitPicker(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(stepGap))
         StepLabel(if (currentFloor == GROUND_FLOOR) "Apartamento · Térreo" else "Apartamento · ${currentFloor}º andar")
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -119,6 +124,7 @@ fun UnitPicker(
                     number = unit.number,
                     caption = unitCaption(unit),
                     selected = unit.label in selected,
+                    compact = compact,
                     onClick = { onUnitClick(unit) },
                     modifier = Modifier.weight(1f)
                 )
@@ -196,7 +202,7 @@ private fun TowerSelector(towers: List<Pair<String, String>>, selectedId: String
 }
 
 @Composable
-private fun FloorButton(label: String, spokenLabel: String, selected: Boolean, onClick: () -> Unit) {
+private fun FloorButton(label: String, spokenLabel: String, selected: Boolean, size: Dp, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
@@ -207,7 +213,7 @@ private fun FloorButton(label: String, spokenLabel: String, selected: Boolean, o
         border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) scheme.tertiary else scheme.outlineVariant),
         // Leitores de tela anunciam "Térreo" / "3º" em vez de "T" / "3".
         modifier = Modifier
-            .size(44.dp)
+            .size(size)
             .semantics { contentDescription = spokenLabel }
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -217,7 +223,14 @@ private fun FloorButton(label: String, spokenLabel: String, selected: Boolean, o
 }
 
 @Composable
-private fun UnitTile(number: String, caption: String?, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun UnitTile(
+    number: String,
+    caption: String?,
+    selected: Boolean,
+    compact: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val scheme = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
@@ -225,7 +238,13 @@ private fun UnitTile(number: String, caption: String?, selected: Boolean, onClic
         color = if (selected) scheme.primary else scheme.surfaceContainerLow,
         contentColor = if (selected) scheme.onPrimary else scheme.onSurface,
         border = if (selected) BorderStroke(1.5.dp, scheme.tertiary) else BorderStroke(1.dp, scheme.outlineVariant),
-        modifier = modifier.height(if (caption != null) 68.dp else 52.dp)
+        modifier = modifier.height(
+            when {
+                caption == null -> if (compact) 44.dp else 52.dp
+                compact -> 56.dp
+                else -> 68.dp
+            }
+        )
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 8.dp),

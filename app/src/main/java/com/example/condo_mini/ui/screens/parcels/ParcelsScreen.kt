@@ -33,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -137,7 +136,7 @@ private fun ParcelCard(parcel: Parcel, onClick: (() -> Unit)?) {
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Eyebrow(parcel.carrier, color = scheme.onSurfaceVariant)
+                Eyebrow(parcel.carrier.ifBlank { "Portaria" }, color = scheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(parcel.description, style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(2.dp))
@@ -209,7 +208,7 @@ private fun ParcelPhotoViewer(parcel: Parcel, onDismiss: () -> Unit) {
         onDismiss = onDismiss
     ) {
         Text(
-            "${parcel.carrier} · recebida por ${parcel.receivedBy}",
+            listOf(parcel.carrier, "recebida por ${parcel.receivedBy}").filter { it.isNotBlank() }.joinToString(" · ").replaceFirstChar { it.uppercase() },
             style = MaterialTheme.typography.bodyMedium,
             color = condo.onHero
         )

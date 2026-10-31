@@ -27,14 +27,18 @@ enum class DoormanFilter(val label: String) {
     DELIVERED("Entregues")
 }
 
-/** Opções rápidas do cadastro: a portaria escolhe com um toque em vez de digitar. */
-val CARRIERS = listOf("Correios", "Mercado Livre", "Amazon", "Shopee", "iFood", "Outra")
-val PACKAGE_TYPES = listOf("Envelope", "Caixa pequena", "Caixa média", "Caixa grande", "Sacola")
+/** Tipos de volume: rótulo curto no botão, descrição completa no registro. */
+val PACKAGE_TYPES = listOf(
+    "Envelope" to "Envelope",
+    "Pequena" to "Caixa pequena",
+    "Média" to "Caixa média",
+    "Grande" to "Caixa grande",
+    "Sacola" to "Sacola"
+)
 
 data class RegisterForm(
     val photoUrl: String? = null,
     val unit: String = "",
-    val carrier: String = "",
     val description: String = "",
     val isSaving: Boolean = false,
     val error: String? = null
@@ -146,7 +150,6 @@ class DoormanParcelsViewModel(
         val form = ui.value.form ?: return
         val error = when {
             form.unit.isBlank() -> "Escolha o apartamento."
-            form.carrier.isBlank() -> "Escolha quem entregou."
             form.description.isBlank() -> "Escolha o tipo de volume."
             else -> null
         }
@@ -160,7 +163,8 @@ class DoormanParcelsViewModel(
                 condoId = condoId,
                 unit = form.unit,
                 description = form.description,
-                carrier = form.carrier,
+                // A portaria não registra transportadora: não ajuda o morador e só toma tempo.
+                carrier = "",
                 receivedBy = doormanName,
                 photoUrl = form.photoUrl
             )

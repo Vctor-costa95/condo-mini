@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +29,8 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -63,8 +63,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.GROUND_FLOOR
 import com.example.condo_mini.domain.model.ParcelStatus
 import com.example.condo_mini.domain.model.User
+import com.example.condo_mini.domain.model.floorLabel
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.EmptyState
 import com.example.condo_mini.ui.components.Eyebrow
@@ -74,7 +76,6 @@ import com.example.condo_mini.ui.components.LoadingState
 import com.example.condo_mini.ui.components.PhotoViewerDialog
 import com.example.condo_mini.ui.components.PillChip
 import com.example.condo_mini.ui.components.PrimaryButton
-import com.example.condo_mini.ui.components.SectionHeader
 import com.example.condo_mini.ui.components.UnitPicker
 import com.example.condo_mini.ui.components.firstNames
 import com.example.condo_mini.ui.components.condoTextFieldColors
@@ -276,7 +277,7 @@ private fun ParcelCard(row: ParcelRow, onPhotoClick: (() -> Unit)?, onDeliver: (
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Eyebrow("${parcel.carrier} · ${parcel.description}", color = scheme.onSurfaceVariant)
+                Eyebrow(listOf(parcel.description, parcel.carrier).filter { it.isNotBlank() }.joinToString(" · "), color = scheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(parcel.unit.replace(" - ", " · "), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
@@ -322,119 +323,173 @@ private fun RegisterParcelSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val picker = rememberPhotoPicker { url -> onChange { it.copy(photoUrl = url) } }
+    val chosen = units.firstOrNull { it.label == form.unit }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background
     ) {
+        // Tudo numa tela: a rolagem só existe como reserva para celulares pequenos.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .navigationBarsPadding()
-                .imePadding()
-                .padding(bottom = 16.dp)
+                .padding(bottom = 12.dp)
         ) {
-            Eyebrow("Portaria")
-            Spacer(modifier = Modifier.height(6.dp))
-            Text("Nova encomenda", style = MaterialTheme.typography.headlineLarge)
+            Text("Nova encomenda", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Foto e destino lado a lado: o essencial do registro numa linha só.
+            Row {
+                PhotoTile(photoUrl = form.photoUrl, onTakePhoto = picker.takePhoto, onPickFromGallery = picker.pickFromGallery)
+                Spacer(modifier = Modifier.width(12.dp))
+                DestinationCard(
+                    unit = chosen,
+                    residents = residentsByUnit[form.unit].orEmpty(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Foto primeiro: é o que o morador vê e o que evita "não é minha".
-            PhotoArea(photoUrl = form.photoUrl, onTakePhoto = picker.takePhoto, onPickFromGallery = picker.pickFromGallery)
-
-            Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader("Para qual apartamento?")
-            Spacer(modifier = Modifier.height(4.dp))
             UnitPicker(
                 units = units,
                 selected = setOfNotNull(form.unit.takeIf { it.isNotBlank() }),
                 onUnitClick = { unit -> onChange { it.copy(unit = unit.label) } },
                 // Nome de quem mora no tile: a portaria reconhece o apartamento pelo morador.
-                unitCaption = { unit -> residentsByUnit[unit.label].firstNames() ?: "Vago" }
+                unitCaption = { unit -> residentsByUnit[unit.label].firstNames() ?: "Vago" },
+                showSummary = false,
+                compact = true
             )
-            if (form.unit.isNotBlank() && residentsByUnit[form.unit].isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    "Ninguém deste apartamento usa o app. Avise pelo interfone.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader("Quem entregou")
-            ChoiceChips(CARRIERS, form.carrier) { value -> onChange { it.copy(carrier = value) } }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader("Volume")
-            ChoiceChips(PACKAGE_TYPES, form.description) { value -> onChange { it.copy(description = value) } }
+            Spacer(modifier = Modifier.height(14.dp))
+            Eyebrow("Volume", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
+            VolumeSelector(selected = form.description, onSelect = { value -> onChange { it.copy(description = value) } })
 
             form.error?.let {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             PrimaryButton(text = "Registrar e avisar morador", onClick = onRegister, loading = form.isSaving)
         }
     }
 }
 
+private val TOP_ROW_HEIGHT = 112.dp
+
+/** Foto quadrada; o toque oferece câmera ou galeria. */
 @Composable
-private fun PhotoArea(photoUrl: String?, onTakePhoto: () -> Unit, onPickFromGallery: () -> Unit) {
+private fun PhotoTile(photoUrl: String?, onTakePhoto: () -> Unit, onPickFromGallery: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    if (photoUrl == null) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
         Surface(
-            onClick = onTakePhoto,
+            onClick = { menuOpen = true },
             shape = MaterialTheme.shapes.large,
             color = scheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, scheme.outlineVariant),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp)
+            border = BorderStroke(1.dp, if (photoUrl == null) scheme.outlineVariant else scheme.tertiary),
+            modifier = Modifier.size(TOP_ROW_HEIGHT)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Icon(Icons.Outlined.PhotoCamera, contentDescription = null, tint = scheme.tertiary, modifier = Modifier.size(32.dp))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Fotografar a encomenda", style = MaterialTheme.typography.titleSmall)
-                Text("Mostre a etiqueta, se der", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            if (photoUrl == null) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Icon(Icons.Outlined.PhotoCamera, contentDescription = null, tint = scheme.tertiary, modifier = Modifier.size(28.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Foto", style = MaterialTheme.typography.labelLarge)
+                }
+            } else {
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = "Foto da encomenda",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
-        TextButton(onClick = onPickFromGallery) {
-            Icon(Icons.Outlined.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Escolher da galeria", style = MaterialTheme.typography.labelLarge)
-        }
-    } else {
-        AsyncImage(
-            model = photoUrl,
-            contentDescription = "Foto da encomenda",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(MaterialTheme.shapes.large)
-                .background(scheme.surfaceContainer)
-        )
-        TextButton(onClick = onTakePhoto) {
-            Icon(Icons.Outlined.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Tirar outra foto", style = MaterialTheme.typography.labelLarge)
+        DropdownMenu(
+            expanded = menuOpen,
+            onDismissRequest = { menuOpen = false },
+            containerColor = scheme.surfaceContainerLow
+        ) {
+            DropdownMenuItem(
+                text = { Text(if (photoUrl == null) "Tirar foto" else "Tirar outra foto") },
+                leadingIcon = { Icon(Icons.Outlined.PhotoCamera, contentDescription = null) },
+                onClick = {
+                    menuOpen = false
+                    onTakePhoto()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Escolher da galeria") },
+                leadingIcon = { Icon(Icons.Outlined.PhotoLibrary, contentDescription = null) },
+                onClick = {
+                    menuOpen = false
+                    onPickFromGallery()
+                }
+            )
         }
     }
 }
 
+/** Para onde vai: confirma o apartamento e quem será avisado. */
 @Composable
-private fun ChoiceChips(options: List<String>, selected: String, onSelect: (String) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+private fun DestinationCard(unit: CondoUnit?, residents: List<User>, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = scheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, if (unit != null) scheme.tertiary else scheme.outlineVariant),
+        modifier = modifier.height(TOP_ROW_HEIGHT)
     ) {
-        options.forEach { option ->
-            PillChip(selected = selected == option, onClick = { onSelect(option) }) {
-                Text(option, style = MaterialTheme.typography.labelLarge)
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            if (unit == null) {
+                Eyebrow("Para", color = scheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Escolha o apartamento", style = MaterialTheme.typography.titleMedium, color = scheme.outline)
+            } else {
+                Eyebrow("${unit.tower} · ${floorLabel(unit.floor)}${if (unit.floor == GROUND_FLOOR) "" else " andar"}")
+                Text("Apto ${unit.number}", style = MaterialTheme.typography.headlineSmall, maxLines = 1)
+                Text(
+                    residents.firstNames()?.let { "Avisaremos $it" } ?: "Ninguém usa o app · avise pelo interfone",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (residents.isEmpty()) scheme.error else scheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/** Tipos de volume num controle segmentado: um toque, sem quebrar linha. */
+@Composable
+private fun VolumeSelector(selected: String, onSelect: (String) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(scheme.surfaceContainer)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        PACKAGE_TYPES.forEach { (short, full) ->
+            val isSelected = selected == full
+            Surface(
+                onClick = { onSelect(full) },
+                shape = MaterialTheme.shapes.small,
+                color = if (isSelected) scheme.primary else scheme.surfaceContainer,
+                contentColor = if (isSelected) scheme.onPrimary else scheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(modifier = Modifier.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                    Text(short, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                }
             }
         }
     }
@@ -456,7 +511,7 @@ private fun DeliverDialog(
         title = { Text("Entregar encomenda", style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column {
-                Text("${row.parcel.description} · ${row.parcel.carrier}", style = MaterialTheme.typography.titleSmall)
+                Text(listOf(row.parcel.description, row.parcel.carrier).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.titleSmall)
                 Text(
                     "${row.parcel.unit} · ${row.residents.joinToString().ifBlank { "sem morador cadastrado" }}",
                     style = MaterialTheme.typography.bodySmall,
