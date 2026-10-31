@@ -45,6 +45,8 @@ data class AdminUsersUiState(
     val users: List<User> = emptyList(),
     val withoutUnit: Int = 0,
     val units: List<CondoUnit> = emptyList(),
+    /** Quem mora em cada apartamento, para o seletor mostrar o nome no lugar de só o número. */
+    val occupantsByUnit: Map<String, List<User>> = emptyMap(),
     val form: UserForm? = null,
     val userMessage: String? = null
 )
@@ -78,6 +80,10 @@ class AdminUsersViewModel(
                 .sortedWith(compareBy<User>({ !(it.role == UserRole.RESIDENT && it.units.isEmpty()) }, { it.name })),
             withoutUnit = users.count { it.role == UserRole.RESIDENT && it.units.isEmpty() },
             units = units,
+            occupantsByUnit = users
+                .filter { it.role == UserRole.RESIDENT || it.role == UserRole.MANAGER }
+                .flatMap { user -> user.units.map { it to user } }
+                .groupBy({ it.first }, { it.second }),
             form = form,
             userMessage = message
         )

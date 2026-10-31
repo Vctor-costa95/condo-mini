@@ -76,6 +76,7 @@ import com.example.condo_mini.ui.components.PillChip
 import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.SectionHeader
 import com.example.condo_mini.ui.components.UnitPicker
+import com.example.condo_mini.ui.components.firstNames
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.components.rememberPhotoPicker
 import com.example.condo_mini.ui.screens.main.CondoSnackbarHost
@@ -299,7 +300,8 @@ private fun ParcelCard(row: ParcelRow, onPhotoClick: (() -> Unit)?, onDeliver: (
         if (waiting) {
             Spacer(modifier = Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Código ${parcel.pickupCode}", style = MaterialTheme.typography.labelLarge, color = scheme.tertiary, modifier = Modifier.weight(1f))
+                // O código fica só com o morador: a portaria confere, nunca vê.
+                Text("Aguardando retirada", style = MaterialTheme.typography.labelLarge, color = scheme.tertiary, modifier = Modifier.weight(1f))
                 OutlinedButton(onClick = onDeliver, shape = MaterialTheme.shapes.medium) {
                     Text("Entregar", style = MaterialTheme.typography.labelLarge)
                 }
@@ -344,19 +346,21 @@ private fun RegisterParcelSheet(
             PhotoArea(photoUrl = form.photoUrl, onTakePhoto = picker.takePhoto, onPickFromGallery = picker.pickFromGallery)
 
             Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader("Para qual apartamento?", trailing = form.unit.ifBlank { null })
+            SectionHeader("Para qual apartamento?")
+            Spacer(modifier = Modifier.height(4.dp))
             UnitPicker(
                 units = units,
                 selected = setOfNotNull(form.unit.takeIf { it.isNotBlank() }),
-                onUnitClick = { unit -> onChange { it.copy(unit = unit.label) } }
+                onUnitClick = { unit -> onChange { it.copy(unit = unit.label) } },
+                // Nome de quem mora no tile: a portaria reconhece o apartamento pelo morador.
+                unitCaption = { unit -> residentsByUnit[unit.label].firstNames() ?: "Vago" }
             )
-            if (form.unit.isNotBlank()) {
-                val residents = residentsByUnit[form.unit].orEmpty()
+            if (form.unit.isNotBlank() && residentsByUnit[form.unit].isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    if (residents.isEmpty()) "Apartamento sem morador cadastrado no app." else "Avisaremos ${residents.joinToString { it.name }}.",
+                    "Ninguém deste apartamento usa o app. Avise pelo interfone.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (residents.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.error
                 )
             }
 

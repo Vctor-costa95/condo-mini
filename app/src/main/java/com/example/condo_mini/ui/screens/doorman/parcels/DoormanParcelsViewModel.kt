@@ -111,8 +111,9 @@ class DoormanParcelsViewModel(
                     DoormanFilter.DELIVERED -> it.status == ParcelStatus.PICKED_UP
                 }
             }
-            // Código exato ou número do apartamento: é o que o morador fala no balcão.
-            .filter { needle.isBlank() || it.pickupCode.startsWith(needle) || it.unit.lowercase().contains(needle) }
+            // Código completo ou número do apartamento: é o que o morador fala no balcão.
+            // Só o código inteiro encontra a encomenda, para a busca não servir de "chute".
+            .filter { needle.isBlank() || it.pickupCode == needle || it.unit.lowercase().contains(needle) }
         return DoormanParcelsUiState(
             isLoading = false,
             filter = ui.filter,
@@ -167,7 +168,7 @@ class DoormanParcelsViewModel(
                 it.copy(
                     form = null,
                     filter = DoormanFilter.WAITING,
-                    userMessage = "Registrada para o ${parcel.unit}. Código ${parcel.pickupCode}."
+                    userMessage = "Registrada para o ${parcel.unit}. O morador já recebeu o código no app."
                 )
             }
         }

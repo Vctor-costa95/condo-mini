@@ -68,6 +68,7 @@ import com.example.condo_mini.ui.components.PillChip
 import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.SectionHeader
 import com.example.condo_mini.ui.components.UnitPicker
+import com.example.condo_mini.ui.components.firstNames
 import com.example.condo_mini.ui.components.StatusChip
 import com.example.condo_mini.ui.components.StatusTone
 import com.example.condo_mini.ui.components.condoTextFieldColors
@@ -113,6 +114,7 @@ fun AdminUsersRoute(
         UserFormSheet(
             form = form,
             units = uiState.units,
+            occupantsByUnit = uiState.occupantsByUnit,
             onChange = viewModel::onFormChanged,
             onSave = viewModel::onSave,
             onDelete = viewModel::onDelete,
@@ -255,6 +257,7 @@ private fun UserCard(user: User, onClick: () -> Unit, modifier: Modifier = Modif
 private fun UserFormSheet(
     form: UserForm,
     units: List<CondoUnit>,
+    occupantsByUnit: Map<String, List<User>>,
     onChange: ((UserForm) -> UserForm) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
@@ -353,7 +356,10 @@ private fun UserFormSheet(
                 UnitPicker(
                     units = units,
                     selected = form.units.toSet(),
-                    onUnitClick = { unit -> onChange { it.toggleUnit(unit.label) } }
+                    onUnitClick = { unit -> onChange { it.toggleUnit(unit.label) } },
+                    unitCaption = { unit -> occupantsByUnit[unit.label].firstNames() ?: "Vago" },
+                    // As escolhidas já aparecem nas cápsulas acima.
+                    showSummary = false
                 )
             }
 
