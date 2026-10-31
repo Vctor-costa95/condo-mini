@@ -47,6 +47,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
@@ -72,6 +73,7 @@ import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.theme.CondoTheme
 import com.example.condo_mini.ui.theme.CondominiTheme
+import com.example.condo_mini.ui.theme.Ink
 
 @Composable
 fun LoginScreen(
@@ -228,7 +230,7 @@ private fun BrandHeader() {
             .padding(start = 28.dp, end = 28.dp, top = 40.dp, bottom = 68.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Monogram()
+        AppIcon()
         Spacer(modifier = Modifier.height(20.dp))
         Text(
             text = buildAnnotatedString {
@@ -271,23 +273,23 @@ private fun FeatureTag(icon: ImageVector, label: String) {
     }
 }
 
-/** Marca do app (o "C" de andares) dentro de anel champanhe. */
+/** O ícone do app, igual ao da tela inicial do celular: "C" de andares sobre azul-noite. */
 @Composable
-private fun Monogram() {
-    val condo = CondoTheme.colors
+private fun AppIcon() {
+    val shape = RoundedCornerShape(26.dp)
     Box(
         modifier = Modifier
-            .size(80.dp)
-            .border(1.dp, condo.accent, CircleShape)
-            .padding(6.dp)
-            .clip(CircleShape)
-            .background(condo.onHero.copy(alpha = 0.08f)),
+            .size(96.dp)
+            .shadow(16.dp, shape)
+            .clip(shape)
+            .background(Ink)
+            .border(1.dp, CondoTheme.colors.accent.copy(alpha = 0.3f), shape),
         contentAlignment = Alignment.Center
     ) {
         Image(
             painter = painterResource(R.drawable.ic_brand_mark),
             contentDescription = null,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(60.dp)
         )
     }
 }
