@@ -24,8 +24,11 @@ class FakeServiceBookingRepository : ServiceBookingRepository {
     private val bookings = MutableStateFlow(
         listOf(
             ServiceBooking("s1", ServiceType.MOVE, today.plusDays(2), ReservationPeriod.MORNING, "Apto 302 - Bloco B", "Marina Costa", condo, ReservationStatus.CONFIRMED),
-            ServiceBooking("s2", ServiceType.MOVE, today.plusDays(4), ReservationPeriod.AFTERNOON, "Apto 1201 - Bloco A", "Fernando Dias", condo, ReservationStatus.PENDING, provider = "Mudanças Rápidas"),
-            ServiceBooking("s3", ServiceType.REPAIR, today.plusDays(1), ReservationPeriod.AFTERNOON, "Apto 503 - Bloco B", "Ricardo Alves", condo, ReservationStatus.PENDING, RepairKind.INTERNET, "Vivo Fibra")
+            ServiceBooking("s2", ServiceType.MOVE, today.plusDays(4), ReservationPeriod.AFTERNOON, "Apto 203 - Bloco A", "Fernanda Lopes", condo, ReservationStatus.PENDING, provider = "Mudanças Rápidas"),
+            ServiceBooking("s3", ServiceType.REPAIR, today.plusDays(1), ReservationPeriod.AFTERNOON, "Apto 503 - Bloco B", "Ricardo Alves", condo, ReservationStatus.PENDING, RepairKind.INTERNET, "Vivo Fibra"),
+            // Hoje: dá ao porteiro o que acompanhar logo ao abrir a agenda.
+            ServiceBooking("s4", ServiceType.REPAIR, today, ReservationPeriod.MORNING, "Apto 402 - Bloco C", "Gustavo Prado", condo, ReservationStatus.CONFIRMED, RepairKind.ELECTRICAL, "Eletricista Marcos"),
+            ServiceBooking("s5", ServiceType.MOVE, today, ReservationPeriod.AFTERNOON, "Apto 201 - Bloco C", "Helena Rocha", condo, ReservationStatus.CONFIRMED, provider = "Transportes Ideal")
         )
     )
 

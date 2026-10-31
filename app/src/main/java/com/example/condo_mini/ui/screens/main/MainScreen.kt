@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Deck
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.outlined.Apartment
@@ -39,6 +40,7 @@ import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Deck
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Badge
@@ -95,6 +97,7 @@ import com.example.condo_mini.ui.components.InitialsAvatar
 import com.example.condo_mini.ui.screens.bills.BillPdfRoute
 import com.example.condo_mini.ui.screens.doorman.parcels.DoormanParcelsRoute
 import com.example.condo_mini.ui.screens.doorman.residents.DoormanResidentsRoute
+import com.example.condo_mini.ui.screens.doorman.schedule.DoormanScheduleRoute
 import com.example.condo_mini.ui.screens.bills.BillsRoute
 import com.example.condo_mini.ui.screens.documents.DocumentPdfRoute
 import com.example.condo_mini.ui.screens.documents.DocumentsRoute
@@ -134,6 +137,7 @@ enum class AppTab(
 
     // Porteiro
     DOORMAN_PARCELS("doorman_parcels", "Encomendas", "Encomendas", Icons.Filled.Inventory2, Icons.Outlined.Inventory2),
+    DOORMAN_SCHEDULE("doorman_schedule", "Agenda", "Agenda", Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth),
     DOORMAN_RESIDENTS("doorman_residents", "Moradores", "Moradores", Icons.Filled.Groups, Icons.Outlined.Groups),
     DOORMAN_NOTICES("doorman_notices", "Avisos", "Mural", Icons.Filled.Campaign, Icons.Outlined.Campaign);
 
@@ -144,7 +148,7 @@ enum class AppTab(
         fun forRole(role: UserRole?): List<AppTab> = when (role) {
             UserRole.MANAGER -> listOf(MANAGER_NOTICES, MANAGER_RESERVATIONS, MANAGER_OCCURRENCES, MANAGER_DOCUMENTS)
             UserRole.ADMIN -> listOf(ADMIN_UNITS, ADMIN_USERS, ADMIN_AREAS)
-            UserRole.DOORMAN -> listOf(DOORMAN_PARCELS, DOORMAN_RESIDENTS, DOORMAN_NOTICES)
+            UserRole.DOORMAN -> listOf(DOORMAN_PARCELS, DOORMAN_SCHEDULE, DOORMAN_RESIDENTS, DOORMAN_NOTICES)
             else -> listOf(NOTICES, RESERVATIONS, BILLS, PARCELS, OCCURRENCES)
         }
     }
@@ -271,6 +275,7 @@ fun MainScreen(
 
             // Porteiro
             composable(AppTab.DOORMAN_PARCELS.route) { DoormanParcelsRoute() }
+            composable(AppTab.DOORMAN_SCHEDULE.route) { DoormanScheduleRoute() }
             composable(AppTab.DOORMAN_RESIDENTS.route) { DoormanResidentsRoute() }
             composable(AppTab.DOORMAN_NOTICES.route) { NoticesRoute() }
 

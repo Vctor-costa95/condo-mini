@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(
@@ -67,11 +68,17 @@ class MainViewModel(
         )
     }
 
-    // Encomendas que ainda esperam o morador vir buscar.
-    private fun doormanBadges(condoId: String): Flow<Map<AppTab, Int>> =
-        parcelRepository.observeAllParcels(condoId).map { parcels ->
-            mapOf(AppTab.DOORMAN_PARCELS to parcels.count { it.status == ParcelStatus.WAITING })
-        }
+    // Encomendas que ainda esperam o morador vir buscar e mudanças/reparos aprovados para hoje.
+    private fun doormanBadges(condoId: String): Flow<Map<AppTab, Int>> = combine(
+        parcelRepository.observeAllParcels(condoId),
+        serviceBookingRepository.observeAllBookings(condoId)
+    ) { parcels, services ->
+        val today = LocalDate.now()
+        mapOf(
+            AppTab.DOORMAN_PARCELS to parcels.count { it.status == ParcelStatus.WAITING },
+            AppTab.DOORMAN_SCHEDULE to services.count { it.status == ReservationStatus.CONFIRMED && it.date == today }
+        )
+    }
 
     // Moradores cadastrados que ainda não foram alocados em um apartamento.
     private fun adminBadges(): Flow<Map<AppTab, Int>> = directoryRepository.observeUsers().map { users ->
