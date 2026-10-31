@@ -2,6 +2,7 @@ package com.example.condo_mini.ui.screens.login
 
 import android.app.Activity
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -53,15 +54,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import com.example.condo_mini.R
 import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.theme.CondoTheme
@@ -224,7 +230,15 @@ private fun BrandHeader() {
     ) {
         Monogram()
         Spacer(modifier = Modifier.height(20.dp))
-        Text("Condo-mini", style = MaterialTheme.typography.displaySmall, color = condo.onHero)
+        Text(
+            text = buildAnnotatedString {
+                append("condo")
+                withStyle(SpanStyle(color = condo.accent)) { append(".") }
+                append("mini")
+            },
+            style = MaterialTheme.typography.displaySmall,
+            color = condo.onHero
+        )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Avisos, encomendas, reservas e boletos\ndo seu prédio, tudo num lugar só.",
@@ -257,7 +271,7 @@ private fun FeatureTag(icon: ImageVector, label: String) {
     }
 }
 
-/** Monograma da marca: inicial em serifa dentro de anel champanhe. */
+/** Marca do app (o "C" de andares) dentro de anel champanhe. */
 @Composable
 private fun Monogram() {
     val condo = CondoTheme.colors
@@ -270,7 +284,11 @@ private fun Monogram() {
             .background(condo.onHero.copy(alpha = 0.08f)),
         contentAlignment = Alignment.Center
     ) {
-        Text("C", style = MaterialTheme.typography.displaySmall, color = condo.accent)
+        Image(
+            painter = painterResource(R.drawable.ic_brand_mark),
+            contentDescription = null,
+            modifier = Modifier.size(40.dp)
+        )
     }
 }
 

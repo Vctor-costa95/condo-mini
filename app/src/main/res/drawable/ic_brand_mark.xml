@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Marca sem o fundo, para usar sobre superfícies escuras (ex.: topo do login). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="52dp"
+    android:height="52dp"
+    android:viewportWidth="52"
+    android:viewportHeight="52">
+    <group
+        android:translateX="-25.75"
+        android:translateY="-28">
+        <path
+            android:fillColor="#ECE7DD"
+            android:pathData="M44.65,30.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z M36.75,37.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M33.25,44.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M33.25,58.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M36.75,65.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M44.65,72.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z" />
+        <path
+            android:fillColor="#D9BE8E"
+            android:pathData="M32.25,51.75h7.5a2.25,2.25 0 0,1 0,4.5h-7.5a2.25,2.25 0 0,1 0,-4.5z" />
+    </group>
+</vector>
