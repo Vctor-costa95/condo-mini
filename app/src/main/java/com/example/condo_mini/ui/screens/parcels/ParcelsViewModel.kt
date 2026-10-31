@@ -27,7 +27,7 @@ class ParcelsViewModel(
 ) : ViewModel() {
 
     val uiState: StateFlow<ParcelsUiState> = sessionRepository.currentUser
-        .flatMapLatest { user -> parcelRepository.observeParcels(user?.unit.orEmpty()) }
+        .flatMapLatest { user -> parcelRepository.observeParcels(user?.condoId.orEmpty(), user?.unit.orEmpty()) }
         .map { parcels ->
             val sorted = parcels.sortedByDescending { it.arrivedAt }
             ParcelsUiState(

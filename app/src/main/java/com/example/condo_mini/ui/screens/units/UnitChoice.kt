@@ -80,7 +80,7 @@ class UnitChoiceViewModel(
         .flatMapLatest { user ->
             val units = user?.units.orEmpty()
             if (user == null || units.isEmpty()) return@flatMapLatest flowOf(UnitChoiceUiState())
-            combine(units.map { unit -> optionFor(unit) }) { options ->
+            combine(units.map { unit -> optionFor(user.condoId, unit) }) { options ->
                 UnitChoiceUiState(
                     firstName = user.name.substringBefore(" "),
                     current = user.unit,
@@ -92,8 +92,8 @@ class UnitChoiceViewModel(
 
     fun onSelect(unit: String) = sessionRepository.selectUnit(unit)
 
-    private fun optionFor(unit: String) = combine(
-        parcelRepository.observeParcels(unit),
+    private fun optionFor(condoId: String, unit: String) = combine(
+        parcelRepository.observeParcels(condoId, unit),
         occurrenceRepository.observeOccurrences(unit)
     ) { parcels, occurrences ->
         UnitOption(

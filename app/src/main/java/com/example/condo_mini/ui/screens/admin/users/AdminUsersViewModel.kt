@@ -25,9 +25,6 @@ data class UserForm(
     val role: UserRole = UserRole.RESIDENT,
     /** Apartamentos ligados ao cadastro; o primeiro é o principal. */
     val units: List<String> = emptyList(),
-    /** Bloco e andar abertos no seletor de unidade; vazios = primeiro de cada. */
-    val towerId: String = "",
-    val floor: Int = 0,
     val isSaving: Boolean = false,
     val error: String? = null
 ) {
@@ -99,13 +96,7 @@ class AdminUsersViewModel(
     }
 
     fun onEditUser(user: User) {
-        // Abre o seletor já no bloco e andar do apartamento atual.
-        val current = uiState.value.units.firstOrNull { it.label == user.unit }
-        form.value = UserForm(
-            user.id, user.name, user.email, user.phone, user.role, user.units,
-            towerId = current?.towerId.orEmpty(),
-            floor = current?.floor ?: 0
-        )
+        form.value = UserForm(user.id, user.name, user.email, user.phone, user.role, user.units)
     }
 
     fun onDismissForm() {

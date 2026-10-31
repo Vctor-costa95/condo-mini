@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -86,13 +87,16 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             SectionHeader("Acessar como")
-            Row(
+            // Quatro perfis em 2 × 2: numa linha só, os nomes quebram.
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = 2
             ) {
-                listOf(UserRole.RESIDENT to "Morador", UserRole.MANAGER to "Síndico", UserRole.ADMIN to "Admin").forEach { (role, label) ->
+                listOf(UserRole.RESIDENT to "Morador", UserRole.MANAGER to "Síndico", UserRole.DOORMAN to "Porteiro", UserRole.ADMIN to "Admin").forEach { (role, label) ->
                     PillChip(
                         selected = uiState.role == role,
                         onClick = { onRoleChanged(role) },

@@ -107,6 +107,10 @@ interface DirectoryRepository {
     fun observeUnits(): Flow<List<CondoUnit>>
     fun observeUsers(): Flow<List<User>>
 
+    /** Unidades e pessoas de um condomínio específico (portaria), sem depender da seleção do admin. */
+    fun observeUnitsOf(condoId: String): Flow<List<CondoUnit>>
+    fun observeUsersOf(condoId: String): Flow<List<User>>
+
     /** Cria o cadastro quando [User.id] está vazio (no condomínio selecionado); senão atualiza. */
     suspend fun saveUser(user: User): User
     suspend fun deleteUser(userId: String)
@@ -125,7 +129,23 @@ interface DirectoryRepository {
 }
 
 interface ParcelRepository {
-    fun observeParcels(unit: String): Flow<List<Parcel>>
+    fun observeParcels(condoId: String, unit: String): Flow<List<Parcel>>
+
+    /** Todas as encomendas do condomínio (visão da portaria). */
+    fun observeAllParcels(condoId: String): Flow<List<Parcel>>
+
+    /** Registra a chegada; o código de retirada é gerado aqui. */
+    suspend fun register(
+        condoId: String,
+        unit: String,
+        description: String,
+        carrier: String,
+        receivedBy: String,
+        photoUrl: String?
+    ): Parcel
+
+    /** Entrega ao morador; falha se [code] não for o código da encomenda. */
+    suspend fun deliver(parcelId: String, code: String, deliveredBy: String): Result<Parcel>
 }
 
 interface OccurrenceRepository {

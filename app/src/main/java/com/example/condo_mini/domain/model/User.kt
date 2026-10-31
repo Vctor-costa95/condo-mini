@@ -1,6 +1,6 @@
 package com.example.condo_mini.domain.model
 
-/** Perfis de acesso do app. O [DOORMAN] ainda não tem telas próprias. */
+/** Perfis de acesso do app; cada um tem as próprias abas (ver `AppTab.forRole`). */
 enum class UserRole(val label: String) {
     ADMIN("Administrador"),
     MANAGER("Síndico"),

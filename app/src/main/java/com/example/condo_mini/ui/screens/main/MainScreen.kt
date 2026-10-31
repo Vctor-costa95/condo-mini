@@ -90,6 +90,8 @@ import com.example.condo_mini.ui.screens.manager.reservations.ManagerReservation
 import com.example.condo_mini.ui.components.Eyebrow
 import com.example.condo_mini.ui.components.InitialsAvatar
 import com.example.condo_mini.ui.screens.bills.BillPdfRoute
+import com.example.condo_mini.ui.screens.doorman.parcels.DoormanParcelsRoute
+import com.example.condo_mini.ui.screens.doorman.residents.DoormanResidentsRoute
 import com.example.condo_mini.ui.screens.bills.BillsRoute
 import com.example.condo_mini.ui.screens.notices.NoticesRoute
 import com.example.condo_mini.ui.screens.occurrences.OccurrencesRoute
@@ -122,15 +124,21 @@ enum class AppTab(
     // Administrador
     ADMIN_UNITS("admin_units", "Unidades", "Unidades", Icons.Filled.Apartment, Icons.Outlined.Apartment),
     ADMIN_USERS("admin_users", "Cadastros", "Cadastros", Icons.Filled.Groups, Icons.Outlined.Groups),
-    ADMIN_AREAS("admin_areas", "Espaços", "Espaços", Icons.Filled.Deck, Icons.Outlined.Deck);
+    ADMIN_AREAS("admin_areas", "Espaços", "Espaços", Icons.Filled.Deck, Icons.Outlined.Deck),
 
-    val isHome: Boolean get() = this == NOTICES || this == MANAGER_NOTICES || this == ADMIN_UNITS
+    // Porteiro
+    DOORMAN_PARCELS("doorman_parcels", "Encomendas", "Encomendas", Icons.Filled.Inventory2, Icons.Outlined.Inventory2),
+    DOORMAN_RESIDENTS("doorman_residents", "Moradores", "Moradores", Icons.Filled.Groups, Icons.Outlined.Groups),
+    DOORMAN_NOTICES("doorman_notices", "Avisos", "Mural", Icons.Filled.Campaign, Icons.Outlined.Campaign);
+
+    val isHome: Boolean get() = this == NOTICES || this == MANAGER_NOTICES || this == ADMIN_UNITS || this == DOORMAN_PARCELS
 
     companion object {
         /** Abas visíveis por perfil; a primeira é a tela inicial. */
         fun forRole(role: UserRole?): List<AppTab> = when (role) {
             UserRole.MANAGER -> listOf(MANAGER_NOTICES, MANAGER_RESERVATIONS, MANAGER_OCCURRENCES)
             UserRole.ADMIN -> listOf(ADMIN_UNITS, ADMIN_USERS, ADMIN_AREAS)
+            UserRole.DOORMAN -> listOf(DOORMAN_PARCELS, DOORMAN_RESIDENTS, DOORMAN_NOTICES)
             else -> listOf(NOTICES, RESERVATIONS, BILLS, PARCELS, OCCURRENCES)
         }
     }
@@ -244,6 +252,11 @@ fun MainScreen(
                 )
             }
 
+            // Porteiro
+            composable(AppTab.DOORMAN_PARCELS.route) { DoormanParcelsRoute() }
+            composable(AppTab.DOORMAN_RESIDENTS.route) { DoormanResidentsRoute() }
+            composable(AppTab.DOORMAN_NOTICES.route) { NoticesRoute() }
+
             composable(PROFILE_ROUTE) { ProfileRoute(onLogoutClick = onLogoutClick) }
         }
     }
@@ -288,8 +301,13 @@ private fun MainHeader(
         isProfile -> "Conta" to "Meu perfil"
         showsCondo -> condoName.orEmpty() to tab.title
         showsUnit -> user?.unit.orEmpty() to if (tab.isHome) hello else tab.title
-        tab.isHome -> (if (user?.role == UserRole.MANAGER) "${greeting()} · Síndico" else greeting()) to hello
+        tab.isHome -> when (user?.role) {
+            UserRole.MANAGER -> "${greeting()} · Síndico"
+            UserRole.DOORMAN -> "${greeting()} · Portaria"
+            else -> greeting()
+        } to hello
         user?.role == UserRole.MANAGER -> "Gestão do condomínio" to tab.title
+        user?.role == UserRole.DOORMAN -> "Portaria" to tab.title
         else -> user?.unit.orEmpty() to tab.title
     }
 

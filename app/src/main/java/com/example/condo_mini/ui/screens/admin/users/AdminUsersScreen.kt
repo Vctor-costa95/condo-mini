@@ -59,7 +59,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
-import com.example.condo_mini.domain.model.floorLabel
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.EmptyState
 import com.example.condo_mini.ui.components.Eyebrow
@@ -68,6 +67,7 @@ import com.example.condo_mini.ui.components.LoadingState
 import com.example.condo_mini.ui.components.PillChip
 import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.SectionHeader
+import com.example.condo_mini.ui.components.UnitPicker
 import com.example.condo_mini.ui.components.StatusChip
 import com.example.condo_mini.ui.components.StatusTone
 import com.example.condo_mini.ui.components.condoTextFieldColors
@@ -262,12 +262,6 @@ private fun UserFormSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var confirmDelete by remember { mutableStateOf(false) }
-    val towers = remember(units) { units.distinctBy { it.towerId }.map { it.towerId to it.tower } }
-    val towerId = form.towerId.ifBlank { towers.firstOrNull()?.first.orEmpty() }
-    val towerUnits = units.filter { it.towerId == towerId }
-    val floors = remember(towerUnits) { towerUnits.map { it.floor }.distinct().sortedDescending() }
-    val floor = form.floor.takeIf { it in floors } ?: floors.lastOrNull() ?: 0
-    val floorUnits = towerUnits.filter { it.floor == floor }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -356,42 +350,11 @@ private fun UserFormSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                if (towers.size > 1) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(towers, key = { it.first }) { (id, name) ->
-                            PillChip(selected = towerId == id, onClick = { onChange { it.copy(towerId = id, floor = 0) } }) {
-                                Text(name, style = MaterialTheme.typography.labelLarge)
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-                Text("Andar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(6.dp))
-                // Térreo à esquerda, como se lê um painel de elevador.
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(floors.reversed()) { value ->
-                        PillChip(selected = floor == value, onClick = { onChange { it.copy(towerId = towerId, floor = value) } }) {
-                            Text(floorLabel(value), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    maxItemsInEachRow = chipsPerRow(floorUnits.size)
-                ) {
-                    floorUnits.forEach { unit ->
-                        PillChip(
-                            selected = unit.label in form.units,
-                            onClick = { onChange { it.toggleUnit(unit.label) } },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(unit.number, style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
+                UnitPicker(
+                    units = units,
+                    selected = form.units.toSet(),
+                    onUnitClick = { unit -> onChange { it.toggleUnit(unit.label) } }
+                )
             }
 
             form.error?.let {
@@ -432,14 +395,6 @@ private fun UserFormSheet(
             }
         )
     }
-}
-
-/** Linhas que fecham certinho: 6 aptos viram 3 + 3, 10 viram 5 + 5. */
-private fun chipsPerRow(count: Int): Int = when {
-    count <= 4 -> count.coerceAtLeast(1)
-    count <= 6 -> 3
-    count <= 8 -> 4
-    else -> 5
 }
 
 /** Apartamento já ligado ao cadastro; o X desfaz. */

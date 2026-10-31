@@ -30,7 +30,8 @@ class FakeSessionRepository(
             User(
                 id = "user-${role.name.lowercase()}",
                 name = name.trim(),
-                unit = typedUnit.ifBlank { DEFAULT_UNIT },
+                // Portaria e administração não moram em um apartamento.
+                unit = if (role == UserRole.DOORMAN || role == UserRole.ADMIN) "" else typedUnit.ifBlank { DEFAULT_UNIT },
                 role = role,
                 condoId = if (role == UserRole.ADMIN) "" else FakeDirectoryRepository.DEFAULT_CONDO_ID,
                 email = "morador@condomini.app",

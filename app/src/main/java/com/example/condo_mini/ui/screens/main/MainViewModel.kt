@@ -49,13 +49,14 @@ class MainViewModel(
                 UserRole.MANAGER -> managerBadges()
                 UserRole.ADMIN -> adminBadges()
                 null -> flowOf(emptyMap())
-                else -> residentBadges(user.unit)
+                UserRole.DOORMAN -> doormanBadges(user.condoId)
+                else -> residentBadges(user.condoId, user.unit)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    private fun residentBadges(unit: String): Flow<Map<AppTab, Int>> = combine(
-        parcelRepository.observeParcels(unit),
+    private fun residentBadges(condoId: String, unit: String): Flow<Map<AppTab, Int>> = combine(
+        parcelRepository.observeParcels(condoId, unit),
         occurrenceRepository.observeOccurrences(unit)
     ) { parcels, occurrences ->
         mapOf(
@@ -63,6 +64,12 @@ class MainViewModel(
             AppTab.OCCURRENCES to occurrences.count { it.status == OccurrenceStatus.NEEDS_INFO }
         )
     }
+
+    // Encomendas que ainda esperam o morador vir buscar.
+    private fun doormanBadges(condoId: String): Flow<Map<AppTab, Int>> =
+        parcelRepository.observeAllParcels(condoId).map { parcels ->
+            mapOf(AppTab.DOORMAN_PARCELS to parcels.count { it.status == ParcelStatus.WAITING })
+        }
 
     // Moradores cadastrados que ainda não foram alocados em um apartamento.
     private fun adminBadges(): Flow<Map<AppTab, Int>> = directoryRepository.observeUsers().map { users ->

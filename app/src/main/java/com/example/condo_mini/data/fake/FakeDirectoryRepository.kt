@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.text.Normalizer
 import java.util.UUID
@@ -107,6 +108,12 @@ class FakeDirectoryRepository : DirectoryRepository {
         combine(users, _selectedCondoId) { list, id ->
             list.filter { it.condoId == id || it.role == UserRole.ADMIN }
         }
+
+    override fun observeUnitsOf(condoId: String): Flow<List<CondoUnit>> =
+        condos.map { list -> list.firstOrNull { it.id == condoId }?.units.orEmpty() }
+
+    override fun observeUsersOf(condoId: String): Flow<List<User>> =
+        users.map { list -> list.filter { it.condoId == condoId } }
 
     override suspend fun saveUser(user: User): User {
         delay(250)
