@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.GROUND_FLOOR
 import com.example.condo_mini.domain.model.Tower
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
@@ -196,26 +197,29 @@ fun AdminUnitsScreen(
         items(uiState.floors, key = { "floor-${it.floor}" }) { row ->
             FloorLine(
                 row = row,
-                perRow = uiState.tower?.let(::tilesPerRow) ?: 4,
+                perRow = tilesPerRow(row.cells.size),
                 uploading = uiState.uploading,
                 onOpenUnit = onOpenUnit,
                 modifier = Modifier.padding(horizontal = 20.dp)
             )
         }
-        item {
-            Text(
-                "Térreo",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(start = 20.dp, top = 4.dp)
-            )
+        // Térreo sem apartamentos: só a referência de chão do mapa.
+        if (uiState.floors.none { it.floor == GROUND_FLOOR }) {
+            item {
+                Text(
+                    "Térreo",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(start = 20.dp, top = 4.dp)
+                )
+            }
         }
     }
 }
 
 /** Até 6 por linha; andares com mais apartamentos quebram em duas linhas equilibradas. */
-private fun tilesPerRow(tower: Tower): Int =
-    if (tower.unitsPerFloor <= 6) tower.unitsPerFloor else (tower.unitsPerFloor + 1) / 2
+private fun tilesPerRow(count: Int): Int =
+    if (count <= 6) count.coerceAtLeast(1) else (count + 1) / 2
 
 @Composable
 private fun MonthSummary(uiState: AdminUnitsUiState, modifier: Modifier = Modifier) {
@@ -328,14 +332,27 @@ private fun FloorLine(
     val wraps = row.cells.size > perRow
     Row(modifier = modifier.padding(vertical = if (wraps) 6.dp else 0.dp), verticalAlignment = Alignment.Top) {
         Text(
-            "${row.floor}º",
+            if (row.floor == GROUND_FLOOR) "T" else "${row.floor}º",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.End,
             modifier = Modifier
                 .width(32.dp)
-                .padding(top = 14.dp, end = 8.dp)
+                .padding(top = if (row.cells.isEmpty()) 4.dp else 14.dp, end = 8.dp)
         )
+        if (row.cells.isEmpty()) {
+            // Andar de lazer, garagem, casa de máquinas: fica no mapa para a contagem bater.
+            Text(
+                "Sem apartamentos",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier
+                    .weight(1f)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+            return@Row
+        }
         FlowRow(
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -419,7 +436,7 @@ private fun UnitDetailSheet(
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
         ) {
-            Eyebrow("${detail.unit.tower} · ${detail.unit.floor}º andar")
+            Eyebrow("${detail.unit.tower} · ${if (detail.unit.floor == GROUND_FLOOR) "Térreo" else "${detail.unit.floor}º andar"}")
             Spacer(modifier = Modifier.height(6.dp))
             Text("Apto ${detail.unit.number}", style = MaterialTheme.typography.headlineLarge)
             Spacer(modifier = Modifier.height(16.dp))

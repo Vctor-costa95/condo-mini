@@ -52,7 +52,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.condo_mini.domain.model.GROUND_FLOOR
 import com.example.condo_mini.domain.model.Tower
+import com.example.condo_mini.domain.model.floorLabel
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.Eyebrow
 import com.example.condo_mini.ui.components.LoadingState
@@ -271,14 +273,14 @@ private fun TowerCard(
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             buildString {
-                append("${tower.totalUnits} apartamentos. Toque em um andar para mudar a quantidade dele")
+                append("${tower.totalUnits} apartamentos. Toque em um andar, inclusive o térreo, para mudar a quantidade dele")
                 if (tower.floorOverrides.isEmpty()) {
-                    append(", como uma cobertura.")
+                    append(", como uma cobertura ou um andar sem aptos.")
                 } else {
                     append(". Diferentes: ")
                     append(
                         tower.floorOverrides.toSortedMap().entries.joinToString { (floor, units) ->
-                            "${floor}º com $units"
+                            if (units == 0) "${floorLabel(floor)} sem aptos" else "${floorLabel(floor)} com $units"
                         }
                     )
                     append(".")
@@ -326,7 +328,8 @@ private fun Stepper(
 
 /**
  * Fachada do bloco à noite: um andar por linha, uma janela acesa por apartamento.
- * Andares fora do padrão acendem em champanhe.
+ * Andares fora do padrão acendem em champanhe; andares sem apartamentos ficam apagados.
+ * O térreo fica embaixo, logo acima da linha da calçada.
  */
 @Composable
 private fun TowerElevation(tower: Tower, onFloorClick: (Int) -> Unit) {
@@ -341,21 +344,24 @@ private fun TowerElevation(tower: Tower, onFloorClick: (Int) -> Unit) {
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
             .background(condo.heroEnd)
-            .padding(start = 8.dp, end = 14.dp, top = 14.dp, bottom = 8.dp)
+            .padding(start = 8.dp, end = 14.dp, top = 14.dp, bottom = 10.dp)
     ) {
-        (tower.floors downTo 1).forEach { floor ->
+        (tower.floors downTo GROUND_FLOOR).forEach { floor ->
             val units = tower.unitsOn(floor)
             val different = floor in tower.floorOverrides
+            val ground = floor == GROUND_FLOOR
+            if (ground) Spacer(modifier = Modifier.height(6.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(rowHeight)
+                    // O térreo tem altura cheia mesmo em prédios altos: é o mais tocado.
+                    .height(if (ground) 20.dp else rowHeight)
                     .clip(MaterialTheme.shapes.extraSmall)
-                    .clickable(onClickLabel = "Ajustar ${floor}º andar") { onFloorClick(floor) },
+                    .clickable(onClickLabel = "Ajustar ${floorLabel(floor)}") { onFloorClick(floor) },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "$floor",
+                    if (ground) "T" else "$floor",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (different) condo.accent else condo.onHeroMuted,
                     textAlign = TextAlign.End,
@@ -368,8 +374,15 @@ private fun TowerElevation(tower: Tower, onFloorClick: (Int) -> Unit) {
                         .weight(1f)
                         .fillMaxHeight()
                         .padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (units == 0) {
+                        EmptyFloor(
+                            text = if (ground) "Térreo sem aptos · toque para adicionar" else "Sem apartamentos",
+                            showText = rowHeight >= 20.dp || ground
+                        )
+                    }
                     repeat(units) {
                         Box(
                             modifier = Modifier
@@ -382,43 +395,66 @@ private fun TowerElevation(tower: Tower, onFloorClick: (Int) -> Unit) {
                 }
             }
         }
-        Spacer(modifier = Modifier.height(6.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 26.dp)
+                .padding(start = 26.dp, top = 4.dp)
                 .height(2.dp)
                 .background(condo.onHeroMuted.copy(alpha = 0.5f))
         )
-        Text(
-            "Térreo",
-            style = MaterialTheme.typography.labelSmall,
-            color = condo.onHeroMuted,
-            modifier = Modifier.padding(start = 26.dp, top = 4.dp)
-        )
+    }
+}
+
+/** Andar apagado: só o contorno da laje, com o aviso quando há espaço para ele. */
+@Composable
+private fun EmptyFloor(text: String, showText: Boolean) {
+    val condo = CondoTheme.colors
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .border(1.dp, condo.onHeroMuted.copy(alpha = 0.25f), RoundedCornerShape(2.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (showText) {
+            Text(text, style = MaterialTheme.typography.labelSmall, color = condo.onHeroMuted, maxLines = 1)
+        }
     }
 }
 
 @Composable
 private fun FloorDialog(tower: Tower, floor: Int, onApply: (Int) -> Unit, onDismiss: () -> Unit) {
     var units by remember(tower.id, floor) { mutableIntStateOf(tower.unitsOn(floor)) }
+    val ground = floor == GROUND_FLOOR
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.background,
-        title = { Text("${floor}º andar · ${tower.name}", style = MaterialTheme.typography.headlineSmall) },
+        title = {
+            Text(
+                if (ground) "Térreo · ${tower.name}" else "${floor}º andar · ${tower.name}",
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
         text = {
             Column {
-                Text("Quantos apartamentos tem este andar? O padrão do bloco é ${tower.unitsPerFloor}.")
+                Text(
+                    if (ground) {
+                        "Quantos apartamentos tem o térreo? Deixe 0 se ele for só portaria e lazer. " +
+                            "Eles serão numerados T01, T02…"
+                    } else {
+                        "Quantos apartamentos tem este andar? O padrão do bloco é ${tower.unitsPerFloor}. " +
+                            "Use 0 para um andar sem apartamentos, como o de lazer."
+                    }
+                )
                 Spacer(modifier = Modifier.height(16.dp))
-                Stepper("Aptos neste andar", units, 1, MAX_UNITS_PER_FLOOR, { units = it }, Modifier.fillMaxWidth())
+                Stepper("Aptos neste andar", units, 0, MAX_UNITS_PER_FLOOR, { units = it }, Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
             TextButton(onClick = { onApply(units) }) { Text("Aplicar") }
         },
         dismissButton = {
-            TextButton(onClick = { onApply(tower.unitsPerFloor) }) {
-                Text("Usar padrão", color = MaterialTheme.colorScheme.onSurface)
+            TextButton(onClick = { onApply(tower.defaultUnitsOn(floor)) }) {
+                Text(if (ground) "Sem aptos" else "Usar padrão", color = MaterialTheme.colorScheme.onSurface)
             }
         }
     )

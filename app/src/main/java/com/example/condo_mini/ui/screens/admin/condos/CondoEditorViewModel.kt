@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.domain.model.Condominium
+import com.example.condo_mini.domain.model.GROUND_FLOOR
 import com.example.condo_mini.domain.model.Tower
 import com.example.condo_mini.domain.repository.DirectoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,13 +78,19 @@ class CondoEditorViewModel(
 
     fun onUnitsPerFloorChanged(towerId: String, units: Int) = updateTower(towerId) { tower ->
         val value = units.coerceIn(1, MAX_UNITS_PER_FLOOR)
-        tower.copy(unitsPerFloor = value, floorOverrides = tower.floorOverrides.filterValues { it != value })
+        // Andares que ficaram iguais ao novo padrão perdem a exceção; o térreo tem padrão próprio (0).
+        val overrides = tower.floorOverrides.filter { (floor, count) -> floor == GROUND_FLOOR || count != value }
+        tower.copy(unitsPerFloor = value, floorOverrides = overrides)
     }
 
-    /** [units] igual ao padrão do bloco remove a exceção do andar. */
+    /** 0 deixa o andar sem apartamentos; o valor padrão do andar remove a exceção. */
     fun onFloorUnitsChanged(towerId: String, floor: Int, units: Int) = updateTower(towerId) { tower ->
-        val value = units.coerceIn(1, MAX_UNITS_PER_FLOOR)
-        val overrides = if (value == tower.unitsPerFloor) tower.floorOverrides - floor else tower.floorOverrides + (floor to value)
+        val value = units.coerceIn(0, MAX_UNITS_PER_FLOOR)
+        val overrides = if (value == tower.defaultUnitsOn(floor)) {
+            tower.floorOverrides - floor
+        } else {
+            tower.floorOverrides + (floor to value)
+        }
         tower.copy(floorOverrides = overrides)
     }
 
@@ -95,6 +102,8 @@ class CondoEditorViewModel(
             state.towers.isEmpty() -> "Adicione pelo menos um bloco."
             names.any { it.isBlank() } -> "Todos os blocos precisam de nome."
             names.size != names.toSet().size -> "Dois blocos estão com o mesmo nome."
+            state.towers.any { it.totalUnits == 0 } ->
+                "${state.towers.first { it.totalUnits == 0 }.name.trim()} ficou sem nenhum apartamento."
             else -> null
         }
         if (error != null) {

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.GROUND_FLOOR
 import com.example.condo_mini.domain.model.Condominium
 import com.example.condo_mini.domain.model.Tower
 import com.example.condo_mini.domain.model.UnitDocument
@@ -96,13 +97,18 @@ class AdminUnitsViewModel(
             tower = tower,
             months = months,
             month = filters.month,
-            floors = units
-                .filter { it.towerId == tower?.id }
-                .groupBy { it.floor }
-                .toSortedMap(compareByDescending { it })
-                .map { (floor, floorUnits) ->
-                    FloorRow(floor, floorUnits.map { UnitCell(it, residentsByUnit[it.label].orEmpty(), monthDocs[it.label]) })
-                },
+            floors = tower?.let { t ->
+                val byFloor = units.filter { it.towerId == t.id }.groupBy { it.floor }
+                // Andares sem apartamentos continuam no mapa (vazios); o térreo só aparece se tiver aptos.
+                (t.floors downTo GROUND_FLOOR)
+                    .filter { it != GROUND_FLOOR || byFloor[it].orEmpty().isNotEmpty() }
+                    .map { floor ->
+                        FloorRow(
+                            floor,
+                            byFloor[floor].orEmpty().map { UnitCell(it, residentsByUnit[it.label].orEmpty(), monthDocs[it.label]) }
+                        )
+                    }
+            }.orEmpty(),
             sentInMonth = units.count { it.label in monthDocs },
             totalUnits = units.size,
             occupiedUnits = units.count { residentsByUnit[it.label].orEmpty().isNotEmpty() },

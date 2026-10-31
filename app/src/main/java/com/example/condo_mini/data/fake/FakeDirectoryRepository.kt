@@ -26,7 +26,7 @@ class FakeDirectoryRepository : DirectoryRepository {
                 address = "Rua Oscar Freire, 1200 · Jardins, São Paulo",
                 towers = listOf(
                     Tower("c1-a", "Bloco A", floors = 14, unitsPerFloor = 4, floorOverrides = mapOf(14 to 2)),
-                    Tower("c1-b", "Bloco B", floors = 12, unitsPerFloor = 6),
+                    Tower("c1-b", "Bloco B", floors = 12, unitsPerFloor = 6, floorOverrides = mapOf(0 to 2)),
                     Tower("c1-c", "Bloco C", floors = 10, unitsPerFloor = 2)
                 )
             ),
@@ -35,7 +35,7 @@ class FakeDirectoryRepository : DirectoryRepository {
                 name = "Edifício Vista Mar",
                 address = "Av. Atlântica, 3400 · Copacabana, Rio de Janeiro",
                 towers = listOf(
-                    Tower("c2-t", "Torre única", floors = 20, unitsPerFloor = 2, floorOverrides = mapOf(20 to 1))
+                    Tower("c2-t", "Torre única", floors = 20, unitsPerFloor = 2, floorOverrides = mapOf(1 to 0, 20 to 1))
                 )
             ),
             Condominium(

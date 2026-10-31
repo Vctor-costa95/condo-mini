@@ -55,6 +55,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
+import com.example.condo_mini.domain.model.floorLabel
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.EmptyState
 import com.example.condo_mini.ui.components.Eyebrow
@@ -344,7 +345,7 @@ private fun UserFormSheet(
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(floors.reversed()) { value ->
                         PillChip(selected = floor == value, onClick = { onChange { it.copy(towerId = towerId, floor = value) } }) {
-                            Text("${value}º", style = MaterialTheme.typography.labelLarge)
+                            Text(floorLabel(value), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
