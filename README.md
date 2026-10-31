@@ -9,7 +9,7 @@ Aplicativo de gestão condominial para Android, voltado ao cliente final. Reúne
 | Perfil | Situação | O que faz |
 |---|---|---|
 | **Morador** | ✅ Pronto | Avisos, reservas, boletos, encomendas, ocorrências e perfil |
-| **Síndico** | ✅ Pronto | Publica avisos, aprova/recusa reservas, responde ocorrências |
+| **Síndico** | ✅ Pronto | Publica avisos e documentos, aprova/recusa reservas, responde ocorrências |
 | **Porteiro** | ⏳ Planejado | Registrar encomendas com foto |
 | **Administrador** | ⏳ Planejado | Gerenciar condomínios e perfis de acesso |
 
@@ -23,12 +23,13 @@ O perfil é escolhido na tela de login ("Acessar como").
 - **Boletos**: cobranças mensais com status (em aberto, vencido, pago), cópia do código de barras e visualização/compartilhamento do PDF.
 - **Encomendas**: itens aguardando retirada com código e foto tirada pela portaria, que abre em tela cheia com zoom.
 - **Ocorrências**: registro no livro de ocorrências com até 3 fotos (câmera ou galeria), acompanhamento por protocolo e conversa com a administração.
-- **Perfil**: dados da unidade e edição de contato.
+- **Perfil**: dados da unidade, edição de contato e acesso aos **Documentos do condomínio** (regimento interno, convenção e atas de assembleia em PDF, com zoom e compartilhamento).
 
 ### Síndico
 - **Avisos**: criação com categoria e opção de fixar; exclusão com confirmação.
 - **Aprovações**: aprovar ou recusar reservas (a recusa exige um motivo).
 - **Ocorrências**: responder, pedir mais detalhes ao morador ou resolver, com anexo de fotos.
+- **Documentos**: publicar PDFs (regimento, convenção, atas e outros) para todos os moradores, substituir a versão vigente do regimento ou da convenção e excluir documentos.
 
 ## Stack
 
@@ -75,9 +76,9 @@ app/src/main/java/com/example/condo_mini/
 ├── data/
 │   ├── AppContainer.kt      # Injeção de dependência manual (troque os fakes aqui)
 │   ├── fake/                # Repositórios simulados em memória
-│   └── pdf/                 # Gerador do PDF de boleto de demonstração
+│   └── pdf/                 # PDFs de demonstração (boleto, documentos) e cópia dos PDFs enviados
 ├── domain/
-│   ├── model/               # Modelos: User, Notice, Reservation, Bill, Parcel, Occurrence
+│   ├── model/               # Modelos: User, Notice, Reservation, Bill, Parcel, Occurrence, CondoDocument
 │   └── repository/          # Interfaces dos repositórios
 └── ui/
     ├── components/          # Componentes compartilhados (cards, chips, fotos, zoom)

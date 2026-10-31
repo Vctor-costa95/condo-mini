@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.HomeWork
 import androidx.compose.material.icons.outlined.Info
@@ -60,6 +61,7 @@ import com.example.condo_mini.ui.theme.CondominiTheme
 @Composable
 fun ProfileRoute(
     onLogoutClick: () -> Unit,
+    onDocumentsClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = viewModel()
 ) {
@@ -73,6 +75,7 @@ fun ProfileRoute(
         user = current,
         onSaveContact = viewModel::onSaveContact,
         onLogoutClick = onLogoutClick,
+        onDocumentsClick = onDocumentsClick,
         modifier = modifier
     )
 }
@@ -82,6 +85,7 @@ fun ProfileScreen(
     user: User,
     onSaveContact: (email: String, phone: String) -> Unit,
     onLogoutClick: () -> Unit,
+    onDocumentsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var editingContact by rememberSaveable { mutableStateOf(false) }
@@ -112,6 +116,20 @@ fun ProfileScreen(
             ProfileRow(Icons.Outlined.HomeWork, "Unidade", user.unit)
             RowDivider()
             ProfileRow(Icons.Outlined.Badge, "Perfil de acesso", user.role.label)
+        }
+
+        // O administrador gerencia vários condomínios e não tem um "seu".
+        if (user.condoId.isNotBlank()) {
+            SectionHeader("Condomínio", modifier = Modifier.padding(horizontal = 4.dp))
+            CondoCard(contentPadding = PaddingValues(vertical = 4.dp)) {
+                ProfileRow(
+                    Icons.Outlined.Description,
+                    "Documentos",
+                    if (user.role == UserRole.MANAGER) "Publicar regimento, convenção e atas" else "Regimento, convenção e atas",
+                    onClick = onDocumentsClick,
+                    actionLabel = "Abrir documentos"
+                )
+            }
         }
 
         SectionHeader("Contato", modifier = Modifier.padding(horizontal = 4.dp))
@@ -189,6 +207,7 @@ private fun ProfileRow(
     label: String,
     value: String,
     onClick: (() -> Unit)? = null,
+    actionLabel: String = "Editar",
     trailing: (@Composable () -> Unit)? = null
 ) {
     Row(
@@ -208,7 +227,7 @@ private fun ProfileRow(
             trailing != null -> trailing()
             onClick != null -> Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Editar",
+                contentDescription = actionLabel,
                 tint = MaterialTheme.colorScheme.outline
             )
         }
@@ -275,9 +294,10 @@ private fun EditContactDialog(
 private fun ProfileScreenPreview() {
     CondominiTheme {
         ProfileScreen(
-            user = User("1", "Ana Clara", "Apto 201 - Bloco A", UserRole.RESIDENT, "ana@email.com", "(11) 98888-7777"),
+            user = User("1", "Ana Clara", "Apto 201 - Bloco A", UserRole.RESIDENT, "ana@email.com", "(11) 98888-7777", "c1"),
             onSaveContact = { _, _ -> },
-            onLogoutClick = {}
+            onLogoutClick = {},
+            onDocumentsClick = {}
         )
     }
 }

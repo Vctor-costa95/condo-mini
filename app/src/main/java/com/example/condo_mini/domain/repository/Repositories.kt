@@ -2,8 +2,10 @@ package com.example.condo_mini.domain.repository
 
 import com.example.condo_mini.domain.model.Bill
 import com.example.condo_mini.domain.model.CommonArea
+import com.example.condo_mini.domain.model.CondoDocument
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.Condominium
+import com.example.condo_mini.domain.model.DocumentCategory
 import com.example.condo_mini.domain.model.Notice
 import com.example.condo_mini.domain.model.NoticeCategory
 import com.example.condo_mini.domain.model.Occurrence
@@ -176,4 +178,24 @@ interface OccurrenceRepository {
 
     /** Morador complementa a ocorrência após um pedido de detalhes. */
     suspend fun replyAsResident(occurrenceId: String, text: String, author: String, photoUrls: List<String>)
+}
+
+/** Regimento, convenção, atas e outros PDFs do condomínio, publicados pelo síndico. */
+interface DocumentRepository {
+    fun observeDocuments(condoId: String): Flow<List<CondoDocument>>
+    suspend fun getDocument(documentId: String): CondoDocument?
+
+    /** Arquivo PDF do documento, pronto para exibir ou compartilhar. */
+    suspend fun documentFile(document: CondoDocument): File
+
+    /** Publica o PDF escolhido em [sourceUri] para todos os moradores de [condoId]. */
+    suspend fun upload(
+        condoId: String,
+        title: String,
+        category: DocumentCategory,
+        sourceUri: String,
+        uploadedBy: String
+    ): Result<CondoDocument>
+
+    suspend fun delete(documentId: String)
 }
