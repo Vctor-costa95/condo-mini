@@ -21,7 +21,11 @@ data class User(
     val phone: String = "",
     /** Condomínio do cadastro; vazio para o administrador, que gerencia vários. */
     val condoId: String = "",
-    val units: List<String> = listOfNotNull(unit.takeIf { it.isNotBlank() })
+    val units: List<String> = listOfNotNull(unit.takeIf { it.isNotBlank() }),
+    /** Usuário de acesso, criado pela administração junto com o cadastro. */
+    val login: String = "",
+    /** Vazia só nas contas de teste. */
+    val password: String = ""
 ) {
     val hasManyUnits: Boolean get() = units.size > 1
 }

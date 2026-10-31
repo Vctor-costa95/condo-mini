@@ -36,9 +36,9 @@ fun AppNavigation(
         composable(AppRoutes.LOGIN) {
             LoginScreen(
                 uiState = uiState,
-                onUserNameChanged = { loginViewModel.onUserNameChanged(it) },
-                onUnitNumberChanged = { loginViewModel.onUnitNumberChanged(it) },
-                onRoleChanged = { loginViewModel.onRoleChanged(it) },
+                onLoginChanged = { loginViewModel.onLoginChanged(it) },
+                onPasswordChanged = { loginViewModel.onPasswordChanged(it) },
+                onTogglePassword = { loginViewModel.onTogglePassword() },
                 onLoginClick = {
                     if (loginViewModel.login()) {
                         val next = if (loginViewModel.needsUnitChoice()) AppRoutes.CHOOSE_UNIT else AppRoutes.MAIN
