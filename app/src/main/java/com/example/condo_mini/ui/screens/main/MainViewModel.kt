@@ -13,6 +13,7 @@ import com.example.condo_mini.domain.repository.DirectoryRepository
 import com.example.condo_mini.domain.repository.OccurrenceRepository
 import com.example.condo_mini.domain.repository.ParcelRepository
 import com.example.condo_mini.domain.repository.ReservationRepository
+import com.example.condo_mini.domain.repository.ServiceBookingRepository
 import com.example.condo_mini.domain.repository.SessionRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -30,7 +31,8 @@ class MainViewModel(
     private val parcelRepository: ParcelRepository = AppContainer.parcelRepository,
     private val occurrenceRepository: OccurrenceRepository = AppContainer.occurrenceRepository,
     private val reservationRepository: ReservationRepository = AppContainer.reservationRepository,
-    private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository
+    private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository,
+    private val serviceBookingRepository: ServiceBookingRepository = AppContainer.serviceBookingRepository
 ) : ViewModel() {
 
     val user: StateFlow<User?> = sessionRepository.currentUser
@@ -46,7 +48,7 @@ class MainViewModel(
     val badges: StateFlow<Map<AppTab, Int>> = user
         .flatMapLatest { user ->
             when (user?.role) {
-                UserRole.MANAGER -> managerBadges()
+                UserRole.MANAGER -> managerBadges(user.condoId)
                 UserRole.ADMIN -> adminBadges()
                 null -> flowOf(emptyMap())
                 UserRole.DOORMAN -> doormanBadges(user.condoId)
@@ -76,12 +78,14 @@ class MainViewModel(
         mapOf(AppTab.ADMIN_USERS to users.count { it.role == UserRole.RESIDENT && it.units.isEmpty() })
     }
 
-    private fun managerBadges(): Flow<Map<AppTab, Int>> = combine(
+    private fun managerBadges(condoId: String): Flow<Map<AppTab, Int>> = combine(
         reservationRepository.observeAllReservations(),
+        serviceBookingRepository.observeAllBookings(condoId),
         occurrenceRepository.observeAllOccurrences()
-    ) { reservations, occurrences ->
+    ) { reservations, services, occurrences ->
         mapOf(
-            AppTab.MANAGER_RESERVATIONS to reservations.count { it.status == ReservationStatus.PENDING },
+            AppTab.MANAGER_RESERVATIONS to reservations.count { it.status == ReservationStatus.PENDING } +
+                services.count { it.status == ReservationStatus.PENDING },
             AppTab.MANAGER_OCCURRENCES to occurrences.count {
                 it.status == OccurrenceStatus.OPEN || it.status == OccurrenceStatus.IN_REVIEW
             }

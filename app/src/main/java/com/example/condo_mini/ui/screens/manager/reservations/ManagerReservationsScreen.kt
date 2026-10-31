@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.Reservation
+import com.example.condo_mini.domain.model.ServiceBooking
+import com.example.condo_mini.domain.model.ServiceType
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.EmptyState
 import com.example.condo_mini.ui.components.Eyebrow
@@ -70,6 +72,8 @@ fun ManagerReservationsRoute(
         uiState = uiState,
         onApprove = viewModel::onApprove,
         onReject = viewModel::onReject,
+        onApproveService = viewModel::onApproveService,
+        onRejectService = viewModel::onRejectService,
         modifier = modifier
     )
 }
@@ -79,6 +83,8 @@ fun ManagerReservationsScreen(
     uiState: ManagerReservationsUiState,
     onApprove: (Reservation) -> Unit,
     onReject: (Reservation, String) -> Unit,
+    onApproveService: (ServiceBooking) -> Unit,
+    onRejectService: (ServiceBooking, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (uiState.isLoading) {
@@ -86,6 +92,7 @@ fun ManagerReservationsScreen(
         return
     }
     var toReject by remember { mutableStateOf<Reservation?>(null) }
+    var serviceToReject by remember { mutableStateOf<ServiceBooking?>(null) }
 
     LazyColumn(
         modifier = modifier,
@@ -95,19 +102,28 @@ fun ManagerReservationsScreen(
         item {
             SectionHeader(
                 "Aguardando aprovação",
-                trailing = "${uiState.pending.size}",
+                trailing = "${uiState.pendingCount}",
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
-        if (uiState.pending.isEmpty()) {
+        if (uiState.pendingCount == 0) {
             item {
                 EmptyState(
                     icon = Icons.Outlined.EventAvailable,
                     title = "Tudo em dia",
-                    message = "Nenhuma reserva aguardando sua aprovação.",
+                    message = "Nenhuma reserva, mudança ou reparo aguardando sua aprovação.",
                     modifier = Modifier.height(260.dp)
                 )
             }
+        }
+        // Mudanças e reparos primeiro: têm data marcada com empresa e portaria envolvidas.
+        items(uiState.pendingServices, key = { it.id }) { booking ->
+            PendingServiceCard(
+                booking = booking,
+                processing = booking.id in uiState.processingIds,
+                onApprove = { onApproveService(booking) },
+                onReject = { serviceToReject = booking }
+            )
         }
         items(uiState.pending, key = { it.id }) { reservation ->
             PendingReservationCard(
@@ -116,6 +132,18 @@ fun ManagerReservationsScreen(
                 onApprove = { onApprove(reservation) },
                 onReject = { toReject = reservation }
             )
+        }
+        if (uiState.upcomingServices.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    "Mudanças e reparos aprovados",
+                    trailing = "${uiState.upcomingServices.size}",
+                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)
+                )
+            }
+            items(uiState.upcomingServices, key = { it.id }) { booking ->
+                CondoCard(contentPadding = PaddingValues(18.dp)) { ServiceHeader(booking) }
+            }
         }
         if (uiState.upcoming.isNotEmpty()) {
             item {
@@ -131,12 +159,25 @@ fun ManagerReservationsScreen(
 
     toReject?.let { reservation ->
         RejectDialog(
-            reservation = reservation,
+            title = "Recusar reserva",
+            subject = "${reservation.area.name} · ${reservation.unit}",
             onConfirm = { reason ->
                 onReject(reservation, reason)
                 toReject = null
             },
             onDismiss = { toReject = null }
+        )
+    }
+
+    serviceToReject?.let { booking ->
+        RejectDialog(
+            title = "Recusar pedido",
+            subject = "${booking.title} · ${booking.unit}",
+            onConfirm = { reason ->
+                onRejectService(booking, reason)
+                serviceToReject = null
+            },
+            onDismiss = { serviceToReject = null }
         )
     }
 }
@@ -159,41 +200,101 @@ private fun PendingReservationCard(
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = onReject,
-                enabled = !processing,
-                shape = MaterialTheme.shapes.medium,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-            ) {
-                Text("Recusar", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge)
-            }
-            Button(
-                onClick = onApprove,
-                enabled = !processing,
-                shape = MaterialTheme.shapes.medium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-            ) {
-                if (processing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("Aprovar", style = MaterialTheme.typography.labelLarge)
-                }
+        ApprovalButtons(processing, onApprove, onReject)
+    }
+}
+
+/** Aprova ou recusa: o mesmo par de botões para reservas, mudanças e reparos. */
+@Composable
+private fun ApprovalButtons(processing: Boolean, onApprove: () -> Unit, onReject: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(
+            onClick = onReject,
+            enabled = !processing,
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+        ) {
+            Text("Recusar", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge)
+        }
+        Button(
+            onClick = onApprove,
+            enabled = !processing,
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+        ) {
+            if (processing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Text("Aprovar", style = MaterialTheme.typography.labelLarge)
             }
         }
+    }
+}
+
+@Composable
+private fun PendingServiceCard(
+    booking: ServiceBooking,
+    processing: Boolean,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    CondoCard(contentPadding = PaddingValues(18.dp)) {
+        // Sem selo de status: a seção já diz que aguarda aprovação, e o título ganha a largura toda.
+        ServiceHeader(booking, showStatus = false)
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            when (booking.type) {
+                ServiceType.MOVE -> "Ao aprovar, este período fica bloqueado para outras mudanças."
+                ServiceType.REPAIR -> "A portaria acompanha o técnico até o apartamento."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        ApprovalButtons(processing, onApprove, onReject)
+    }
+}
+
+@Composable
+private fun ServiceHeader(booking: ServiceBooking, showStatus: Boolean = true) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        DateBlock(booking.date)
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Eyebrow(booking.unit, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(booking.title, style = MaterialTheme.typography.titleLarge)
+            Text(
+                "${booking.period.label} · ${booking.period.hours}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Solicitado por ${booking.residentName}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (booking.provider.isNotBlank()) {
+                Text(
+                    booking.provider,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (showStatus) StatusChip(booking.status.label.substringBefore(" "), booking.status.tone())
     }
 }
 
@@ -231,7 +332,8 @@ private fun ReservationHeader(reservation: Reservation) {
 
 @Composable
 private fun RejectDialog(
-    reservation: Reservation,
+    title: String,
+    subject: String,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -239,11 +341,11 @@ private fun RejectDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.background,
-        title = { Text("Recusar reserva", style = MaterialTheme.typography.headlineSmall) },
+        title = { Text(title, style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "${reservation.area.name} · ${reservation.unit}. O morador verá o motivo informado.",
+                    "$subject. O morador verá o motivo informado.",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 OutlinedTextField(
