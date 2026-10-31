@@ -1,6 +1,7 @@
 package com.example.condo_mini.ui.screens.login
 
 import android.app.Activity
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -76,6 +78,7 @@ fun LoginScreen(
 ) {
     LightStatusBarIcons()
     val focusManager = LocalFocusManager.current
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -97,8 +100,11 @@ fun LoginScreen(
                     .offset(y = (-36).dp)
                     .fillMaxWidth(),
                 shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shadowElevation = 6.dp
+                // No escuro, o branco "mais baixo" vira quase preto e o cartão parece um buraco.
+                color = if (isDark) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
+                border = if (isDark) BorderStroke(1.dp, CondoTheme.colors.accent.copy(alpha = 0.25f)) else null,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                shadowElevation = if (isDark) 0.dp else 6.dp
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text("Entrar", style = MaterialTheme.typography.headlineSmall)
