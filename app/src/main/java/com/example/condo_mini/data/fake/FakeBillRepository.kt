@@ -37,7 +37,7 @@ class FakeBillRepository(
 
     override suspend fun billPdf(bill: Bill, payer: User): File = withContext(Dispatchers.IO) {
         documents.value
-            .firstOrNull { it.unit == payer.unit && it.reference == bill.reference }
+            .firstOrNull { it.condoId == payer.condoId && it.unit == payer.unit && it.reference == bill.reference }
             ?.let { File(it.filePath) }
             ?.takeIf { it.exists() }
             ?: pdfGenerator.generate(bill, payer)
@@ -46,12 +46,13 @@ class FakeBillRepository(
     override fun observeUnitDocuments(): Flow<List<UnitDocument>> = documents
 
     override suspend fun uploadUnitDocument(
+        condoId: String,
         unit: String,
         reference: YearMonth,
         sourceUri: String
     ): Result<UnitDocument> = withContext(Dispatchers.IO) {
         runCatching {
-            val stored = documentStore.save(unit, reference, sourceUri)
+            val stored = documentStore.save(condoId, unit, reference, sourceUri)
             val document = UnitDocument(
                 id = UUID.randomUUID().toString(),
                 unit = unit,
@@ -59,11 +60,12 @@ class FakeBillRepository(
                 fileName = stored.displayName,
                 filePath = stored.file.absolutePath,
                 sizeBytes = stored.file.length(),
-                uploadedAt = LocalDateTime.now()
+                uploadedAt = LocalDateTime.now(),
+                condoId = condoId
             )
             // Um PDF por unidade e mês: o novo substitui o anterior (mesmo arquivo em disco).
             documents.update { list ->
-                list.filterNot { it.unit == unit && it.reference == reference } + document
+                list.filterNot { it.condoId == condoId && it.unit == unit && it.reference == reference } + document
             }
             document
         }

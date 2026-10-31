@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Deck
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.outlined.Apartment
@@ -53,7 +55,10 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,13 +71,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.ui.screens.admin.areas.AdminAreasRoute
+import com.example.condo_mini.ui.screens.admin.condos.CondoEditorRoute
+import com.example.condo_mini.ui.screens.admin.condos.CondoPickerSheet
 import com.example.condo_mini.ui.screens.admin.units.AdminUnitsRoute
 import com.example.condo_mini.ui.screens.admin.users.AdminUsersRoute
 import com.example.condo_mini.ui.screens.manager.notices.ManagerNoticesRoute
@@ -129,6 +138,8 @@ enum class AppTab(
 private const val PROFILE_ROUTE = "profile"
 private const val BILL_ID_ARG = "billId"
 private const val BILL_PDF_ROUTE = "bill_pdf/{$BILL_ID_ARG}"
+private const val CONDO_ID_ARG = "condoId"
+private const val CONDO_EDITOR_ROUTE = "condo_editor?$CONDO_ID_ARG={$CONDO_ID_ARG}"
 private const val FADE_MS = 220
 
 @Composable
@@ -150,7 +161,9 @@ fun MainScreen(
     }
     val isProfile = currentDestination?.route == PROFILE_ROUTE
     // Telas de detalhe em tela cheia desenham o próprio cabeçalho.
-    val isFullScreen = currentDestination?.route == BILL_PDF_ROUTE
+    val isFullScreen = currentDestination?.route == BILL_PDF_ROUTE || currentDestination?.route == CONDO_EDITOR_ROUTE
+    val adminCondo by viewModel.adminCondo.collectAsStateWithLifecycle()
+    var showCondoPicker by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -162,6 +175,8 @@ fun MainScreen(
                     user = user,
                     tab = currentTab ?: tabs.first(),
                     isProfile = isProfile,
+                    condoName = adminCondo?.name,
+                    onCondoClick = { showCondoPicker = true },
                     onProfileClick = { navController.navigate(PROFILE_ROUTE) { launchSingleTop = true } },
                     onBackClick = { navController.popBackStack() }
                 )
@@ -216,9 +231,32 @@ fun MainScreen(
             composable(AppTab.ADMIN_UNITS.route) { AdminUnitsRoute(snackbarHostState) }
             composable(AppTab.ADMIN_USERS.route) { AdminUsersRoute() }
             composable(AppTab.ADMIN_AREAS.route) { AdminAreasRoute() }
+            composable(
+                route = CONDO_EDITOR_ROUTE,
+                arguments = listOf(navArgument(CONDO_ID_ARG) { type = NavType.StringType; nullable = true })
+            ) { entry ->
+                CondoEditorRoute(
+                    condoId = entry.arguments?.getString(CONDO_ID_ARG),
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
 
             composable(PROFILE_ROUTE) { ProfileRoute(onLogoutClick = onLogoutClick) }
         }
+    }
+
+    if (showCondoPicker) {
+        CondoPickerSheet(
+            onEdit = { condo ->
+                showCondoPicker = false
+                navController.navigate("condo_editor?$CONDO_ID_ARG=${condo.id}")
+            },
+            onCreate = {
+                showCondoPicker = false
+                navController.navigate("condo_editor")
+            },
+            onDismiss = { showCondoPicker = false }
+        )
     }
 }
 
@@ -227,20 +265,22 @@ private fun MainHeader(
     user: User?,
     tab: AppTab,
     isProfile: Boolean,
+    condoName: String?,
+    onCondoClick: () -> Unit,
     onProfileClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val firstName = user?.name?.substringBefore(" ").orEmpty()
-    // Síndico e administrador veem o condomínio todo, não uma unidade.
-    val isStaff = user?.role == UserRole.MANAGER || user?.role == UserRole.ADMIN
+    // O administrador gerencia vários condomínios: o nome do atual abre a troca.
+    val showsCondo = user?.role == UserRole.ADMIN && !isProfile
     val (eyebrow, title) = when {
         isProfile -> "Conta" to "Meu perfil"
+        showsCondo -> condoName.orEmpty() to tab.title
         tab.isHome -> {
             val hello = if (firstName.isBlank()) "Bem-vindo" else "Olá, $firstName"
-            (if (isStaff) "${greeting()} · ${user?.role?.label}" else greeting()) to hello
+            (if (user?.role == UserRole.MANAGER) "${greeting()} · Síndico" else greeting()) to hello
         }
-        user?.role == UserRole.ADMIN -> "Administração" to tab.title
-        isStaff -> "Gestão do condomínio" to tab.title
+        user?.role == UserRole.MANAGER -> "Gestão do condomínio" to tab.title
         else -> user?.unit.orEmpty() to tab.title
     }
 
@@ -265,7 +305,25 @@ private fun MainHeader(
             modifier = Modifier.weight(1f)
         ) { (eyebrowText, titleText) ->
             Column {
-                Eyebrow(eyebrowText)
+                if (showsCondo) {
+                    Row(
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable(onClickLabel = "Trocar de condomínio", onClick = onCondoClick)
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Eyebrow(eyebrowText)
+                        Icon(
+                            Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                } else {
+                    Eyebrow(eyebrowText)
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = titleText,

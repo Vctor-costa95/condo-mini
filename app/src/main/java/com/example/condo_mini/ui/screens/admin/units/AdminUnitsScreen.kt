@@ -2,9 +2,14 @@ package com.example.condo_mini.ui.screens.admin.units
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,9 +23,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.PictureAsPdf
@@ -35,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -46,22 +55,27 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.Tower
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.ui.components.CondoCard
+import com.example.condo_mini.ui.components.EmptyState
 import com.example.condo_mini.ui.components.Eyebrow
+import com.example.condo_mini.ui.components.HeroCard
 import com.example.condo_mini.ui.components.InitialsAvatar
 import com.example.condo_mini.ui.components.LoadingState
 import com.example.condo_mini.ui.components.PillChip
+import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.SectionHeader
-import com.example.condo_mini.ui.components.StatusChip
-import com.example.condo_mini.ui.components.StatusTone
+import com.example.condo_mini.ui.theme.CondoTheme
 import com.example.condo_mini.ui.util.formatDateTime
 import com.example.condo_mini.ui.util.formatFileSize
 import com.example.condo_mini.ui.util.formatMonth
@@ -81,9 +95,7 @@ fun AdminUnitsRoute(
         val target = pdfTargetId
         pdfTargetId = null
         if (uri == null || target == null) return@rememberLauncherForActivityResult
-        val unit = uiState.rows.firstOrNull { it.unit.id == target }?.unit
-            ?: uiState.detail?.unit?.takeIf { it.id == target }
-        unit?.let { viewModel.onPdfPicked(it, uri.toString()) }
+        uiState.condo?.units?.firstOrNull { it.id == target }?.let { viewModel.onPdfPicked(it, uri.toString()) }
     }
     val onUploadPdf: (CondoUnit) -> Unit = { unit ->
         pdfTargetId = unit.id
@@ -100,16 +112,15 @@ fun AdminUnitsRoute(
     AdminUnitsScreen(
         uiState = uiState,
         onMonthSelected = viewModel::onMonthSelected,
-        onBlockSelected = viewModel::onBlockSelected,
+        onTowerSelected = viewModel::onTowerSelected,
         onOpenUnit = viewModel::onOpenUnit,
-        onUploadPdf = onUploadPdf,
         modifier = modifier
     )
 
     uiState.detail?.let { detail ->
         UnitDetailSheet(
             detail = detail,
-            monthName = uiState.month.monthName(),
+            month = uiState.month,
             uploading = detail.unit.id in uiState.uploading,
             onUploadPdf = { onUploadPdf(detail.unit) },
             onDeleteDocument = viewModel::onDeleteDocument,
@@ -124,29 +135,39 @@ fun AdminUnitsRoute(
 fun AdminUnitsScreen(
     uiState: AdminUnitsUiState,
     onMonthSelected: (YearMonth) -> Unit,
-    onBlockSelected: (String) -> Unit,
+    onTowerSelected: (Tower) -> Unit,
     onOpenUnit: (CondoUnit) -> Unit,
-    onUploadPdf: (CondoUnit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (uiState.isLoading) {
         LoadingState(modifier)
         return
     }
+    val condo = uiState.condo
+    if (condo == null || condo.towers.isEmpty()) {
+        EmptyState(
+            icon = Icons.Outlined.Apartment,
+            title = "Sem unidades",
+            message = "Cadastre os blocos deste condomínio para ver os apartamentos.",
+            modifier = modifier
+        )
+        return
+    }
+    // Outro condomínio ou bloco: volta ao topo em vez de cair no meio do prédio novo.
+    val listState = rememberLazyListState()
+    LaunchedEffect(condo.id, uiState.tower?.id) { listState.scrollToItem(0) }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item {
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                MonthProgress(uiState)
-            }
-        }
+        item { MonthSummary(uiState, modifier = Modifier.padding(horizontal = 20.dp)) }
         item {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp)
             ) {
                 items(uiState.months) { month ->
                     PillChip(selected = month == uiState.month, onClick = { onMonthSelected(month) }) {
@@ -155,108 +176,216 @@ fun AdminUnitsScreen(
                 }
             }
         }
-        item {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                uiState.blocks.forEach { block ->
-                    PillChip(
-                        selected = block == uiState.block,
-                        onClick = { onBlockSelected(block) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Bloco $block", style = MaterialTheme.typography.labelLarge)
+        if (condo.towers.size > 1) {
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(condo.towers, key = { it.id }) { tower ->
+                        PillChip(selected = tower.id == uiState.tower?.id, onClick = { onTowerSelected(tower) }) {
+                            Text(tower.name, style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 }
             }
         }
-        items(uiState.rows, key = { it.unit.id }) { row ->
-            UnitRowCard(
+        uiState.tower?.let { tower ->
+            item { TowerHeader(tower, modifier = Modifier.padding(horizontal = 20.dp)) }
+        }
+        items(uiState.floors, key = { "floor-${it.floor}" }) { row ->
+            FloorLine(
                 row = row,
-                uploading = row.unit.id in uiState.uploading,
-                onClick = { onOpenUnit(row.unit) },
-                onUploadPdf = { onUploadPdf(row.unit) },
+                perRow = uiState.tower?.let(::tilesPerRow) ?: 4,
+                uploading = uiState.uploading,
+                onOpenUnit = onOpenUnit,
                 modifier = Modifier.padding(horizontal = 20.dp)
+            )
+        }
+        item {
+            Text(
+                "Térreo",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(start = 20.dp, top = 4.dp)
             )
         }
     }
 }
 
+/** Até 6 por linha; andares com mais apartamentos quebram em duas linhas equilibradas. */
+private fun tilesPerRow(tower: Tower): Int =
+    if (tower.unitsPerFloor <= 6) tower.unitsPerFloor else (tower.unitsPerFloor + 1) / 2
+
 @Composable
-private fun MonthProgress(uiState: AdminUnitsUiState) {
+private fun MonthSummary(uiState: AdminUnitsUiState, modifier: Modifier = Modifier) {
+    val condo = CondoTheme.colors
     val progress = if (uiState.totalUnits == 0) 0f else uiState.sentInMonth / uiState.totalUnits.toFloat()
-    CondoCard(contentPadding = PaddingValues(20.dp)) {
-        Eyebrow("Boletos de ${uiState.month.monthName()}")
-        Spacer(modifier = Modifier.height(6.dp))
+    HeroCard(modifier = modifier) {
+        Eyebrow("Boletos de ${uiState.month.monthName()}", color = condo.accent)
+        Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("${uiState.sentInMonth}", style = MaterialTheme.typography.displaySmall)
+            Text("${uiState.sentInMonth}", style = MaterialTheme.typography.displaySmall, color = condo.onHero)
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 "de ${uiState.totalUnits} unidades com PDF",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = condo.onHeroMuted,
                 modifier = Modifier.padding(bottom = 6.dp)
             )
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         LinearProgressIndicator(
             progress = { progress },
-            color = MaterialTheme.colorScheme.tertiary,
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = condo.accent,
+            trackColor = condo.onHero.copy(alpha = 0.12f),
             strokeCap = StrokeCap.Round,
             drawStopIndicator = {},
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp)
         )
+        Spacer(modifier = Modifier.height(16.dp))
+        Row {
+            HeroStat("Ocupadas", "${uiState.occupiedUnits}", Modifier.weight(1f))
+            HeroStat("Vagas", "${uiState.totalUnits - uiState.occupiedUnits}", Modifier.weight(1f))
+            HeroStat("Blocos", "${uiState.condo?.towers?.size ?: 0}", Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
-private fun UnitRowCard(
-    row: UnitRow,
-    uploading: Boolean,
-    onClick: () -> Unit,
-    onUploadPdf: () -> Unit,
+private fun HeroStat(label: String, value: String, modifier: Modifier = Modifier) {
+    val condo = CondoTheme.colors
+    Column(modifier = modifier) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = condo.onHeroMuted)
+        Text(value, style = MaterialTheme.typography.titleLarge, color = condo.onHero)
+    }
+}
+
+@Composable
+private fun TowerHeader(tower: Tower, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.padding(top = 12.dp, bottom = 4.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(tower.name, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+            Text(
+                "${tower.floors} andares · ${tower.totalUnits} aptos",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            LegendItem("Ocupado") { TileSwatch(occupied = true) }
+            LegendItem("Vago") { TileSwatch(occupied = false) }
+            LegendItem("PDF do mês") { PdfDot() }
+        }
+    }
+}
+
+@Composable
+private fun LegendItem(label: String, swatch: @Composable () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        swatch()
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun TileSwatch(occupied: Boolean) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.extraSmall
+    Box(
+        modifier = Modifier
+            .size(14.dp)
+            .clip(shape)
+            .background(if (occupied) scheme.primary else scheme.surfaceContainerLow)
+            .then(if (occupied) Modifier else Modifier.border(1.dp, scheme.outlineVariant, shape))
+    )
+}
+
+@Composable
+private fun PdfDot(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(7.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.tertiary)
+    )
+}
+
+@Composable
+private fun FloorLine(
+    row: FloorRow,
+    perRow: Int,
+    uploading: Set<String>,
+    onOpenUnit: (CondoUnit) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    CondoCard(onClick = onClick, contentPadding = PaddingValues(start = 18.dp, end = 10.dp, top = 14.dp, bottom = 14.dp), modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(row.unit.number, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.width(56.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    row.residents.joinToString { it.name }.ifBlank { "Sem moradores" },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (row.residents.isEmpty()) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    when (row.residents.size) {
-                        0 -> "Toque para alocar"
-                        1 -> "1 morador"
-                        else -> "${row.residents.size} moradores"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    // Andar que quebra em duas linhas ganha respiro extra para não se misturar com o vizinho.
+    val wraps = row.cells.size > perRow
+    Row(modifier = modifier.padding(vertical = if (wraps) 6.dp else 0.dp), verticalAlignment = Alignment.Top) {
+        Text(
+            "${row.floor}º",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            modifier = Modifier
+                .width(32.dp)
+                .padding(top = 14.dp, end = 8.dp)
+        )
+        FlowRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            maxItemsInEachRow = perRow
+        ) {
+            row.cells.forEach { cell ->
+                UnitTile(
+                    cell = cell,
+                    uploading = cell.unit.id in uploading,
+                    onClick = { onOpenUnit(cell.unit) },
+                    modifier = Modifier.weight(1f)
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun UnitTile(cell: UnitCell, uploading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val occupied = cell.residents.isNotEmpty()
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.small,
+        color = if (occupied) scheme.primary else scheme.surfaceContainerLow,
+        border = if (occupied) null else BorderStroke(1.dp, scheme.outlineVariant),
+        modifier = modifier.height(46.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                cell.unit.number,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (occupied) scheme.onPrimary else scheme.outline,
+                maxLines = 1
+            )
             when {
                 uploading -> CircularProgressIndicator(
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.tertiary,
+                    strokeWidth = 1.5.dp,
+                    color = scheme.tertiary,
                     modifier = Modifier
-                        .padding(horizontal = 18.dp)
-                        .size(20.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(9.dp)
                 )
-                row.document != null -> StatusChip("PDF enviado", StatusTone.SUCCESS, Modifier.padding(end = 8.dp))
-                else -> TextButton(onClick = onUploadPdf) {
-                    Icon(Icons.Outlined.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Enviar PDF", style = MaterialTheme.typography.labelLarge)
-                }
+                cell.document != null -> PdfDot(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                )
             }
         }
     }
@@ -266,7 +395,7 @@ private fun UnitRowCard(
 @Composable
 private fun UnitDetailSheet(
     detail: UnitDetail,
-    monthName: String,
+    month: YearMonth,
     uploading: Boolean,
     onUploadPdf: () -> Unit,
     onDeleteDocument: (UnitDocument) -> Unit,
@@ -290,15 +419,28 @@ private fun UnitDetailSheet(
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
         ) {
-            Eyebrow("Bloco ${detail.unit.block}")
+            Eyebrow("${detail.unit.tower} · ${detail.unit.floor}º andar")
             Spacer(modifier = Modifier.height(6.dp))
             Text("Apto ${detail.unit.number}", style = MaterialTheme.typography.headlineLarge)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
+            // Ação principal do mês, no topo: enviar o boleto desta unidade.
+            PrimaryButton(
+                text = if (detail.documents.any { it.reference == month }) {
+                    "Substituir PDF de ${month.monthName()}"
+                } else {
+                    "Enviar PDF de ${month.monthName()}"
+                },
+                onClick = onUploadPdf,
+                loading = uploading,
+                trailingIcon = Icons.Outlined.UploadFile
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
             SectionHeader("Moradores", trailing = "${detail.residents.size}")
             if (detail.residents.isEmpty()) {
                 Text(
-                    "Nenhum morador alocado nesta unidade.",
+                    "Apartamento vago.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp)
@@ -370,21 +512,6 @@ private fun UnitDetailSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
             SectionHeader("Boletos em PDF", trailing = "${detail.documents.size}")
-            Spacer(modifier = Modifier.height(4.dp))
-            OutlinedButton(
-                onClick = onUploadPdf,
-                enabled = !uploading,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uploading) {
-                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                } else {
-                    Icon(Icons.Outlined.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Enviar PDF de $monthName", style = MaterialTheme.typography.labelLarge)
-            }
             if (detail.documents.isEmpty()) {
                 Text(
                     "Nenhum PDF enviado. Sem ele, o morador vê o boleto padrão do sistema.",

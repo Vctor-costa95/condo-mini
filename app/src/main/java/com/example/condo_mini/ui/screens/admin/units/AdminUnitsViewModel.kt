@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.Condominium
+import com.example.condo_mini.domain.model.Tower
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
@@ -20,12 +22,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.YearMonth
 
-data class UnitRow(
+/** Um apartamento no mapa da torre. */
+data class UnitCell(
     val unit: CondoUnit,
     val residents: List<User>,
     /** PDF do mês selecionado, se já enviado. */
     val document: UnitDocument?
 )
+
+data class FloorRow(val floor: Int, val cells: List<UnitCell>)
 
 data class UnitDetail(
     val unit: CondoUnit,
@@ -37,20 +42,22 @@ data class UnitDetail(
 
 data class AdminUnitsUiState(
     val isLoading: Boolean = true,
-    val blocks: List<String> = emptyList(),
-    val block: String = "",
+    val condo: Condominium? = null,
+    val tower: Tower? = null,
     val months: List<YearMonth> = emptyList(),
     val month: YearMonth = YearMonth.now(),
-    val rows: List<UnitRow> = emptyList(),
+    /** Andares da torre selecionada, do mais alto para o térreo. */
+    val floors: List<FloorRow> = emptyList(),
     val sentInMonth: Int = 0,
     val totalUnits: Int = 0,
+    val occupiedUnits: Int = 0,
     val detail: UnitDetail? = null,
     /** Unidades com envio de PDF em andamento. */
     val uploading: Set<String> = emptySet(),
     val userMessage: String? = null
 )
 
-private data class Filters(val block: String?, val month: YearMonth, val openUnitId: String?)
+private data class Filters(val towerId: String?, val month: YearMonth, val openUnitId: String?)
 
 class AdminUnitsViewModel(
     private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository,
@@ -59,32 +66,46 @@ class AdminUnitsViewModel(
 
     // Próximo mês primeiro: é o boleto que a administração costuma estar enviando.
     private val months = (-1..1).map { YearMonth.now().minusMonths(it.toLong()) }
-    private val filters = MutableStateFlow(Filters(block = null, month = months.first(), openUnitId = null))
+    private val filters = MutableStateFlow(Filters(towerId = null, month = months.first(), openUnitId = null))
     private val uploading = MutableStateFlow<Set<String>>(emptySet())
     private val userMessage = MutableStateFlow<String?>(null)
 
+    private val condo = combine(directoryRepository.observeCondos(), directoryRepository.selectedCondoId) { list, id ->
+        list.firstOrNull { it.id == id }
+    }
+
     val uiState: StateFlow<AdminUnitsUiState> = combine(
-        directoryRepository.observeUnits(),
+        condo,
         directoryRepository.observeUsers(),
         billRepository.observeUnitDocuments(),
         filters,
         combine(uploading, userMessage, ::Pair)
-    ) { units, users, documents, filters, (uploading, message) ->
-        val blocks = units.map { it.block }.distinct()
-        val block = filters.block ?: blocks.firstOrNull().orEmpty()
-        val residentsByUnit = users.filter { it.role == UserRole.RESIDENT }.groupBy { it.unit }
+    ) { condo, users, allDocuments, filters, (uploading, message) ->
+        val units = condo?.units.orEmpty()
+        // Outro condomínio selecionado: a torre anterior deixa de existir e volta para a primeira.
+        val tower = condo?.towers?.firstOrNull { it.id == filters.towerId } ?: condo?.towers?.firstOrNull()
+        val documents = allDocuments.filter { it.condoId == condo?.id }
+        // O síndico também mora no condomínio: conta como ocupante.
+        val residentsByUnit = users
+            .filter { it.role == UserRole.RESIDENT || it.role == UserRole.MANAGER }
+            .groupBy { it.unit }
         val monthDocs = documents.filter { it.reference == filters.month }.associateBy { it.unit }
         AdminUnitsUiState(
             isLoading = false,
-            blocks = blocks,
-            block = block,
+            condo = condo,
+            tower = tower,
             months = months,
             month = filters.month,
-            rows = units.filter { it.block == block }.map { unit ->
-                UnitRow(unit, residentsByUnit[unit.label].orEmpty(), monthDocs[unit.label])
-            },
+            floors = units
+                .filter { it.towerId == tower?.id }
+                .groupBy { it.floor }
+                .toSortedMap(compareByDescending { it })
+                .map { (floor, floorUnits) ->
+                    FloorRow(floor, floorUnits.map { UnitCell(it, residentsByUnit[it.label].orEmpty(), monthDocs[it.label]) })
+                },
             sentInMonth = units.count { it.label in monthDocs },
             totalUnits = units.size,
+            occupiedUnits = units.count { residentsByUnit[it.label].orEmpty().isNotEmpty() },
             detail = units.firstOrNull { it.id == filters.openUnitId }?.let { unit ->
                 UnitDetail(
                     unit = unit,
@@ -98,7 +119,7 @@ class AdminUnitsViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AdminUnitsUiState())
 
-    fun onBlockSelected(block: String) = filters.update { it.copy(block = block) }
+    fun onTowerSelected(tower: Tower) = filters.update { it.copy(towerId = tower.id) }
 
     fun onMonthSelected(month: YearMonth) = filters.update { it.copy(month = month) }
 
@@ -109,10 +130,11 @@ class AdminUnitsViewModel(
     /** [uri] vem do seletor de documentos do sistema. */
     fun onPdfPicked(unit: CondoUnit, uri: String) {
         val month = filters.value.month
+        val condoId = directoryRepository.selectedCondoId.value
         uploading.update { it + unit.id }
         viewModelScope.launch {
-            billRepository.uploadUnitDocument(unit.label, month, uri)
-                .onSuccess { userMessage.value = "Boleto de ${month.monthName()} enviado para o ${unit.number} ${unit.block}." }
+            billRepository.uploadUnitDocument(condoId, unit.label, month, uri)
+                .onSuccess { userMessage.value = "Boleto de ${month.monthName()} enviado para o ${unit.label}." }
                 .onFailure { userMessage.value = it.message ?: "Não foi possível enviar o PDF." }
             uploading.update { it - unit.id }
         }
@@ -128,7 +150,7 @@ class AdminUnitsViewModel(
     fun onAssign(user: User, unit: CondoUnit) {
         viewModelScope.launch {
             directoryRepository.assignUnit(user.id, unit.label)
-            userMessage.value = "${user.name} agora mora no ${unit.number} ${unit.block}."
+            userMessage.value = "${user.name} agora mora no ${unit.label}."
         }
     }
 

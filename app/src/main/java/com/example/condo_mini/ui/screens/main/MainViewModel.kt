@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.domain.model.Condominium
 import com.example.condo_mini.domain.model.OccurrenceStatus
 import com.example.condo_mini.domain.model.ParcelStatus
 import com.example.condo_mini.domain.model.ReservationStatus
@@ -33,6 +34,13 @@ class MainViewModel(
 ) : ViewModel() {
 
     val user: StateFlow<User?> = sessionRepository.currentUser
+
+    /** Condomínio em gestão pelo administrador, exibido no cabeçalho. */
+    val adminCondo: StateFlow<Condominium?> = combine(
+        directoryRepository.observeCondos(),
+        directoryRepository.selectedCondoId
+    ) { condos, id -> condos.firstOrNull { it.id == id } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Itens que pedem ação do usuário, exibidos como contador na aba. */
     val badges: StateFlow<Map<AppTab, Int>> = user

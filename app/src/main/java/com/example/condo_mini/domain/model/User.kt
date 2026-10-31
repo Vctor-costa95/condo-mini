@@ -14,5 +14,7 @@ data class User(
     val unit: String,
     val role: UserRole,
     val email: String = "",
-    val phone: String = ""
+    val phone: String = "",
+    /** Condomínio do cadastro; vazio para o administrador, que gerencia vários. */
+    val condoId: String = ""
 )

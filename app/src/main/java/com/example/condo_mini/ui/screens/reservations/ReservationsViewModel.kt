@@ -52,7 +52,9 @@ class ReservationsViewModel(
     }
 
     val uiState: StateFlow<ReservationsUiState> = combine(
-        reservationRepository.observeAreas(),
+        sessionRepository.currentUser.flatMapLatest { user ->
+            reservationRepository.observeAreas(user?.condoId.orEmpty())
+        },
         myReservations,
         booking,
         userMessage

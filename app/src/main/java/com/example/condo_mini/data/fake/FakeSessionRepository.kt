@@ -19,6 +19,7 @@ class FakeSessionRepository : SessionRepository {
             name = name.trim(),
             unit = unit.trim().ifBlank { DEFAULT_UNIT },
             role = role,
+            condoId = if (role == UserRole.ADMIN) "" else FakeDirectoryRepository.DEFAULT_CONDO_ID,
             email = "morador@condomini.app",
             phone = "(11) 99999-0000"
         )

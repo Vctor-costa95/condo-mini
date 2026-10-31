@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.ReservationStatus
+import com.example.condo_mini.domain.repository.DirectoryRepository
 import com.example.condo_mini.domain.repository.ReservationRepository
 import com.example.condo_mini.ui.components.AreaIcon
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -53,15 +56,17 @@ data class AdminAreasUiState(
     val userMessage: String? = null
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AdminAreasViewModel(
-    private val reservationRepository: ReservationRepository = AppContainer.reservationRepository
+    private val reservationRepository: ReservationRepository = AppContainer.reservationRepository,
+    private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository
 ) : ViewModel() {
 
     private val form = MutableStateFlow<AreaForm?>(null)
     private val userMessage = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<AdminAreasUiState> = combine(
-        reservationRepository.observeAreas(),
+        directoryRepository.selectedCondoId.flatMapLatest { reservationRepository.observeAreas(it) },
         reservationRepository.observeAllReservations(),
         form,
         userMessage
@@ -122,7 +127,9 @@ class AdminAreasViewModel(
         }
         form.update { it?.copy(isSaving = true) }
         viewModelScope.launch {
-            val saved = reservationRepository.saveArea(current.preview())
+            val saved = reservationRepository.saveArea(
+                current.preview().copy(condoId = directoryRepository.selectedCondoId.value)
+            )
             form.value = null
             userMessage.value = if (current.isNew) "Espaço criado: ${saved.name}. Já disponível para reserva." else "Alterações salvas em ${saved.name}."
         }

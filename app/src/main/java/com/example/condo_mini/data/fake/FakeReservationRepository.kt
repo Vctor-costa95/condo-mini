@@ -23,7 +23,8 @@ class FakeReservationRepository : ReservationRepository {
             capacity = 80,
             fee = 150.0,
             rules = "Limpeza por conta do morador. Som até 22h.",
-            iconKey = "party"
+            iconKey = "party",
+            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID
         ),
         CommonArea(
             id = "a2",
@@ -32,7 +33,8 @@ class FakeReservationRepository : ReservationRepository {
             capacity = 30,
             fee = 80.0,
             rules = "Trazer carvão. Devolver a área limpa.",
-            iconKey = "grill"
+            iconKey = "grill",
+            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID
         ),
         CommonArea(
             id = "a3",
@@ -41,7 +43,8 @@ class FakeReservationRepository : ReservationRepository {
             capacity = 12,
             fee = 100.0,
             rules = "Proibido uso de som alto.",
-            iconKey = "gourmet"
+            iconKey = "gourmet",
+            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID
         ),
         CommonArea(
             id = "a4",
@@ -50,7 +53,8 @@ class FakeReservationRepository : ReservationRepository {
             capacity = 20,
             fee = 0.0,
             rules = "Uso de calçado adequado obrigatório.",
-            iconKey = "court"
+            iconKey = "court",
+            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID
         ),
         CommonArea(
             id = "a5",
@@ -59,8 +63,14 @@ class FakeReservationRepository : ReservationRepository {
             capacity = 8,
             fee = 0.0,
             rules = "Reserva máxima de um período por dia.",
-            iconKey = "meeting"
-        )
+            iconKey = "meeting",
+            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID
+        ),
+        CommonArea("a6", "Rooftop com piscina", "Piscina com borda infinita e vista para o mar.", 25, 0.0, "Uso até 22h. Crianças acompanhadas.", "pool", condoId = "c2"),
+        CommonArea("a7", "Academia", "Equipamentos Technogym e sala de pilates.", 12, 0.0, "Uso de toalha obrigatório.", "gym", condoId = "c2"),
+        CommonArea("a8", "Salão de festas", "Salão para 120 pessoas com copa.", 120, 250.0, "Som até 23h.", "party", condoId = "c3"),
+        CommonArea("a9", "Quadra de tênis", "Quadra de saibro com iluminação.", 4, 0.0, "Reserva de um período por dia.", "tennis", condoId = "c3"),
+        CommonArea("a10", "Brinquedoteca", "Espaço infantil com monitoria aos sábados.", 15, 0.0, "Crianças até 10 anos.", "kids", condoId = "c3")
     ))
 
     private val today = LocalDate.now()
@@ -75,7 +85,8 @@ class FakeReservationRepository : ReservationRepository {
         )
     )
 
-    override fun observeAreas(): Flow<List<CommonArea>> = areas
+    override fun observeAreas(condoId: String): Flow<List<CommonArea>> =
+        areas.map { list -> list.filter { it.condoId == condoId } }
 
     override fun observeReservations(unit: String): Flow<List<Reservation>> =
         reservations.map { list ->

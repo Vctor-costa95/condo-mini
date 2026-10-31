@@ -3,6 +3,7 @@ package com.example.condo_mini.domain.repository
 import com.example.condo_mini.domain.model.Bill
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.Condominium
 import com.example.condo_mini.domain.model.Notice
 import com.example.condo_mini.domain.model.NoticeCategory
 import com.example.condo_mini.domain.model.Occurrence
@@ -40,7 +41,7 @@ interface NoticeRepository {
 }
 
 interface ReservationRepository {
-    fun observeAreas(): Flow<List<CommonArea>>
+    fun observeAreas(condoId: String): Flow<List<CommonArea>>
     fun observeReservations(unit: String): Flow<List<Reservation>>
 
     /** Todas as reservas do condomínio (visão do síndico). */
@@ -79,16 +80,31 @@ interface BillRepository {
     fun observeUnitDocuments(): Flow<List<UnitDocument>>
 
     /** Envia o PDF de [reference] para [unit], substituindo o anterior do mesmo mês. */
-    suspend fun uploadUnitDocument(unit: String, reference: YearMonth, sourceUri: String): Result<UnitDocument>
+    suspend fun uploadUnitDocument(
+        condoId: String,
+        unit: String,
+        reference: YearMonth,
+        sourceUri: String
+    ): Result<UnitDocument>
     suspend fun deleteUnitDocument(documentId: String)
 }
 
-/** Unidades e cadastros de pessoas (visão do administrador). */
+/**
+ * Condomínios, unidades e cadastros (visão do administrador). Unidades e pessoas
+ * são sempre as do condomínio selecionado em [selectedCondoId].
+ */
 interface DirectoryRepository {
+    fun observeCondos(): Flow<List<Condominium>>
+    val selectedCondoId: StateFlow<String>
+    fun selectCondo(condoId: String)
+
+    /** Cria o condomínio quando [Condominium.id] está vazio; senão atualiza. */
+    suspend fun saveCondo(condo: Condominium): Condominium
+
     fun observeUnits(): Flow<List<CondoUnit>>
     fun observeUsers(): Flow<List<User>>
 
-    /** Cria o cadastro quando [User.id] está vazio; senão atualiza. */
+    /** Cria o cadastro quando [User.id] está vazio (no condomínio selecionado); senão atualiza. */
     suspend fun saveUser(user: User): User
     suspend fun deleteUser(userId: String)
 

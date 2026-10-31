@@ -15,11 +15,11 @@ class UnitDocumentStore(private val context: Context) {
 
     data class Stored(val file: File, val displayName: String)
 
-    fun save(unit: String, reference: YearMonth, sourceUri: String): Stored {
+    fun save(condoId: String, unit: String, reference: YearMonth, sourceUri: String): Stored {
         val uri = Uri.parse(sourceUri)
         val resolver = context.contentResolver
         if (resolver.getType(uri)?.contains("pdf") == false) throw IOException("O arquivo precisa ser um PDF.")
-        val dir = File(context.filesDir, "bills").apply { mkdirs() }
+        val dir = File(context.filesDir, "bills/$condoId").apply { mkdirs() }
         val slug = unit.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
         val target = File(dir, "$slug-$reference.pdf")
         resolver.openInputStream(uri)?.use { input ->

@@ -254,7 +254,12 @@ private fun UserFormSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var confirmDelete by remember { mutableStateOf(false) }
-    val blocks = remember(units) { units.map { it.block }.distinct() }
+    val towers = remember(units) { units.distinctBy { it.towerId }.map { it.towerId to it.tower } }
+    val towerId = form.towerId.ifBlank { towers.firstOrNull()?.first.orEmpty() }
+    val towerUnits = units.filter { it.towerId == towerId }
+    val floors = remember(towerUnits) { towerUnits.map { it.floor }.distinct().sortedDescending() }
+    val floor = form.floor.takeIf { it in floors } ?: floors.lastOrNull() ?: 0
+    val floorUnits = towerUnits.filter { it.floor == floor }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -323,14 +328,23 @@ private fun UserFormSheet(
             if (form.needsUnit) {
                 Spacer(modifier = Modifier.height(8.dp))
                 SectionHeader("Unidade", trailing = form.unit.ifBlank { "Nenhuma" })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    blocks.forEach { block ->
-                        PillChip(
-                            selected = form.block == block,
-                            onClick = { onChange { it.copy(block = block) } },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Bloco $block", style = MaterialTheme.typography.labelLarge)
+                if (towers.size > 1) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(towers, key = { it.first }) { (id, name) ->
+                            PillChip(selected = towerId == id, onClick = { onChange { it.copy(towerId = id, floor = 0) } }) {
+                                Text(name, style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+                Text("Andar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(6.dp))
+                // Térreo à esquerda, como se lê um painel de elevador.
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(floors.reversed()) { value ->
+                        PillChip(selected = floor == value, onClick = { onChange { it.copy(towerId = towerId, floor = value) } }) {
+                            Text("${value}º", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -338,9 +352,9 @@ private fun UserFormSheet(
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    maxItemsInEachRow = 4
+                    maxItemsInEachRow = chipsPerRow(floorUnits.size)
                 ) {
-                    units.filter { it.block == form.block }.forEach { unit ->
+                    floorUnits.forEach { unit ->
                         PillChip(
                             selected = form.unit == unit.label,
                             onClick = { onChange { it.copy(unit = if (it.unit == unit.label) "" else unit.label) } },
@@ -390,4 +404,12 @@ private fun UserFormSheet(
             }
         )
     }
+}
+
+/** Linhas que fecham certinho: 6 aptos viram 3 + 3, 10 viram 5 + 5. */
+private fun chipsPerRow(count: Int): Int = when {
+    count <= 4 -> count.coerceAtLeast(1)
+    count <= 6 -> 3
+    count <= 8 -> 4
+    else -> 5
 }

@@ -12,7 +12,8 @@ data class CommonArea(
     /** Chave do ícone escolhido pela administração (ver `AreaIcon`). */
     val iconKey: String = "",
     /** Motivo da interdição; `null` quando o espaço está liberado. */
-    val closedReason: String? = null
+    val closedReason: String? = null,
+    val condoId: String = ""
 ) {
     val isClosed: Boolean get() = closedReason != null
 }
