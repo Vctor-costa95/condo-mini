@@ -2,9 +2,12 @@ package com.example.condo_mini.data
 
 import android.content.Context
 import com.example.condo_mini.data.pdf.BillPdfGenerator
+import com.example.condo_mini.data.pdf.CondoDocumentStore
+import com.example.condo_mini.data.pdf.DocumentPdfGenerator
 import com.example.condo_mini.data.pdf.UnitDocumentStore
 import com.example.condo_mini.data.fake.FakeBillRepository
 import com.example.condo_mini.data.fake.FakeDirectoryRepository
+import com.example.condo_mini.data.fake.FakeDocumentRepository
 import com.example.condo_mini.data.fake.FakeNoticeRepository
 import com.example.condo_mini.data.fake.FakeOccurrenceRepository
 import com.example.condo_mini.data.fake.FakeParcelRepository
@@ -13,6 +16,7 @@ import com.example.condo_mini.data.fake.FakeReservationRepository
 import com.example.condo_mini.data.fake.FakeSessionRepository
 import com.example.condo_mini.domain.repository.BillRepository
 import com.example.condo_mini.domain.repository.DirectoryRepository
+import com.example.condo_mini.domain.repository.DocumentRepository
 import com.example.condo_mini.domain.repository.NoticeRepository
 import com.example.condo_mini.domain.repository.OccurrenceRepository
 import com.example.condo_mini.domain.repository.ParcelRepository
@@ -40,4 +44,7 @@ object AppContainer {
     val directoryRepository: DirectoryRepository by lazy { FakeDirectoryRepository() }
     val parcelRepository: ParcelRepository by lazy { FakeParcelRepository(ParcelPhotoGenerator(appContext)) }
     val occurrenceRepository: OccurrenceRepository by lazy { FakeOccurrenceRepository() }
+    val documentRepository: DocumentRepository by lazy {
+        FakeDocumentRepository(CondoDocumentStore(appContext), DocumentPdfGenerator(appContext))
+    }
 }

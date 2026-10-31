@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Deck
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Deck
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Inventory2
@@ -84,6 +86,7 @@ import com.example.condo_mini.ui.screens.admin.condos.CondoEditorRoute
 import com.example.condo_mini.ui.screens.admin.condos.CondoPickerSheet
 import com.example.condo_mini.ui.screens.admin.units.AdminUnitsRoute
 import com.example.condo_mini.ui.screens.admin.users.AdminUsersRoute
+import com.example.condo_mini.ui.screens.manager.documents.ManagerDocumentsRoute
 import com.example.condo_mini.ui.screens.manager.notices.ManagerNoticesRoute
 import com.example.condo_mini.ui.screens.manager.occurrences.ManagerOccurrencesRoute
 import com.example.condo_mini.ui.screens.manager.reservations.ManagerReservationsRoute
@@ -93,6 +96,8 @@ import com.example.condo_mini.ui.screens.bills.BillPdfRoute
 import com.example.condo_mini.ui.screens.doorman.parcels.DoormanParcelsRoute
 import com.example.condo_mini.ui.screens.doorman.residents.DoormanResidentsRoute
 import com.example.condo_mini.ui.screens.bills.BillsRoute
+import com.example.condo_mini.ui.screens.documents.DocumentPdfRoute
+import com.example.condo_mini.ui.screens.documents.DocumentsRoute
 import com.example.condo_mini.ui.screens.notices.NoticesRoute
 import com.example.condo_mini.ui.screens.occurrences.OccurrencesRoute
 import com.example.condo_mini.ui.screens.parcels.ParcelsRoute
@@ -120,6 +125,7 @@ enum class AppTab(
     MANAGER_NOTICES("manager_notices", "Avisos", "Mural", Icons.Filled.Campaign, Icons.Outlined.Campaign),
     MANAGER_RESERVATIONS("manager_reservations", "Reservas", "Aprovações", Icons.Filled.EventAvailable, Icons.Outlined.EventAvailable),
     MANAGER_OCCURRENCES("manager_occurrences", "Ocorrências", "Ocorrências", Icons.AutoMirrored.Filled.MenuBook, Icons.AutoMirrored.Outlined.MenuBook),
+    MANAGER_DOCUMENTS("manager_documents", "Documentos", "Documentos", Icons.Filled.Description, Icons.Outlined.Description),
 
     // Administrador
     ADMIN_UNITS("admin_units", "Unidades", "Unidades", Icons.Filled.Apartment, Icons.Outlined.Apartment),
@@ -136,7 +142,7 @@ enum class AppTab(
     companion object {
         /** Abas visíveis por perfil; a primeira é a tela inicial. */
         fun forRole(role: UserRole?): List<AppTab> = when (role) {
-            UserRole.MANAGER -> listOf(MANAGER_NOTICES, MANAGER_RESERVATIONS, MANAGER_OCCURRENCES)
+            UserRole.MANAGER -> listOf(MANAGER_NOTICES, MANAGER_RESERVATIONS, MANAGER_OCCURRENCES, MANAGER_DOCUMENTS)
             UserRole.ADMIN -> listOf(ADMIN_UNITS, ADMIN_USERS, ADMIN_AREAS)
             UserRole.DOORMAN -> listOf(DOORMAN_PARCELS, DOORMAN_RESIDENTS, DOORMAN_NOTICES)
             else -> listOf(NOTICES, RESERVATIONS, BILLS, PARCELS, OCCURRENCES)
@@ -145,6 +151,9 @@ enum class AppTab(
 }
 
 private const val PROFILE_ROUTE = "profile"
+private const val DOCUMENTS_ROUTE = "documents"
+private const val DOCUMENT_ID_ARG = "documentId"
+private const val DOCUMENT_PDF_ROUTE = "document_pdf/{$DOCUMENT_ID_ARG}"
 private const val BILL_ID_ARG = "billId"
 private const val BILL_PDF_ROUTE = "bill_pdf/{$BILL_ID_ARG}"
 private const val CONDO_ID_ARG = "condoId"
@@ -168,9 +177,14 @@ fun MainScreen(
     val currentTab = tabs.firstOrNull { tab ->
         currentDestination?.hierarchy?.any { it.route == tab.route } == true
     }
-    val isProfile = currentDestination?.route == PROFILE_ROUTE
+    // Telas abertas a partir do perfil: cabeçalho com voltar e sem barra de abas.
+    val subScreen = when (currentDestination?.route) {
+        PROFILE_ROUTE -> "Conta" to "Meu perfil"
+        DOCUMENTS_ROUTE -> "Condomínio" to "Documentos"
+        else -> null
+    }
     // Telas de detalhe em tela cheia desenham o próprio cabeçalho.
-    val isFullScreen = currentDestination?.route == BILL_PDF_ROUTE || currentDestination?.route == CONDO_EDITOR_ROUTE
+    val isFullScreen = currentDestination?.route in setOf(BILL_PDF_ROUTE, CONDO_EDITOR_ROUTE, DOCUMENT_PDF_ROUTE)
     val adminCondo by viewModel.adminCondo.collectAsStateWithLifecycle()
     var showCondoPicker by rememberSaveable { mutableStateOf(false) }
     var showUnitSwitcher by rememberSaveable { mutableStateOf(false) }
@@ -184,7 +198,7 @@ fun MainScreen(
                 MainHeader(
                     user = user,
                     tab = currentTab ?: tabs.first(),
-                    isProfile = isProfile,
+                    subScreen = subScreen,
                     condoName = adminCondo?.name,
                     onCondoClick = { showCondoPicker = true },
                     onUnitClick = { showUnitSwitcher = true },
@@ -194,7 +208,7 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            if (!isProfile && !isFullScreen) {
+            if (subScreen == null && !isFullScreen) {
                 MainBottomBar(
                     tabs = tabs,
                     currentTab = currentTab,
@@ -237,6 +251,9 @@ fun MainScreen(
             composable(AppTab.MANAGER_NOTICES.route) { ManagerNoticesRoute() }
             composable(AppTab.MANAGER_RESERVATIONS.route) { ManagerReservationsRoute(snackbarHostState) }
             composable(AppTab.MANAGER_OCCURRENCES.route) { ManagerOccurrencesRoute(snackbarHostState) }
+            composable(AppTab.MANAGER_DOCUMENTS.route) {
+                ManagerDocumentsRoute(onOpenDocument = { navController.navigate("document_pdf/${it.id}") })
+            }
 
             // Administrador
             composable(AppTab.ADMIN_UNITS.route) { AdminUnitsRoute(snackbarHostState) }
@@ -257,7 +274,28 @@ fun MainScreen(
             composable(AppTab.DOORMAN_RESIDENTS.route) { DoormanResidentsRoute() }
             composable(AppTab.DOORMAN_NOTICES.route) { NoticesRoute() }
 
-            composable(PROFILE_ROUTE) { ProfileRoute(onLogoutClick = onLogoutClick) }
+            composable(PROFILE_ROUTE) {
+                ProfileRoute(
+                    onLogoutClick = onLogoutClick,
+                    onDocumentsClick = {
+                        // O síndico vai direto para a aba em que publica os documentos.
+                        if (user?.role == UserRole.MANAGER) {
+                            navController.navigateToTab(AppTab.MANAGER_DOCUMENTS)
+                        } else {
+                            navController.navigate(DOCUMENTS_ROUTE) { launchSingleTop = true }
+                        }
+                    }
+                )
+            }
+            composable(DOCUMENTS_ROUTE) {
+                DocumentsRoute(onOpenDocument = { navController.navigate("document_pdf/${it.id}") })
+            }
+            composable(DOCUMENT_PDF_ROUTE) { entry ->
+                DocumentPdfRoute(
+                    documentId = entry.arguments?.getString(DOCUMENT_ID_ARG).orEmpty(),
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
     }
 
@@ -284,7 +322,7 @@ fun MainScreen(
 private fun MainHeader(
     user: User?,
     tab: AppTab,
-    isProfile: Boolean,
+    subScreen: Pair<String, String>?,
     condoName: String?,
     onCondoClick: () -> Unit,
     onUnitClick: () -> Unit,
@@ -294,11 +332,12 @@ private fun MainHeader(
     val firstName = user?.name?.substringBefore(" ").orEmpty()
     val hello = if (firstName.isBlank()) "Bem-vindo" else "Olá, $firstName"
     // O administrador gerencia vários condomínios: o nome do atual abre a troca.
-    val showsCondo = user?.role == UserRole.ADMIN && !isProfile
+    val isSubScreen = subScreen != null
+    val showsCondo = user?.role == UserRole.ADMIN && !isSubScreen
     // Morador com mais de um apartamento: o apartamento em uso abre a troca, em todas as abas.
-    val showsUnit = user?.role == UserRole.RESIDENT && user.hasManyUnits && !isProfile
+    val showsUnit = user?.role == UserRole.RESIDENT && user.hasManyUnits && !isSubScreen
     val (eyebrow, title) = when {
-        isProfile -> "Conta" to "Meu perfil"
+        subScreen != null -> subScreen
         showsCondo -> condoName.orEmpty() to tab.title
         showsUnit -> user?.unit.orEmpty() to if (tab.isHome) hello else tab.title
         tab.isHome -> when (user?.role) {
@@ -316,10 +355,10 @@ private fun MainHeader(
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(start = if (isProfile) 8.dp else 24.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
+            .padding(start = if (isSubScreen) 8.dp else 24.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (isProfile) {
+        if (isSubScreen) {
             IconButton(onClick = onBackClick) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
             }
@@ -363,7 +402,7 @@ private fun MainHeader(
                 )
             }
         }
-        if (!isProfile && user != null) {
+        if (!isSubScreen && user != null) {
             IconButton(onClick = onProfileClick, modifier = Modifier.size(48.dp)) {
                 InitialsAvatar(name = user.name, size = 42.dp)
             }

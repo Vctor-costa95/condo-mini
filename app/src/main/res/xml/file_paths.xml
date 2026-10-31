@@ -5,4 +5,7 @@
     <files-path name="unit_bills" path="bills/" />
     <!-- Destino das fotos tiradas pela câmera do sistema -->
     <files-path name="occurrence_photos" path="occurrence_photos/" />
+    <!-- Documentos do condomínio: enviados pelo síndico e de demonstração -->
+    <files-path name="condo_documents" path="documents/" />
+    <cache-path name="demo_documents" path="documents/" />
 </paths>
