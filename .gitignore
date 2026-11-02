@@ -11,3 +11,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Assinatura de release: a chave e a senha ficam só na máquina (ver README).
+keystore.properties
+*.jks
+*.keystore
