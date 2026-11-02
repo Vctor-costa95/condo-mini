@@ -1,6 +1,7 @@
 package com.example.condo_mini.data.remote
 
 import com.example.condo_mini.domain.model.Bill
+import com.example.condo_mini.domain.model.BookingMode
 import com.example.condo_mini.domain.model.BillStatus
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.CondoDocument
@@ -132,7 +133,11 @@ internal fun JSONObject.toArea(): CommonArea = CommonArea(
     rules = text("rules"),
     iconKey = text("iconKey"),
     closedReason = str("closedReason"),
-    condoId = text("condoId")
+    condoId = text("condoId"),
+    bookingMode = BookingMode.valueOf(optString("bookingMode", BookingMode.PERIOD.name)),
+    opensAt = optInt("opensAt", 8),
+    closesAt = optInt("closesAt", 22),
+    maxHours = optInt("maxHours", 2)
 )
 
 internal fun CommonArea.toJson(): JSONObject = JSONObject()
@@ -145,17 +150,26 @@ internal fun CommonArea.toJson(): JSONObject = JSONObject()
     .put("rules", rules)
     .put("iconKey", iconKey)
     .put("closedReason", closedReason ?: JSONObject.NULL)
+    .put("bookingMode", bookingMode.name)
+    .put("opensAt", opensAt)
+    .put("closesAt", closesAt)
+    .put("maxHours", maxHours)
 
-internal fun JSONObject.toReservation(): Reservation = Reservation(
-    id = getString("id"),
-    area = getJSONObject("area").toArea(),
-    date = LocalDate.parse(getString("date")),
-    period = ReservationPeriod.valueOf(getString("period")),
-    unit = getString("unit"),
-    status = ReservationStatus.valueOf(getString("status")),
-    residentName = text("residentName"),
-    rejectionReason = str("rejectionReason")
-)
+internal fun JSONObject.toReservation(): Reservation {
+    val period = str("period")?.let(ReservationPeriod::valueOf)
+    return Reservation(
+        id = getString("id"),
+        area = getJSONObject("area").toArea(),
+        date = LocalDate.parse(getString("date")),
+        period = period,
+        unit = getString("unit"),
+        status = ReservationStatus.valueOf(getString("status")),
+        residentName = text("residentName"),
+        rejectionReason = str("rejectionReason"),
+        startHour = optInt("startHour", period?.startHour ?: 0),
+        endHour = optInt("endHour", period?.endHour ?: 0)
+    )
+}
 
 internal fun JSONObject.toBooking(): ServiceBooking = ServiceBooking(
     id = getString("id"),

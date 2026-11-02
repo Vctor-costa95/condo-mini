@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.data.remote.userMessage
+import com.example.condo_mini.domain.model.BookingMode
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.ReservationStatus
 import com.example.condo_mini.domain.repository.DirectoryRepository
@@ -30,6 +31,10 @@ data class AreaForm(
     val rules: String = "",
     val iconKey: String = AreaIcon.PARTY.key,
     val closedReason: String? = null,
+    val bookingMode: BookingMode = BookingMode.PERIOD,
+    val opensAt: Int = 8,
+    val closesAt: Int = 22,
+    val maxHours: Int = 2,
     val isSaving: Boolean = false,
     val error: String? = null
 ) {
@@ -44,8 +49,19 @@ data class AreaForm(
         fee = fee.toFeeOrNull() ?: 0.0,
         rules = rules.trim(),
         iconKey = iconKey,
-        closedReason = closedReason
+        closedReason = closedReason,
+        bookingMode = bookingMode,
+        opensAt = opensAt,
+        closesAt = closesAt,
+        maxHours = maxHours
     )
+
+    /** Ajusta o horário mantendo abertura antes do fechamento e o máximo dentro dele. */
+    fun withHours(opens: Int = opensAt, closes: Int = closesAt, max: Int = maxHours): AreaForm {
+        val o = opens.coerceIn(0, 23)
+        val c = closes.coerceIn(o + 1, 24)
+        return copy(opensAt = o, closesAt = c, maxHours = max.coerceIn(1, c - o))
+    }
 }
 
 data class AdminAreasUiState(
@@ -102,7 +118,11 @@ class AdminAreasViewModel(
             fee = if (area.fee > 0) "%.2f".format(area.fee).replace('.', ',') else "",
             rules = area.rules,
             iconKey = area.iconKey.ifBlank { AreaIcon.MEETING.key },
-            closedReason = area.closedReason
+            closedReason = area.closedReason,
+            bookingMode = area.bookingMode,
+            opensAt = area.opensAt,
+            closesAt = area.closesAt,
+            maxHours = area.maxHours
         )
     }
 

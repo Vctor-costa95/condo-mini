@@ -5,6 +5,7 @@ import com.example.condo_mini.domain.model.Notice
 import com.example.condo_mini.domain.model.NoticeCategory
 import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
+import com.example.condo_mini.domain.model.ReservationSlot
 import com.example.condo_mini.domain.model.ServiceBooking
 import com.example.condo_mini.domain.repository.NoticeRepository
 import com.example.condo_mini.domain.repository.ReservationRepository
@@ -64,23 +65,30 @@ class ApiReservationRepository(private val api: ApiClient, private val condoId: 
                 .strings().map(ReservationPeriod::valueOf).toSet()
         }.getOrDefault(emptySet())
 
+    override suspend fun bookedHours(areaId: String, date: LocalDate): Set<Int> =
+        runCatching {
+            val hours = JSONArray(api.get("areas/$areaId/booked-hours", mapOf("date" to date.toString())))
+            List(hours.length()) { hours.getInt(it) }.toSet()
+        }.getOrDefault(emptySet())
+
     // O servidor usa o nome de quem está logado; [residentName] fica para os dados de demonstração.
     override suspend fun reserve(
         areaId: String,
         date: LocalDate,
-        period: ReservationPeriod,
+        slot: ReservationSlot,
         unit: String,
         residentName: String
     ): Result<Reservation> = runCatching {
-        api.send(
-            "POST", "reservations",
-            JSONObject()
-                .put("condoId", condoId())
-                .put("areaId", areaId)
-                .put("date", date.toString())
-                .put("period", period.name)
-                .put("unit", unit)
-        ).obj { it.toReservation() }
+        val body = JSONObject()
+            .put("condoId", condoId())
+            .put("areaId", areaId)
+            .put("date", date.toString())
+            .put("unit", unit)
+        when (slot) {
+            is ReservationSlot.Period -> body.put("period", slot.period.name)
+            is ReservationSlot.Hours -> body.put("startHour", slot.startHour).put("endHour", slot.endHour)
+        }
+        api.send("POST", "reservations", body).obj { it.toReservation() }
     }
 
     override suspend fun cancel(reservationId: String) = api.quietly {

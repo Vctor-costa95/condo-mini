@@ -6,6 +6,7 @@ import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
+import com.example.condo_mini.domain.model.ReservationSlot
 import com.example.condo_mini.domain.model.ReservationStatus
 import com.example.condo_mini.domain.model.RepairKind
 import com.example.condo_mini.domain.model.ServiceBooking
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalTime
 
 /** Estado do bottom sheet de nova reserva. */
 data class BookingState(
@@ -31,9 +33,34 @@ data class BookingState(
     val date: LocalDate = LocalDate.now(),
     val bookedPeriods: Set<ReservationPeriod> = emptySet(),
     val period: ReservationPeriod? = null,
+    /** Espaços por hora: horas ocupadas no dia, início escolhido e quantas horas. */
+    val bookedHours: Set<Int> = emptySet(),
+    val startHour: Int? = null,
+    val duration: Int = 1,
     val isSubmitting: Boolean = false,
     val error: String? = null
-)
+) {
+    /** Horas em que dá para começar: livres e, hoje, ainda não iniciadas. */
+    val startHours: List<Int>
+        get() {
+            val now = LocalTime.now().hour
+            return (area.opensAt until area.closesAt).filter { hour ->
+                hour !in bookedHours && (date != LocalDate.now() || hour > now)
+            }
+        }
+
+    /** Durações possíveis a partir de [startHour]: até o máximo, a próxima reserva ou o fechamento. */
+    val durations: List<Int>
+        get() {
+            val start = startHour ?: return emptyList()
+            return (1..area.maxHours).takeWhile { hours ->
+                start + hours <= area.closesAt && (start + hours - 1) !in bookedHours
+            }
+        }
+
+    val canConfirm: Boolean
+        get() = if (area.isHourly) startHour != null && duration in durations else period != null
+}
 
 /** Estado do bottom sheet de mudança ou reparo. */
 data class ServiceRequestState(
@@ -104,12 +131,25 @@ class ReservationsViewModel(
     }
 
     fun onDateSelected(date: LocalDate) {
-        booking.update { it?.copy(date = date, period = null, error = null) }
+        booking.update { it?.copy(date = date, period = null, startHour = null, duration = 1, error = null) }
         refreshAvailability()
     }
 
     fun onPeriodSelected(period: ReservationPeriod) {
         booking.update { it?.copy(period = period, error = null) }
+    }
+
+    /** Novo início: mantém a duração se ela ainda couber; senão, volta para 1 hora. */
+    fun onStartHourSelected(hour: Int) {
+        booking.update { state ->
+            state?.copy(startHour = hour, error = null)?.let { next ->
+                if (next.duration in next.durations) next else next.copy(duration = 1)
+            }
+        }
+    }
+
+    fun onDurationSelected(hours: Int) {
+        booking.update { it?.copy(duration = hours, error = null) }
     }
 
     fun onDismissBooking() {
@@ -118,9 +158,15 @@ class ReservationsViewModel(
 
     fun onConfirmBooking() {
         val current = booking.value ?: return
-        val period = current.period ?: run {
-            booking.update { it?.copy(error = "Selecione um período.") }
-            return
+        val start = current.startHour
+        val slot = when {
+            current.area.isHourly && start != null && current.duration in current.durations ->
+                ReservationSlot.Hours(start, start + current.duration)
+            !current.area.isHourly && current.period != null -> ReservationSlot.Period(current.period)
+            else -> {
+                booking.update { it?.copy(error = if (current.area.isHourly) "Escolha o horário de início." else "Selecione um período.") }
+                return
+            }
         }
         val user = sessionRepository.currentUser.value
         booking.update { it?.copy(isSubmitting = true, error = null) }
@@ -128,7 +174,7 @@ class ReservationsViewModel(
             reservationRepository.reserve(
                 areaId = current.area.id,
                 date = current.date,
-                period = period,
+                slot = slot,
                 unit = user?.unit.orEmpty(),
                 residentName = user?.name.orEmpty()
             )
@@ -241,10 +287,16 @@ class ReservationsViewModel(
     private fun refreshAvailability() {
         val current = booking.value ?: return
         viewModelScope.launch {
-            val booked = reservationRepository.bookedPeriods(current.area.id, current.date)
+            val periods = if (current.area.isHourly) emptySet() else reservationRepository.bookedPeriods(current.area.id, current.date)
+            val hours = if (current.area.isHourly) reservationRepository.bookedHours(current.area.id, current.date) else emptySet()
             booking.update { state ->
                 if (state?.area?.id == current.area.id && state.date == current.date) {
-                    state.copy(bookedPeriods = booked)
+                    // Um início que ficou ocupado enquanto a ficha estava aberta sai da seleção.
+                    state.copy(
+                        bookedPeriods = periods,
+                        bookedHours = hours,
+                        startHour = state.startHour?.takeIf { it !in hours }
+                    )
                 } else {
                     state
                 }

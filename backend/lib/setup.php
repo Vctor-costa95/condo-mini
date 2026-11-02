@@ -3,9 +3,34 @@
 
 declare(strict_types=1);
 
+/**
+ * Banco novo: cria tudo pelo schema.sql (que já está na versão mais recente) e marca
+ * as migrações como feitas. Banco existente: roda só as migrações que faltam, em ordem.
+ */
 function install_schema(): void
 {
-    $sql = file_get_contents(dirname(__DIR__) . '/sql/schema.sql');
+    $isNew = row("SHOW TABLES LIKE 'condominiums'") === null;
+    run_sql_file(dirname(__DIR__) . '/sql/schema.sql');
+    db()->exec('CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR(120) NOT NULL PRIMARY KEY, applied_at DATETIME NOT NULL)');
+    $done = array_flip(array_column(rows('SELECT name FROM schema_migrations'), 'name'));
+    $files = glob(dirname(__DIR__) . '/sql/migrations/*.sql') ?: [];
+    sort($files);
+    foreach ($files as $file) {
+        $name = basename($file);
+        if (isset($done[$name])) {
+            continue;
+        }
+        if (!$isNew) {
+            run_sql_file($file);
+            echo "Migração aplicada: $name\n";
+        }
+        exec_sql('INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)', [$name, now_sql()]);
+    }
+}
+
+function run_sql_file(string $path): void
+{
+    $sql = (string) file_get_contents($path);
     // Sem ";" dentro dos comandos, então dá para separar assim.
     foreach (array_filter(array_map('trim', explode(';', preg_replace('/^--.*$/m', '', $sql)))) as $statement) {
         db()->exec($statement);
@@ -120,29 +145,37 @@ function seed_demo(): void
         ['a1', 'c1', 'Salão de festas', 'Salão climatizado com cozinha equipada e banheiros.', 80, 150, 'Limpeza por conta do morador. Som até 22h.', 'party'],
         ['a2', 'c1', 'Churrasqueira', 'Área coberta com churrasqueira, pia e mesas.', 30, 80, 'Trazer carvão. Devolver a área limpa.', 'grill'],
         ['a3', 'c1', 'Espaço gourmet', 'Cozinha gourmet integrada com mesa para 12 pessoas.', 12, 100, 'Proibido uso de som alto.', 'gourmet'],
-        ['a4', 'c1', 'Quadra poliesportiva', 'Quadra coberta para futebol, vôlei e basquete.', 20, 0, 'Uso de calçado adequado obrigatório.', 'court'],
-        ['a5', 'c1', 'Sala de reuniões', 'Sala com TV, mesa e 8 cadeiras.', 8, 0, 'Reserva máxima de um período por dia.', 'meeting'],
+        // Quadras e sala de reuniões, gratuitas, são reservadas por hora: [modo, abre, fecha, máximo].
+        ['a4', 'c1', 'Quadra poliesportiva', 'Quadra coberta para futebol, vôlei e basquete.', 20, 0, 'Uso de calçado adequado obrigatório.', 'court', ['HOURLY', 7, 22, 2]],
+        ['a5', 'c1', 'Sala de reuniões', 'Sala com TV, mesa e 8 cadeiras.', 8, 0, 'Até 3 horas por reserva.', 'meeting', ['HOURLY', 8, 22, 3]],
         ['a6', 'c2', 'Rooftop com piscina', 'Piscina com borda infinita e vista para o mar.', 25, 0, 'Uso até 22h. Crianças acompanhadas.', 'pool'],
         ['a7', 'c2', 'Academia', 'Equipamentos Technogym e sala de pilates.', 12, 0, 'Uso de toalha obrigatório.', 'gym'],
         ['a8', 'c3', 'Salão de festas', 'Salão para 120 pessoas com copa.', 120, 250, 'Som até 23h.', 'party'],
-        ['a9', 'c3', 'Quadra de tênis', 'Quadra de saibro com iluminação.', 4, 0, 'Reserva de um período por dia.', 'tennis'],
+        ['a9', 'c3', 'Quadra de tênis', 'Quadra de saibro com iluminação.', 4, 0, 'Até 2 horas por reserva.', 'tennis', ['HOURLY', 7, 21, 2]],
         ['a10', 'c3', 'Brinquedoteca', 'Espaço infantil com monitoria aos sábados.', 15, 0, 'Crianças até 10 anos.', 'kids'],
     ];
-    foreach ($areas as [$id, $condoId, $name, $description, $capacity, $fee, $rules, $icon]) {
+    foreach ($areas as $area) {
+        [$id, $condoId, $name, $description, $capacity, $fee, $rules, $icon] = $area;
+        [$mode, $opens, $closes, $maxHours] = $area[8] ?? ['PERIOD', 8, 22, 2];
         $insert('common_areas', [
             'id' => $id, 'condo_id' => $condoId, 'name' => $name, 'description' => $description,
             'capacity' => $capacity, 'fee' => $fee, 'rules' => $rules, 'icon_key' => $icon,
+            'booking_mode' => $mode, 'opens_at' => $opens, 'closes_at' => $closes, 'max_hours' => $maxHours,
         ]);
     }
+    // Por turno: [turno]. Por hora: [null, início, fim].
     $reservations = [
-        ['r1', 'a1', 3, 'NIGHT', 'Apto 302 - Bloco B', 'CONFIRMED', 'Marina Costa'],
-        ['r2', 'a2', 2, 'AFTERNOON', 'Apto 104 - Bloco A', 'CONFIRMED', 'Paulo Mendes'],
-        ['r3', 'a1', 7, 'AFTERNOON', 'Apto 201 - Bloco C', 'PENDING', 'Helena Rocha'],
-        ['r4', 'a3', 5, 'NIGHT', 'Apto 503 - Bloco B', 'PENDING', 'Ricardo Alves'],
+        ['r1', 'a1', 3, ['NIGHT'], 'Apto 302 - Bloco B', 'CONFIRMED', 'Marina Costa'],
+        ['r2', 'a2', 2, ['AFTERNOON'], 'Apto 104 - Bloco A', 'CONFIRMED', 'Paulo Mendes'],
+        ['r3', 'a1', 7, ['AFTERNOON'], 'Apto 201 - Bloco C', 'PENDING', 'Helena Rocha'],
+        ['r4', 'a3', 5, ['NIGHT'], 'Apto 503 - Bloco B', 'PENDING', 'Ricardo Alves'],
+        ['r5', 'a4', 1, [null, 18, 20], 'Apto 402 - Bloco C', 'CONFIRMED', 'Gustavo Prado'],
     ];
-    foreach ($reservations as [$id, $areaId, $offset, $period, $unit, $status, $resident]) {
+    foreach ($reservations as [$id, $areaId, $offset, $slot, $unit, $status, $resident]) {
+        [$start, $end] = $slot[0] === null ? [$slot[1], $slot[2]] : PERIOD_HOURS[$slot[0]];
         $insert('reservations', [
-            'id' => $id, 'condo_id' => 'c1', 'area_id' => $areaId, 'date' => $day($offset), 'period' => $period,
+            'id' => $id, 'condo_id' => 'c1', 'area_id' => $areaId, 'date' => $day($offset), 'period' => $slot[0],
+            'start_hour' => $start, 'end_hour' => $end,
             'unit' => $unit, 'status' => $status, 'resident_name' => $resident, 'created_at' => $at('-1 day'),
         ]);
     }

@@ -10,6 +10,7 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/lib/core.php';
 require dirname(__DIR__) . '/lib/directory.php';
+require dirname(__DIR__) . '/lib/community.php';
 require dirname(__DIR__) . '/lib/setup.php';
 
 date_default_timezone_set(config()['timezone'] ?? 'America/Sao_Paulo');

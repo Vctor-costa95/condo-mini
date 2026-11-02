@@ -94,6 +94,8 @@ CREATE TABLE IF NOT EXISTS notices (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Espaço excluído vira deleted_at: as reservas antigas continuam mostrando o nome dele.
+-- booking_mode: PERIOD (manhã, tarde, noite) ou HOURLY (início e duração, das opens_at
+-- às closes_at, até max_hours seguidas). A taxa é por reserva nos dois.
 CREATE TABLE IF NOT EXISTS common_areas (
     id            VARCHAR(36)   NOT NULL PRIMARY KEY,
     condo_id      VARCHAR(36)   NOT NULL,
@@ -103,6 +105,10 @@ CREATE TABLE IF NOT EXISTS common_areas (
     fee           DECIMAL(10,2) NOT NULL DEFAULT 0,
     rules         TEXT          NOT NULL,
     icon_key      VARCHAR(40)   NOT NULL DEFAULT '',
+    booking_mode  ENUM('PERIOD','HOURLY') NOT NULL DEFAULT 'PERIOD',
+    opens_at      TINYINT       NOT NULL DEFAULT 8,
+    closes_at     TINYINT       NOT NULL DEFAULT 22,
+    max_hours     TINYINT       NOT NULL DEFAULT 2,
     closed_reason VARCHAR(255)  NULL,
     deleted_at    DATETIME      NULL,
     CONSTRAINT fk_areas_condo FOREIGN KEY (condo_id) REFERENCES condominiums(id) ON DELETE CASCADE
@@ -113,13 +119,17 @@ CREATE TABLE IF NOT EXISTS reservations (
     condo_id         VARCHAR(36)  NOT NULL,
     area_id          VARCHAR(36)  NOT NULL,
     date             DATE         NOT NULL,
-    period           ENUM('MORNING','AFTERNOON','NIGHT') NOT NULL,
+    -- Turno (espaços por turno) ou null (por hora). As horas valem para os dois:
+    -- o turno da tarde é 13–17, e é por elas que o servidor confere conflitos.
+    period           ENUM('MORNING','AFTERNOON','NIGHT') NULL,
+    start_hour       TINYINT      NOT NULL,
+    end_hour         TINYINT      NOT NULL,
     unit             VARCHAR(80)  NOT NULL,
     status           ENUM('CONFIRMED','PENDING','REJECTED','CANCELED') NOT NULL,
     resident_name    VARCHAR(120) NOT NULL DEFAULT '',
     rejection_reason VARCHAR(255) NULL,
     created_at       DATETIME     NOT NULL,
-    KEY ix_reservations_slot (area_id, date, period),
+    KEY ix_reservations_slot (area_id, date),
     KEY ix_reservations_unit (condo_id, unit),
     CONSTRAINT fk_reservations_area FOREIGN KEY (area_id) REFERENCES common_areas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -60,6 +60,7 @@ import com.example.condo_mini.ui.components.Eyebrow
 import com.example.condo_mini.ui.components.LoadingState
 import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.SectionHeader
+import com.example.condo_mini.ui.components.Stepper
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.theme.ChampagneLight
 import com.example.condo_mini.ui.theme.CondoTheme
@@ -289,40 +290,6 @@ private fun TowerCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-private fun Stepper(
-    label: String,
-    value: Int,
-    min: Int,
-    max: Int,
-    onValueChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onValueChange(value - 1) }, enabled = value > min) {
-                Icon(Icons.Default.Remove, contentDescription = "Diminuir $label")
-            }
-            Text(
-                "$value",
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(40.dp)
-            )
-            IconButton(onClick = { onValueChange(value + 1) }, enabled = value < max) {
-                Icon(Icons.Default.Add, contentDescription = "Aumentar $label")
-            }
-        }
     }
 }
 
