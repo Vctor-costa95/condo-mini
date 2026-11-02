@@ -1,6 +1,5 @@
 package com.example.condo_mini.data.remote
 
-import android.content.Context
 import com.example.condo_mini.data.fake.demoDocumentText
 import com.example.condo_mini.data.pdf.BillPdfGenerator
 import com.example.condo_mini.data.pdf.DocumentPdfGenerator
@@ -23,6 +22,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.time.YearMonth
 
 /**
@@ -36,11 +36,10 @@ private suspend fun ApiClient.uploadPhotos(urls: List<String>, condoId: String):
     }
 
 /** PDFs baixados da API ficam no cache, um arquivo por id. */
-private fun Context.pdfCache(folder: String, id: String): File = File(cacheDir, "api-pdfs/$folder/$id.pdf")
+private fun ApiClient.pdfCache(folder: String, id: String): File = File(cache.pdfDir, "$folder/$id.pdf")
 
 class ApiBillRepository(
     private val api: ApiClient,
-    private val context: Context,
     private val pdfGenerator: BillPdfGenerator,
     private val condoId: CondoProvider
 ) : BillRepository {
@@ -48,13 +47,21 @@ class ApiBillRepository(
     override fun observeBills(unit: String): Flow<List<Bill>> =
         api.live { api.get("bills", mapOf("condoId" to condoId(), "unit" to unit)).list { it.toBill() } }
 
-    override suspend fun getBill(billId: String, unit: String): Bill? =
-        runCatching { api.get("bills/$billId").obj { it.toBill() } }.getOrNull()
+    // Pela lista do apartamento, a mesma da tela de boletos: sem conexão, vem do cache.
+    override suspend fun getBill(billId: String, unit: String): Bill? = runCatching {
+        api.get("bills", mapOf("condoId" to condoId(), "unit" to unit)).list { it.toBill() }.firstOrNull { it.id == billId }
+    }.getOrNull()
 
     /** O PDF enviado pela administração; sem ele, um de demonstração gerado no aparelho. */
     override suspend fun billPdf(bill: Bill, payer: User): File {
-        val target = context.pdfCache("bills", bill.id)
-        val downloaded = runCatching { api.download(api.url("bills/${bill.id}/pdf"), target) }.getOrDefault(false)
+        val target = api.pdfCache("bills", bill.id)
+        val downloaded = try {
+            api.download(api.url("bills/${bill.id}/pdf"), target)
+        } catch (e: IOException) {
+            if (e is ApiException) throw e
+            // Sem conexão: o PDF baixado da última vez, ou o gerado com os dados do boleto.
+            target.exists()
+        }
         return if (downloaded) target else withContext(Dispatchers.IO) { pdfGenerator.generate(bill, payer) }
     }
 
@@ -173,22 +180,24 @@ class ApiOccurrenceRepository(private val api: ApiClient, private val condoId: C
 
 class ApiDocumentRepository(
     private val api: ApiClient,
-    private val context: Context,
-    private val demoGenerator: DocumentPdfGenerator
+    private val demoGenerator: DocumentPdfGenerator,
+    private val condoId: CondoProvider
 ) : DocumentRepository {
 
     override fun observeDocuments(condoId: String): Flow<List<CondoDocument>> =
         api.live { api.get("documents", mapOf("condoId" to condoId)).list { it.toDocument() } }
 
-    override suspend fun getDocument(documentId: String): CondoDocument? =
-        runCatching { api.get("documents/$documentId").obj { it.toDocument() } }.getOrNull()
+    // Pela lista do condomínio, a mesma da tela de documentos: sem conexão, vem do cache.
+    override suspend fun getDocument(documentId: String): CondoDocument? = runCatching {
+        api.get("documents", mapOf("condoId" to condoId())).list { it.toDocument() }.firstOrNull { it.id == documentId }
+    }.getOrNull()
 
     /** Baixa o PDF publicado; os documentos de demonstração (sem URL) são gerados no aparelho. */
     override suspend fun documentFile(document: CondoDocument): File {
         if (document.filePath.isBlank()) {
             return withContext(Dispatchers.IO) { demoGenerator.generate(document, demoDocumentText(document)) }
         }
-        val target = context.pdfCache("documents", document.id)
+        val target = api.pdfCache("documents", document.id)
         if (!target.exists() && !api.download(document.filePath.toHttpUrl(), target)) {
             throw ApiException("Documento não encontrado.", 404)
         }

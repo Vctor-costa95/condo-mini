@@ -76,7 +76,7 @@ object AppContainer {
         apiClient?.let { ApiServiceBookingRepository(it) } ?: FakeServiceBookingRepository()
     }
     val billRepository: BillRepository by lazy {
-        apiClient?.let { ApiBillRepository(it, appContext, BillPdfGenerator(appContext), currentCondoId) }
+        apiClient?.let { ApiBillRepository(it, BillPdfGenerator(appContext), currentCondoId) }
             ?: FakeBillRepository(BillPdfGenerator(appContext), UnitDocumentStore(appContext))
     }
     val directoryRepository: DirectoryRepository by lazy {
@@ -89,7 +89,7 @@ object AppContainer {
         apiClient?.let { ApiOccurrenceRepository(it, currentCondoId) } ?: FakeOccurrenceRepository()
     }
     val documentRepository: DocumentRepository by lazy {
-        apiClient?.let { ApiDocumentRepository(it, appContext, DocumentPdfGenerator(appContext)) }
+        apiClient?.let { ApiDocumentRepository(it, DocumentPdfGenerator(appContext), currentCondoId) }
             ?: FakeDocumentRepository(CondoDocumentStore(appContext), DocumentPdfGenerator(appContext))
     }
 }
