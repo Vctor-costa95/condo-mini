@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.admin.areas
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.ReservationStatus
 import com.example.condo_mini.domain.repository.DirectoryRepository
@@ -127,11 +128,14 @@ class AdminAreasViewModel(
         }
         form.update { it?.copy(isSaving = true) }
         viewModelScope.launch {
-            val saved = reservationRepository.saveArea(
-                current.preview().copy(condoId = directoryRepository.selectedCondoId.value)
-            )
-            form.value = null
-            userMessage.value = if (current.isNew) "Espaço criado: ${saved.name}. Já disponível para reserva." else "Alterações salvas em ${saved.name}."
+            runCatching {
+                reservationRepository.saveArea(current.preview().copy(condoId = directoryRepository.selectedCondoId.value))
+            }.onSuccess { saved ->
+                form.value = null
+                userMessage.value = if (current.isNew) "Espaço criado: ${saved.name}. Já disponível para reserva." else "Alterações salvas em ${saved.name}."
+            }.onFailure { e ->
+                form.update { it?.copy(isSaving = false, error = e.userMessage()) }
+            }
         }
     }
 

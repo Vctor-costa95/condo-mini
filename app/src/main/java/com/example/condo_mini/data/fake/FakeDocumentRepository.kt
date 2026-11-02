@@ -36,7 +36,7 @@ class FakeDocumentRepository(
         document.filePath.takeIf { it.isNotBlank() }
             ?.let { File(it) }
             ?.takeIf { it.exists() }
-            ?: demoGenerator.generate(document, demoText(document))
+            ?: demoGenerator.generate(document, demoDocumentText(document))
     }
 
     override suspend fun upload(
@@ -94,35 +94,36 @@ class FakeDocumentRepository(
             demo("doc-regimento-c2", "c2", "Regimento interno", DocumentCategory.BYLAWS, 300, 280)
         )
     }
+}
 
-    private fun demoText(document: CondoDocument): List<String> = when (document.category) {
-        DocumentCategory.BYLAWS -> listOf(
-            "Capítulo I · Das disposições gerais",
-            "Art. 1º Este regimento disciplina o uso das áreas comuns e privativas do condomínio, " +
-                "complementando a convenção, e obriga todos os condôminos, moradores, visitantes e prestadores de serviço.",
-            "Capítulo II · Do silêncio",
-            "Art. 2º Entre 22h e 8h, é vedada a produção de ruídos que perturbem o sossego dos demais moradores, " +
-                "incluindo obras, música em volume elevado e arrastar de móveis.",
-            "Capítulo III · Das áreas comuns",
-            "Art. 3º O salão de festas e a churrasqueira devem ser reservados pelo aplicativo, com antecedência " +
-                "mínima de 48 horas, e entregues limpos até as 10h do dia seguinte.",
-            "Art. 4º A piscina funciona das 8h às 22h. Crianças menores de 12 anos devem estar acompanhadas de um responsável.",
-            "Capítulo IV · Das mudanças e obras",
-            "Art. 5º Mudanças e obras devem ser comunicadas à administração e acontecem de segunda a sábado, das 8h às 18h."
-        )
-        DocumentCategory.CONVENTION -> listOf(
-            "Convenção de condomínio registrada no Cartório de Registro de Imóveis.",
-            "Cláusula 1ª O condomínio é composto pelas unidades autônomas e pelas partes de uso comum descritas no memorial de incorporação.",
-            "Cláusula 2ª As despesas ordinárias são rateadas na proporção da fração ideal de cada unidade.",
-            "Cláusula 3ª O síndico é eleito em assembleia geral ordinária, com mandato de dois anos, permitida a reeleição."
-        )
-        DocumentCategory.MINUTES -> listOf(
-            "Aos ${document.uploadedAt.toLocalDate().minusDays(3).dayOfMonth} dias do mês, em segunda chamada, " +
-                "reuniram-se os condôminos no salão de festas, sob a presidência do síndico.",
-            "Ordem do dia: ${document.title.substringAfter("·").trim()}.",
-            "Após a apresentação e o debate, a proposta foi colocada em votação e aprovada pela maioria dos presentes.",
-            "Nada mais havendo a tratar, foi encerrada a assembleia, lavrando-se esta ata, que segue assinada pelo presidente e pelo secretário."
-        )
-        DocumentCategory.OTHER -> listOf("Documento publicado pela administração do condomínio.")
-    }
+/** Texto dos PDFs de demonstração, gerados quando o documento não tem arquivo. */
+internal fun demoDocumentText(document: CondoDocument): List<String> = when (document.category) {
+    DocumentCategory.BYLAWS -> listOf(
+        "Capítulo I · Das disposições gerais",
+        "Art. 1º Este regimento disciplina o uso das áreas comuns e privativas do condomínio, " +
+            "complementando a convenção, e obriga todos os condôminos, moradores, visitantes e prestadores de serviço.",
+        "Capítulo II · Do silêncio",
+        "Art. 2º Entre 22h e 8h, é vedada a produção de ruídos que perturbem o sossego dos demais moradores, " +
+            "incluindo obras, música em volume elevado e arrastar de móveis.",
+        "Capítulo III · Das áreas comuns",
+        "Art. 3º O salão de festas e a churrasqueira devem ser reservados pelo aplicativo, com antecedência " +
+            "mínima de 48 horas, e entregues limpos até as 10h do dia seguinte.",
+        "Art. 4º A piscina funciona das 8h às 22h. Crianças menores de 12 anos devem estar acompanhadas de um responsável.",
+        "Capítulo IV · Das mudanças e obras",
+        "Art. 5º Mudanças e obras devem ser comunicadas à administração e acontecem de segunda a sábado, das 8h às 18h."
+    )
+    DocumentCategory.CONVENTION -> listOf(
+        "Convenção de condomínio registrada no Cartório de Registro de Imóveis.",
+        "Cláusula 1ª O condomínio é composto pelas unidades autônomas e pelas partes de uso comum descritas no memorial de incorporação.",
+        "Cláusula 2ª As despesas ordinárias são rateadas na proporção da fração ideal de cada unidade.",
+        "Cláusula 3ª O síndico é eleito em assembleia geral ordinária, com mandato de dois anos, permitida a reeleição."
+    )
+    DocumentCategory.MINUTES -> listOf(
+        "Aos ${document.uploadedAt.toLocalDate().minusDays(3).dayOfMonth} dias do mês, em segunda chamada, " +
+            "reuniram-se os condôminos no salão de festas, sob a presidência do síndico.",
+        "Ordem do dia: ${document.title.substringAfter("·").trim()}.",
+        "Após a apresentação e o debate, a proposta foi colocada em votação e aprovada pela maioria dos presentes.",
+        "Nada mais havendo a tratar, foi encerrada a assembleia, lavrando-se esta ata, que segue assinada pelo presidente e pelo secretário."
+    )
+    DocumentCategory.OTHER -> listOf("Documento publicado pela administração do condomínio.")
 }

@@ -9,4 +9,6 @@
     <color name="white">#FFFFFFFF</color>
     <!-- Fundo da janela antes do Compose desenhar (evita flash branco) -->
     <color name="window_background">#FFF7F5F0</color>
+    <!-- Champanhe da marca, no ícone das notificações -->
+    <color name="notification_accent">#FFB8955A</color>
 </resources>

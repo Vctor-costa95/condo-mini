@@ -141,14 +141,15 @@ class FakeDirectoryRepository : DirectoryRepository {
         users.update { list -> list.map { if (it.id == userId) it.withUnits(it.units - unit) else it } }
     }
 
-    override fun authenticate(login: String, password: String): User? {
+    /** Cadastro com esse usuário e senha, em qualquer condomínio, ou null. */
+    fun authenticate(login: String, password: String): User? {
         val needle = login.normalized()
         if (needle.isBlank()) return null
         // Senha confere exatamente; o usuário não liga para maiúsculas nem acentos.
         return users.value.firstOrNull { it.login.normalized() == needle && it.password == password }
     }
 
-    override fun isLoginAvailable(login: String, exceptUserId: String): Boolean {
+    override suspend fun isLoginAvailable(login: String, exceptUserId: String): Boolean {
         val needle = login.normalized()
         return users.value.none { it.id != exceptUserId && it.login.normalized() == needle }
     }

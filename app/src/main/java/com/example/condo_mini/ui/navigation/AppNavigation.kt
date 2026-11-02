@@ -1,6 +1,7 @@
 package com.example.condo_mini.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,10 +28,22 @@ fun AppNavigation(
     loginViewModel: LoginViewModel = viewModel()
 ) {
     val uiState by loginViewModel.uiState.collectAsStateWithLifecycle()
+    val currentUser by loginViewModel.currentUser.collectAsStateWithLifecycle()
+
+    // Sessão encerrada pelo servidor com o app aberto: volta ao login.
+    LaunchedEffect(currentUser) {
+        val route = navController.currentDestination?.route
+        if (currentUser == null && route != null && route != AppRoutes.LOGIN) {
+            loginViewModel.onSessionEnded()
+            navController.navigate(AppRoutes.LOGIN) {
+                popUpTo(navController.graph.id) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,
-        startDestination = AppRoutes.LOGIN,
+        startDestination = if (loginViewModel.restoredSession) AppRoutes.MAIN else AppRoutes.LOGIN,
         modifier = modifier
     ) {
         composable(AppRoutes.LOGIN) {
@@ -40,7 +53,7 @@ fun AppNavigation(
                 onPasswordChanged = { loginViewModel.onPasswordChanged(it) },
                 onTogglePassword = { loginViewModel.onTogglePassword() },
                 onLoginClick = {
-                    if (loginViewModel.login()) {
+                    loginViewModel.login {
                         val next = if (loginViewModel.needsUnitChoice()) AppRoutes.CHOOSE_UNIT else AppRoutes.MAIN
                         navController.navigate(next) {
                             popUpTo(AppRoutes.LOGIN) { inclusive = true }

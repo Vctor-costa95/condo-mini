@@ -25,13 +25,16 @@ import java.time.YearMonth
 
 interface SessionRepository {
     val currentUser: StateFlow<User?>
+
+    /** Retoma a sessão salva no aparelho; `true` se havia uma e o app pode abrir logado. */
+    fun restore(): Boolean
     /** Entra com usuário e senha; perfil e apartamentos vêm do cadastro. */
-    fun login(login: String, password: String): Boolean
+    suspend fun login(login: String, password: String): Result<User>
 
     /** Troca o apartamento em uso por outro dos [User.units] do morador. */
     fun selectUnit(unit: String)
     fun logout()
-    fun updateContact(email: String, phone: String)
+    suspend fun updateContact(email: String, phone: String): Result<User>
 }
 
 interface NoticeRepository {
@@ -142,14 +145,8 @@ interface DirectoryRepository {
     /** Desliga o usuário de [unit]; os outros apartamentos dele continuam. */
     suspend fun removeUnit(userId: String, unit: String)
 
-    /**
-     * Cadastro com esse usuário e senha, em qualquer condomínio, ou null.
-     * No backend, isso vira a autenticação.
-     */
-    fun authenticate(login: String, password: String): User?
-
     /** Se o usuário de acesso ainda não pertence a outro cadastro. */
-    fun isLoginAvailable(login: String, exceptUserId: String = ""): Boolean
+    suspend fun isLoginAvailable(login: String, exceptUserId: String = ""): Boolean
 }
 
 interface ParcelRepository {

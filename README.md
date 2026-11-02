@@ -2,7 +2,7 @@
 
 Aplicativo de gestão condominial para Android, voltado ao cliente final. Reúne avisos, reservas de áreas comuns, boletos, encomendas e o livro de ocorrências do condomínio em uma experiência com visual premium ("quiet luxury"), pensada para manter paridade com uma futura versão iOS.
 
-> **Status:** protótipo funcional com dados simulados (mock). Ainda não há backend; veja [Próximos passos](#próximos-passos).
+> **Status:** protótipo funcional ligado à API própria (PHP + MySQL na Hostinger, ver [`backend/`](backend/README.md)). Sem `condomini.apiUrl`, roda com dados simulados (mock).
 
 ## Perfis de usuário
 
@@ -88,7 +88,7 @@ app/src/main/java/com/example/condo_mini/
     └── util/                # Formatação de datas e valores
 ```
 
-As telas dependem apenas das **interfaces** em `domain/repository`. Para ligar um backend real, basta criar novas implementações e registrá-las no `AppContainer`, sem mexer nas telas.
+As telas dependem apenas das **interfaces** em `domain/repository`. O `AppContainer` escolhe as implementações: `data/remote` (API) quando `BuildConfig.API_BASE_URL` está preenchido, `data/fake` (memória) quando está vazio. Para trocar o endereço: `./gradlew assembleDebug -Pcondomini.apiUrl=<url>` (vazio = mock).
 
 ## Design system
 
@@ -96,7 +96,7 @@ Tokens de cor, tipografia, formas e componentes estão documentados em [`docs/de
 
 ## Próximos passos
 
-- [ ] Backend (proposta: Supabase com Postgres, Auth, Storage e Row Level Security, região São Paulo)
+- [x] Backend: API em PHP + MySQL na Hostinger
 - [ ] Cache local com Room e sessão com DataStore
 - [ ] Perfis de porteiro e administrador
 - [ ] Notificações push (FCM)

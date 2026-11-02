@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.manager.notices
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.domain.model.Notice
 import com.example.condo_mini.domain.model.NoticeCategory
 import com.example.condo_mini.domain.repository.NoticeRepository
@@ -82,15 +83,20 @@ class ManagerNoticesViewModel(
         form.update { it?.copy(isSubmitting = true) }
         viewModelScope.launch {
             val name = sessionRepository.currentUser.value?.name.orEmpty()
-            noticeRepository.publish(
-                title = current.title,
-                body = current.body,
-                category = current.category,
-                pinned = current.pinned,
-                author = if (name.isBlank()) "Síndico" else "Síndico - $name"
-            )
-            form.value = null
-            userMessage.value = "Aviso publicado para todos os moradores."
+            runCatching {
+                noticeRepository.publish(
+                    title = current.title,
+                    body = current.body,
+                    category = current.category,
+                    pinned = current.pinned,
+                    author = if (name.isBlank()) "Síndico" else "Síndico - $name"
+                )
+            }.onSuccess {
+                form.value = null
+                userMessage.value = "Aviso publicado para todos os moradores."
+            }.onFailure { e ->
+                form.update { it?.copy(isSubmitting = false, error = e.userMessage()) }
+            }
         }
     }
 

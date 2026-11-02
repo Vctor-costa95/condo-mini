@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícone pequeno das notificações: a marca em uma cor só, como o Android exige. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="52"
+    android:viewportHeight="52">
+    <group
+        android:translateX="-26.25"
+        android:translateY="-28">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M44.65,30.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z M36.75,37.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M33.25,44.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M32.25,51.75h7.5a2.25,2.25 0 0,1 0,4.5h-7.5a2.25,2.25 0 0,1 0,-4.5z M33.25,58.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M36.75,65.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M44.65,72.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z" />
+    </group>
+</vector>
