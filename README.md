@@ -112,15 +112,19 @@ Telas que nunca foram abertas com internet ficam vazias, com a faixa avisando. A
 
 O banco ainda tem **dados de demonstração**: três condomínios fictícios (Residencial Jardins, Edifício Vista Mar, Parque das Águas) com moradores, avisos, reservas e boletos.
 
-| Usuário | Senha | Quem é |
-|---|---|---|
-| `morador` | (vazia) | Ana Ribeiro, com dois apartamentos no Bloco A |
-| `sindico` | (vazia) | Carlos Andrade, síndico do Residencial Jardins |
-| `porteiro` | (vazia) | José Silva, portaria do Residencial Jardins |
-| `admin` | (vazia) | Renata Prime, administradora |
-| `nome.sobrenome` | `condo123` | Os outros moradores fictícios (ex.: `paulo.mendes`) |
+| Usuário | Quem é |
+|---|---|
+| `morador` | Ana Ribeiro, com dois apartamentos no Bloco A |
+| `sindico` | Carlos Andrade, síndico do Residencial Jardins |
+| `porteiro` | José Silva, portaria do Residencial Jardins |
+| `admin` | Renata Prime, administradora |
+| `nome.sobrenome` | Os outros moradores fictícios (ex.: `paulo.mendes`) |
 
-> ⚠️ **Antes de cadastrar moradores de verdade:** desligue as contas sem senha no servidor (`'allow_passwordless_logins' => false` no `config.php` da API) e limpe os dados de demonstração. Enquanto estiverem ligadas, qualquer pessoa com o app entra como síndico ou administradora.
+**Senhas:** na API de produção, as quatro primeiras contas têm senha, guardada só no seu PC em `C:\Users\jvict\condomini-assinatura\contas-de-teste.txt`, fora do git. Este repositório é público: nunca escreva senhas aqui.
+
+Num banco **local** criado com `php scripts/install.php --seed`, essas quatro contas entram sem senha (com `allow_passwordless_logins` ligado no `config.php` local), e os demais moradores usam `condo123`.
+
+> ⚠️ **Antes de cadastrar moradores de verdade:** limpe os dados de demonstração e deixe `'allow_passwordless_logins' => false` no `config.php` do servidor.
 
 ---
 
