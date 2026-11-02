@@ -104,9 +104,11 @@ class ApiSessionRepository(
         store.save(token, user.toJson(), user.unit)
     }
 
+    /** Esquece a sessão e tudo que veio da API: o próximo a entrar neste celular não vê nada. */
     private fun forget() {
         api.token = null
         store.clear()
+        api.cache.clear()
         _currentUser.value = null
     }
 }

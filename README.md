@@ -100,6 +100,12 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 
 Quem fez a ação não recebe a própria notificação.
 
+### Sem internet
+
+O app guarda no celular a última versão de cada tela que foi aberta com internet. Sem conexão, ele mostra esses dados, com uma faixa no topo: *"Sem conexão · mostrando dados de 14:32"*. Assim o morador ainda vê o **código da encomenda**, a **linha digitável e o PDF do boleto**, os avisos e as reservas. Quando a internet volta, tudo recarrega sozinho e a faixa some.
+
+Telas que nunca foram abertas com internet ficam vazias, com a faixa avisando. Ações (reservar, registrar, aprovar) continuam precisando de conexão. Ao sair da conta, tudo que estava guardado é apagado do celular.
+
 ---
 
 ## 4. Contas de teste
@@ -164,7 +170,7 @@ O token de login fica no celular **cifrado** com uma chave do próprio aparelho 
 - **Criar cobranças pelo app.** A lista de boletos (valor, vencimento, pago ou não) vem do banco; hoje só existe a dos dados de demonstração. A administradora consegue enviar o **PDF** de cada mês, mas falta uma tela para lançar ou importar os valores.
 - **Pagamento pelo app** (Pix, cartão).
 - **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
-- **Abrir o app sem internet**: ele abre logado, mas as listas precisam da API.
+- **Fazer ações sem internet** (reservar, registrar ocorrência, entregar encomenda): sem conexão, o app avisa e a pessoa tenta de novo. Ver e consultar funciona offline (seção 3).
 - **Versão iOS**, prevista para o início de 2027.
 - **Publicação na Play Store.**
 

@@ -1,6 +1,8 @@
 package com.example.condo_mini.data.remote
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
@@ -10,10 +12,14 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -70,14 +76,55 @@ class ApiClient(baseUrl: String, private val context: Context) {
     private val _unauthorized = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val unauthorized: SharedFlow<Unit> = _unauthorized.asSharedFlow()
 
+    val cache = ApiCache(context)
+
+    /**
+     * Sem conexão com a API. [since] é o horário (epoch ms) dos dados mais antigos
+     * mostrados a partir do [cache]; null quando não havia nada guardado.
+     */
+    data class Offline(val since: Long?)
+
+    /** null enquanto a API responde; volta a null na primeira resposta do servidor. */
+    private val _offline = MutableStateFlow<Offline?>(null)
+    val offline: StateFlow<Offline?> = _offline.asStateFlow()
+
+    init {
+        // Internet de volta: as listas abertas recarregam na hora, sem esperar os 30 s.
+        context.getSystemService(ConnectivityManager::class.java)?.registerDefaultNetworkCallback(
+            object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    if (_offline.value != null) _changes.tryEmit(Unit)
+                }
+            }
+        )
+    }
+
     fun url(path: String, query: Map<String, String?> = emptyMap()): HttpUrl =
         base.newBuilder().apply {
             path.trim('/').split('/').filter { it.isNotEmpty() }.forEach { addPathSegment(it) }
             query.forEach { (key, value) -> if (!value.isNullOrEmpty()) addQueryParameter(key, value) }
         }.build()
 
-    suspend fun get(path: String, query: Map<String, String?> = emptyMap()): String =
-        execute(Request.Builder().url(url(path, query)).get().build(), notify = false)
+    /**
+     * Leitura com a última resposta guardada no aparelho: sem conexão, devolve o que
+     * veio da última vez e marca [offline]; sem nada guardado, a falha segue.
+     */
+    suspend fun get(path: String, query: Map<String, String?> = emptyMap()): String {
+        val url = url(path, query)
+        return try {
+            execute(Request.Builder().url(url).get().build(), notify = false)
+                .also { body -> withContext(Dispatchers.IO) { cache.write(url, body) } }
+        } catch (e: IOException) {
+            if (e is ApiException) throw e
+            val cached = withContext(Dispatchers.IO) { cache.read(url) }
+            if (cached == null) {
+                _offline.update { it ?: Offline(since = null) }
+                throw e
+            }
+            _offline.update { Offline(since = minOf(it?.since ?: cached.savedAt, cached.savedAt)) }
+            cached.body
+        }
+    }
 
     /** POST, PUT, PATCH ou DELETE com corpo JSON; avisa as listas abertas para recarregar. */
     suspend fun send(method: String, path: String, body: JSONObject? = null, query: Map<String, String?> = emptyMap()): String {
@@ -107,10 +154,17 @@ class ApiClient(baseUrl: String, private val context: Context) {
     /** Baixa [url] para [target]; `false` quando a API responde 404. */
     suspend fun download(url: HttpUrl, target: File): Boolean = withContext(Dispatchers.IO) {
         http.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
+            _offline.value = null
             if (response.code == 404) return@use false
             if (!response.isSuccessful) throw failure(response)
             target.parentFile?.mkdirs()
-            response.body!!.byteStream().use { input -> target.outputStream().use { input.copyTo(it) } }
+            // Baixa num temporário: se a conexão cair no meio, o PDF guardado antes continua inteiro.
+            val temp = File(target.path + ".part")
+            response.body!!.byteStream().use { input -> temp.outputStream().use { input.copyTo(it) } }
+            if (!temp.renameTo(target)) {
+                target.delete()
+                temp.renameTo(target)
+            }
             true
         }
     }
@@ -155,6 +209,7 @@ class ApiClient(baseUrl: String, private val context: Context) {
 
     private suspend fun execute(request: Request, notify: Boolean): String = withContext(Dispatchers.IO) {
         http.newCall(request).execute().use { response ->
+            _offline.value = null
             if (!response.isSuccessful) throw failure(response)
             response.body?.string().orEmpty()
         }.also { if (notify) _changes.tryEmit(Unit) }

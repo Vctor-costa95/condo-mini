@@ -6,12 +6,16 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -43,6 +48,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Deck
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.EventAvailable
@@ -90,6 +96,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.data.remote.ApiClient
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.push.PushNotifications
@@ -117,7 +124,12 @@ import com.example.condo_mini.ui.screens.parcels.ParcelsRoute
 import com.example.condo_mini.ui.screens.profile.ProfileRoute
 import com.example.condo_mini.ui.screens.reservations.ReservationsRoute
 import com.example.condo_mini.ui.screens.units.UnitSwitcherSheet
+import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Todas as abas do app; [AppTab.forRole] define quais aparecem para cada perfil. */
 enum class AppTab(
@@ -193,6 +205,8 @@ fun MainScreen(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
     NotificationPermissionRequest()
+    val offline by (AppContainer.apiClient?.offline ?: remember { MutableStateFlow<ApiClient.Offline?>(null) })
+        .collectAsStateWithLifecycle()
     // Notificação tocada: abre a aba dela ("notices" vira "doorman_notices" para a portaria).
     val pendingTab by PushNotifications.pendingTab.collectAsStateWithLifecycle()
     LaunchedEffect(pendingTab, backStackEntry != null) {
@@ -225,16 +239,19 @@ fun MainScreen(
         snackbarHost = { CondoSnackbarHost(snackbarHostState) },
         topBar = {
             if (!isFullScreen) {
-                MainHeader(
-                    user = user,
-                    tab = currentTab ?: tabs.first(),
-                    subScreen = subScreen,
-                    condoName = adminCondo?.name,
-                    onCondoClick = { showCondoPicker = true },
-                    onUnitClick = { showUnitSwitcher = true },
-                    onProfileClick = { navController.navigate(PROFILE_ROUTE) { launchSingleTop = true } },
-                    onBackClick = { navController.popBackStack() }
-                )
+                Column {
+                    MainHeader(
+                        user = user,
+                        tab = currentTab ?: tabs.first(),
+                        subScreen = subScreen,
+                        condoName = adminCondo?.name,
+                        onCondoClick = { showCondoPicker = true },
+                        onUnitClick = { showUnitSwitcher = true },
+                        onProfileClick = { navController.navigate(PROFILE_ROUTE) { launchSingleTop = true } },
+                        onBackClick = { navController.popBackStack() }
+                    )
+                    OfflineBanner(offline)
+                }
             }
         },
         bottomBar = {
@@ -542,5 +559,57 @@ private fun NotificationPermissionRequest() {
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
         if (!granted) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+}
+
+/**
+ * Sem conexão, as telas mostram o que veio da última vez: a faixa diz de quando
+ * são os dados. Some sozinha quando a internet volta.
+ */
+@Composable
+private fun OfflineBanner(offline: ApiClient.Offline?) {
+    AnimatedVisibility(
+        visible = offline != null,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
+    ) {
+        // Guarda o último estado para o texto não sumir antes da animação de saída.
+        var last by remember { mutableStateOf(offline ?: ApiClient.Offline(null)) }
+        if (offline != null) last = offline
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.CloudOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = last.since?.let { "Sem conexão · mostrando dados de ${offlineLabel(it)}" }
+                    ?: "Sem conexão · conecte-se para carregar esta tela",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** "14:32", "ontem, 18:10" ou "28/10, 09:05". */
+private fun offlineLabel(epochMillis: Long): String {
+    val time = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDateTime()
+    val hour = time.format(DateTimeFormatter.ofPattern("HH:mm"))
+    val today = LocalDate.now()
+    return when (time.toLocalDate()) {
+        today -> hour
+        today.minusDays(1) -> "ontem, $hour"
+        else -> time.format(DateTimeFormatter.ofPattern("dd/MM, HH:mm"))
     }
 }
