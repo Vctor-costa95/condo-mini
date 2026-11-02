@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.doorman.parcels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.Parcel
 import com.example.condo_mini.domain.model.ParcelStatus
@@ -159,21 +160,26 @@ class DoormanParcelsViewModel(
         }
         ui.update { state -> state.copy(form = state.form?.copy(isSaving = true)) }
         viewModelScope.launch {
-            val parcel = parcelRepository.register(
-                condoId = condoId,
-                unit = form.unit,
-                description = form.description,
-                // A portaria não registra transportadora: não ajuda o morador e só toma tempo.
-                carrier = "",
-                receivedBy = doormanName,
-                photoUrl = form.photoUrl
-            )
-            ui.update {
-                it.copy(
-                    form = null,
-                    filter = DoormanFilter.WAITING,
-                    userMessage = "Registrada para o ${parcel.unit}. O morador já recebeu o código no app."
+            runCatching {
+                parcelRepository.register(
+                    condoId = condoId,
+                    unit = form.unit,
+                    description = form.description,
+                    // A portaria não registra transportadora: não ajuda o morador e só toma tempo.
+                    carrier = "",
+                    receivedBy = doormanName,
+                    photoUrl = form.photoUrl
                 )
+            }.onSuccess { parcel ->
+                ui.update {
+                    it.copy(
+                        form = null,
+                        filter = DoormanFilter.WAITING,
+                        userMessage = "Registrada para o ${parcel.unit}. O morador já recebeu o código no app."
+                    )
+                }
+            }.onFailure { e ->
+                ui.update { state -> state.copy(form = state.form?.copy(isSaving = false, error = e.userMessage())) }
             }
         }
     }

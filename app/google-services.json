@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "272441151892",
+    "project_id": "app-condo-mini",
+    "storage_bucket": "app-condo-mini.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:272441151892:android:35731146cee999b342bf81",
+        "android_client_info": {
+          "package_name": "com.appcondomini"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAazxGGn92TuOCBA_5MCl5n3L9WZKLxj0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

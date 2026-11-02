@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.admin.condos
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.domain.model.Condominium
 import com.example.condo_mini.domain.model.GROUND_FLOOR
 import com.example.condo_mini.domain.model.Tower
@@ -112,16 +113,21 @@ class CondoEditorViewModel(
         }
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            val saved = directoryRepository.saveCondo(
-                Condominium(
-                    id = condoId.orEmpty(),
-                    name = state.name.trim(),
-                    address = state.address.trim(),
-                    towers = state.towers.map { it.copy(name = it.name.trim()) }
+            runCatching {
+                directoryRepository.saveCondo(
+                    Condominium(
+                        id = condoId.orEmpty(),
+                        name = state.name.trim(),
+                        address = state.address.trim(),
+                        towers = state.towers.map { it.copy(name = it.name.trim()) }
+                    )
                 )
-            )
-            directoryRepository.selectCondo(saved.id)
-            _uiState.update { it.copy(isSaving = false, saved = true) }
+            }.onSuccess { saved ->
+                directoryRepository.selectCondo(saved.id)
+                _uiState.update { it.copy(isSaving = false, saved = true) }
+            }.onFailure { e ->
+                _uiState.update { it.copy(isSaving = false, error = e.userMessage()) }
+            }
         }
     }
 

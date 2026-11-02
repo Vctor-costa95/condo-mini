@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.admin.users
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
@@ -123,7 +124,6 @@ class AdminUsersViewModel(
             current.email.isNotBlank() && !current.email.contains("@") -> "E-mail inválido."
             current.login.isBlank() -> "Crie um usuário para a pessoa entrar no app."
             current.login.trim().contains(" ") -> "O usuário não pode ter espaços."
-            !directoryRepository.isLoginAvailable(current.login, current.id) -> "Esse usuário já é de outro cadastro."
             current.isNew && current.password.length < 6 -> "A senha precisa ter pelo menos 6 caracteres."
             !current.isNew && current.password.isNotEmpty() && current.password.length < 6 -> "A senha nova precisa ter pelo menos 6 caracteres."
             else -> null
@@ -135,22 +135,31 @@ class AdminUsersViewModel(
         form.update { it?.copy(isSaving = true) }
         viewModelScope.launch {
             val units = if (current.needsUnit) current.units else emptyList()
-            val saved = directoryRepository.saveUser(
-                User(
-                    id = current.id,
-                    name = current.name.trim(),
-                    unit = units.firstOrNull().orEmpty(),
-                    role = current.role,
-                    email = current.email.trim(),
-                    phone = current.phone.trim(),
-                    login = current.login.trim().lowercase(),
-                    // Em branco na edição: o repositório mantém a senha atual.
-                    password = current.password,
-                    units = units
+            runCatching {
+                if (!directoryRepository.isLoginAvailable(current.login, current.id)) {
+                    form.update { it?.copy(isSaving = false, error = "Esse usuário já é de outro cadastro.") }
+                    return@launch
+                }
+                directoryRepository.saveUser(
+                    User(
+                        id = current.id,
+                        name = current.name.trim(),
+                        unit = units.firstOrNull().orEmpty(),
+                        role = current.role,
+                        email = current.email.trim(),
+                        phone = current.phone.trim(),
+                        login = current.login.trim().lowercase(),
+                        // Em branco na edição: o repositório mantém a senha atual.
+                        password = current.password,
+                        units = units
+                    )
                 )
-            )
-            form.value = null
-            userMessage.value = if (current.isNew) "Cadastro criado: ${saved.name}." else "Cadastro de ${saved.name} atualizado."
+            }.onSuccess { saved ->
+                form.value = null
+                userMessage.value = if (current.isNew) "Cadastro criado: ${saved.name}." else "Cadastro de ${saved.name} atualizado."
+            }.onFailure { e ->
+                form.update { it?.copy(isSaving = false, error = e.userMessage()) }
+            }
         }
     }
 

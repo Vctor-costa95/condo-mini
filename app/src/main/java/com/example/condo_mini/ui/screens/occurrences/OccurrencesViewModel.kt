@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.occurrences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.domain.model.Occurrence
 import com.example.condo_mini.domain.model.OccurrenceCategory
 import com.example.condo_mini.domain.repository.OccurrenceRepository
@@ -103,16 +104,21 @@ class OccurrencesViewModel(
         form.update { it?.copy(isSubmitting = true) }
         viewModelScope.launch {
             val user = sessionRepository.currentUser.value
-            val occurrence = occurrenceRepository.register(
-                title = current.title,
-                description = current.description,
-                category = category,
-                unit = user?.unit.orEmpty(),
-                authorName = user?.name.orEmpty(),
-                photoUrls = current.photoUrls
-            )
-            form.value = null
-            userMessage.value = "Ocorrência registrada. Protocolo ${occurrence.protocol}"
+            runCatching {
+                occurrenceRepository.register(
+                    title = current.title,
+                    description = current.description,
+                    category = category,
+                    unit = user?.unit.orEmpty(),
+                    authorName = user?.name.orEmpty(),
+                    photoUrls = current.photoUrls
+                )
+            }.onSuccess { occurrence ->
+                form.value = null
+                userMessage.value = "Ocorrência registrada. Protocolo ${occurrence.protocol}"
+            }.onFailure { e ->
+                form.update { it?.copy(isSubmitting = false, error = e.userMessage()) }
+            }
         }
     }
 
