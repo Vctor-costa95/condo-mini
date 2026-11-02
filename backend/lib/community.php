@@ -6,6 +6,8 @@ declare(strict_types=1);
 const PERIODS = ['MORNING', 'AFTERNOON', 'NIGHT'];
 const SERVICE_PERIODS = ['MORNING', 'AFTERNOON'];
 const PERIOD_ORDER = "FIELD(period, 'MORNING', 'AFTERNOON', 'NIGHT')";
+// Faixa de horas de cada turno: é por ela que turnos e reservas por hora se bloqueiam.
+const PERIOD_HOURS = ['MORNING' => [8, 12], 'AFTERNOON' => [13, 17], 'NIGHT' => [18, 22]];
 // Recusadas e canceladas liberam o horário.
 const HOLDS_SLOT = "status IN ('CONFIRMED', 'PENDING')";
 
@@ -34,6 +36,10 @@ function area_json(array $a): array
         'iconKey' => $a['icon_key'],
         'closedReason' => $a['closed_reason'],
         'condoId' => $a['condo_id'],
+        'bookingMode' => $a['booking_mode'],
+        'opensAt' => (int) $a['opens_at'],
+        'closesAt' => (int) $a['closes_at'],
+        'maxHours' => (int) $a['max_hours'],
     ];
 }
 
@@ -45,6 +51,8 @@ function reservation_json(array $r): array
         'area' => area_json($area),
         'date' => $r['date'],
         'period' => $r['period'],
+        'startHour' => (int) $r['start_hour'],
+        'endHour' => (int) $r['end_hour'],
         'unit' => $r['unit'],
         'status' => $r['status'],
         'residentName' => $r['resident_name'],
@@ -92,11 +100,76 @@ function find_booking(string $id): array
     return $found;
 }
 
+/**
+ * Modo, funcionamento e máximo de horas do espaço, do corpo do POST /areas.
+ * No modo por turno, os campos de hora ficam com o padrão.
+ */
+function area_schedule(): array
+{
+    $mode = require_enum((string) input('bookingMode', 'PERIOD'), ['PERIOD', 'HOURLY'], 'bookingMode');
+    if ($mode === 'PERIOD') {
+        return ['booking_mode' => 'PERIOD', 'opens_at' => 8, 'closes_at' => 22, 'max_hours' => 2];
+    }
+    $opens = (int) input('opensAt', 8);
+    $closes = (int) input('closesAt', 22);
+    $maxHours = (int) input('maxHours', 2);
+    if ($opens < 0 || $closes > 24 || $opens >= $closes) {
+        throw new ApiError(422, 'O horário de funcionamento precisa abrir antes de fechar.');
+    }
+    if ($maxHours < 1 || $maxHours > $closes - $opens) {
+        throw new ApiError(422, 'O máximo por reserva precisa caber no horário de funcionamento.');
+    }
+    return ['booking_mode' => 'HOURLY', 'opens_at' => $opens, 'closes_at' => $closes, 'max_hours' => $maxHours];
+}
+
+/** Reservas que seguram horário no dia (pendentes e confirmadas). */
+function taken_slots(string $areaId, string $date): array
+{
+    return rows('SELECT start_hour, end_hour FROM reservations WHERE area_id = ? AND date = ? AND ' . HOLDS_SLOT, [$areaId, $date]);
+}
+
+/**
+ * O horário pedido no POST /reservations, conferido com o modo do espaço.
+ * @return array{?string, int, int} [turno ou null, início, fim]
+ */
+function requested_slot(array $area, string $date): array
+{
+    if ($area['booking_mode'] !== 'HOURLY') {
+        $period = require_enum((string) input('period', ''), PERIODS, 'period');
+        return [$period, ...PERIOD_HOURS[$period]];
+    }
+    $start = input('startHour');
+    $end = input('endHour');
+    if (!is_int($start) || !is_int($end) || $end <= $start) {
+        throw new ApiError(422, 'Escolha o horário de início e a duração.');
+    }
+    if ($start < (int) $area['opens_at'] || $end > (int) $area['closes_at']) {
+        throw new ApiError(422, "Este espaço funciona das {$area['opens_at']}h às {$area['closes_at']}h.");
+    }
+    if ($end - $start > (int) $area['max_hours']) {
+        throw new ApiError(422, "Reserve no máximo {$area['max_hours']} h seguidas.");
+    }
+    // Hoje, só horários que ainda não começaram.
+    if ($date === today() && $start <= (int) date('G')) {
+        throw new ApiError(422, 'Esse horário já passou. Escolha um mais tarde.');
+    }
+    return [null, $start, $end];
+}
+
+/** "12/11 · tarde" ou "12/11 · 14h às 16h" */
+function reservation_slot_label(array $reservation): string
+{
+    if ($reservation['period'] !== null) {
+        return slot_label($reservation['date'], $reservation['period']);
+    }
+    return date('d/m', strtotime($reservation['date'])) . " · {$reservation['start_hour']}h às {$reservation['end_hour']}h";
+}
+
 /** Avisa o apartamento da reserva: "Salão de festas · 12/11 · tarde", mais o motivo da recusa. */
 function notify_reservation(array $reservation, string $title, string $reason): void
 {
     $area = row('SELECT name FROM common_areas WHERE id = ?', [$reservation['area_id']]);
-    $body = ($area['name'] ?? 'Espaço') . ' · ' . slot_label($reservation['date'], $reservation['period']);
+    $body = ($area['name'] ?? 'Espaço') . ' · ' . reservation_slot_label($reservation);
     notify(
         users_of_unit($reservation['condo_id'], $reservation['unit']),
         $title,
@@ -186,13 +259,18 @@ function register_community_routes(Router $r): void
             'rules' => optional_string('rules', 2000),
             'icon_key' => optional_string('iconKey', 40),
             'closed_reason' => $closed === '' ? null : mb_substr($closed, 0, 255),
+            ...area_schedule(),
         ];
         exec_sql(
-            'INSERT INTO common_areas (id, condo_id, name, description, capacity, fee, rules, icon_key, closed_reason)
-             VALUES (:id, :condo_id, :name, :description, :capacity, :fee, :rules, :icon_key, :closed_reason)
+            'INSERT INTO common_areas (id, condo_id, name, description, capacity, fee, rules, icon_key, closed_reason,
+               booking_mode, opens_at, closes_at, max_hours)
+             VALUES (:id, :condo_id, :name, :description, :capacity, :fee, :rules, :icon_key, :closed_reason,
+               :booking_mode, :opens_at, :closes_at, :max_hours)
              ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description),
                capacity = VALUES(capacity), fee = VALUES(fee), rules = VALUES(rules),
-               icon_key = VALUES(icon_key), closed_reason = VALUES(closed_reason)',
+               icon_key = VALUES(icon_key), closed_reason = VALUES(closed_reason),
+               booking_mode = VALUES(booking_mode), opens_at = VALUES(opens_at),
+               closes_at = VALUES(closes_at), max_hours = VALUES(max_hours)',
             $area
         );
         send_json(area_json($area));
@@ -222,13 +300,32 @@ function register_community_routes(Router $r): void
         send_json(area_json(row('SELECT * FROM common_areas WHERE id = ?', [$id])));
     });
 
+    // Turnos com alguma hora ocupada no dia.
     $r->add('GET', '/areas/{id}/booked', function (string $id) {
         find_area($id);
-        $date = require_date(query('date', ''));
-        send_json(array_column(rows(
-            'SELECT DISTINCT period FROM reservations WHERE area_id = ? AND date = ? AND ' . HOLDS_SLOT,
-            [$id, $date]
-        ), 'period'));
+        $taken = taken_slots($id, require_date(query('date', '')));
+        $periods = array_keys(array_filter(PERIOD_HOURS, function ($hours) use ($taken) {
+            [$start, $end] = $hours;
+            foreach ($taken as $slot) {
+                if ($slot['start_hour'] < $end && $start < $slot['end_hour']) {
+                    return true;
+                }
+            }
+            return false;
+        }));
+        send_json($periods);
+    });
+
+    // Horas ocupadas no dia: 14 = das 14h às 15h.
+    $r->add('GET', '/areas/{id}/booked-hours', function (string $id) {
+        find_area($id);
+        $hours = [];
+        foreach (taken_slots($id, require_date(query('date', ''))) as $slot) {
+            array_push($hours, ...range((int) $slot['start_hour'], (int) $slot['end_hour'] - 1));
+        }
+        $hours = array_values(array_unique($hours));
+        sort($hours);
+        send_json($hours);
     });
 
     // ------------------------------------------------------------ reservas
@@ -239,10 +336,10 @@ function register_community_routes(Router $r): void
         $unit = query('unit', '');
         if ($unit === '') {
             require_role('MANAGER', 'ADMIN', 'DOORMAN');
-            $list = rows("SELECT * FROM reservations WHERE condo_id = ? AND status <> 'CANCELED' ORDER BY date, " . PERIOD_ORDER, [$condoId]);
+            $list = rows("SELECT * FROM reservations WHERE condo_id = ? AND status <> 'CANCELED' ORDER BY date, start_hour", [$condoId]);
         } else {
             require_unit_access($unit);
-            $list = rows("SELECT * FROM reservations WHERE condo_id = ? AND unit = ? AND status <> 'CANCELED' ORDER BY date, " . PERIOD_ORDER, [$condoId, $unit]);
+            $list = rows("SELECT * FROM reservations WHERE condo_id = ? AND unit = ? AND status <> 'CANCELED' ORDER BY date, start_hour", [$condoId, $unit]);
         }
         send_json(array_map('reservation_json', $list));
     });
@@ -251,7 +348,6 @@ function register_community_routes(Router $r): void
         $me = current_user();
         $area = find_area(required_string('areaId', 36));
         $date = require_date(required_string('date', 10));
-        $period = require_enum((string) input('period', ''), PERIODS, 'period');
         $unit = require_unit_access(required_string('unit', 80));
         if ($area['closed_reason'] !== null) {
             throw new ApiError(409, 'Espaço interditado: ' . $area['closed_reason']);
@@ -259,14 +355,16 @@ function register_community_routes(Router $r): void
         if ($date < today()) {
             throw new ApiError(422, 'Escolha uma data a partir de hoje.');
         }
-        $reservation = transaction(function () use ($area, $date, $period, $unit, $me) {
-            // Trava o horário para duas reservas simultâneas não passarem juntas.
-            $taken = row(
-                'SELECT id FROM reservations WHERE area_id = ? AND date = ? AND period = ? AND ' . HOLDS_SLOT . ' FOR UPDATE',
-                [$area['id'], $date, $period]
+        [$period, $start, $end] = requested_slot($area, $date);
+        $reservation = transaction(function () use ($area, $date, $period, $start, $end, $unit, $me) {
+            // Trava as reservas do dia para duas iguais não passarem juntas.
+            $clash = row(
+                'SELECT id FROM reservations WHERE area_id = ? AND date = ? AND ' . HOLDS_SLOT . '
+                 AND start_hour < ? AND end_hour > ? FOR UPDATE',
+                [$area['id'], $date, $end, $start]
             );
-            if ($taken !== null) {
-                throw new ApiError(409, 'Este período já está reservado.');
+            if ($clash !== null) {
+                throw new ApiError(409, $period === null ? 'Esse horário já está reservado.' : 'Este período já está reservado.');
             }
             $reservation = [
                 'id' => uuid(),
@@ -274,6 +372,8 @@ function register_community_routes(Router $r): void
                 'area_id' => $area['id'],
                 'date' => $date,
                 'period' => $period,
+                'start_hour' => $start,
+                'end_hour' => $end,
                 'unit' => $unit,
                 // Áreas com taxa dependem de aprovação do síndico.
                 'status' => (float) $area['fee'] > 0 ? 'PENDING' : 'CONFIRMED',
@@ -282,8 +382,8 @@ function register_community_routes(Router $r): void
                 'created_at' => now_sql(),
             ];
             exec_sql(
-                'INSERT INTO reservations (id, condo_id, area_id, date, period, unit, status, resident_name, rejection_reason, created_at)
-                 VALUES (:id, :condo_id, :area_id, :date, :period, :unit, :status, :resident_name, :rejection_reason, :created_at)',
+                'INSERT INTO reservations (id, condo_id, area_id, date, period, start_hour, end_hour, unit, status, resident_name, rejection_reason, created_at)
+                 VALUES (:id, :condo_id, :area_id, :date, :period, :start_hour, :end_hour, :unit, :status, :resident_name, :rejection_reason, :created_at)',
                 $reservation
             );
             return $reservation;
@@ -292,7 +392,7 @@ function register_community_routes(Router $r): void
             notify(
                 managers_of($reservation['condo_id']),
                 'Reserva para aprovar',
-                "{$area['name']} · " . slot_label($date, $period) . " · $unit",
+                "{$area['name']} · " . reservation_slot_label($reservation) . " · $unit",
                 ['tab' => 'manager_reservations', 'id' => $reservation['id']]
             );
         }

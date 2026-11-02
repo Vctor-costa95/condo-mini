@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.condo_mini.domain.model.BookingMode
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.ui.components.AreaCoverCard
 import com.example.condo_mini.ui.components.AreaIcon
@@ -65,6 +66,7 @@ import com.example.condo_mini.ui.components.LoadingState
 import com.example.condo_mini.ui.components.PillChip
 import com.example.condo_mini.ui.components.PrimaryButton
 import com.example.condo_mini.ui.components.SectionHeader
+import com.example.condo_mini.ui.components.Stepper
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.screens.main.CondoSnackbarHost
 import com.example.condo_mini.ui.theme.Ivory
@@ -318,6 +320,66 @@ private fun AreaFormSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp, start = 4.dp)
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            SectionHeader("Como reservar")
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BookingMode.entries.forEach { mode ->
+                    PillChip(
+                        selected = form.bookingMode == mode,
+                        onClick = { onChange { it.copy(bookingMode = mode) } },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(mode.label, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                if (mode == BookingMode.PERIOD) "Manhã, tarde, noite" else "Início e duração",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+            if (form.bookingMode == BookingMode.HOURLY) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Stepper(
+                        label = "Abre",
+                        value = form.opensAt,
+                        min = 0,
+                        max = form.closesAt - 1,
+                        onValueChange = { v -> onChange { it.withHours(opens = v) } },
+                        format = { "${it}h" },
+                        modifier = Modifier.weight(1f)
+                    )
+                    Stepper(
+                        label = "Fecha",
+                        value = form.closesAt,
+                        min = form.opensAt + 1,
+                        max = 24,
+                        onValueChange = { v -> onChange { it.withHours(closes = v) } },
+                        format = { "${it}h" },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Stepper(
+                    label = "Máximo por reserva",
+                    value = form.maxHours,
+                    min = 1,
+                    max = form.closesAt - form.opensAt,
+                    onValueChange = { v -> onChange { it.withHours(max = v) } },
+                    format = { "${it}h" },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "O morador escolhe o início e quantas horas, das ${form.opensAt}h às ${form.closesAt}h.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp, start = 4.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
                 value = form.rules,

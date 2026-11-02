@@ -3,6 +3,8 @@ package com.example.condo_mini.data.fake
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
+import com.example.condo_mini.domain.model.ReservationSlot
+import com.example.condo_mini.domain.model.BookingMode
 import com.example.condo_mini.domain.model.ReservationStatus
 import com.example.condo_mini.domain.repository.ReservationRepository
 import kotlinx.coroutines.delay
@@ -54,7 +56,11 @@ class FakeReservationRepository : ReservationRepository {
             fee = 0.0,
             rules = "Uso de calçado adequado obrigatório.",
             iconKey = "court",
-            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID
+            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID,
+            bookingMode = BookingMode.HOURLY,
+            opensAt = 7,
+            closesAt = 22,
+            maxHours = 2
         ),
         CommonArea(
             id = "a5",
@@ -62,14 +68,18 @@ class FakeReservationRepository : ReservationRepository {
             description = "Sala com TV, mesa e 8 cadeiras.",
             capacity = 8,
             fee = 0.0,
-            rules = "Reserva máxima de um período por dia.",
+            rules = "Até 3 horas por reserva.",
             iconKey = "meeting",
-            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID
+            condoId = FakeDirectoryRepository.DEFAULT_CONDO_ID,
+            bookingMode = BookingMode.HOURLY,
+            opensAt = 8,
+            closesAt = 22,
+            maxHours = 3
         ),
         CommonArea("a6", "Rooftop com piscina", "Piscina com borda infinita e vista para o mar.", 25, 0.0, "Uso até 22h. Crianças acompanhadas.", "pool", condoId = "c2"),
         CommonArea("a7", "Academia", "Equipamentos Technogym e sala de pilates.", 12, 0.0, "Uso de toalha obrigatório.", "gym", condoId = "c2"),
         CommonArea("a8", "Salão de festas", "Salão para 120 pessoas com copa.", 120, 250.0, "Som até 23h.", "party", condoId = "c3"),
-        CommonArea("a9", "Quadra de tênis", "Quadra de saibro com iluminação.", 4, 0.0, "Reserva de um período por dia.", "tennis", condoId = "c3"),
+        CommonArea("a9", "Quadra de tênis", "Quadra de saibro com iluminação.", 4, 0.0, "Até 2 horas por reserva.", "tennis", condoId = "c3", bookingMode = BookingMode.HOURLY, opensAt = 7, closesAt = 21),
         CommonArea("a10", "Brinquedoteca", "Espaço infantil com monitoria aos sábados.", 15, 0.0, "Crianças até 10 anos.", "kids", condoId = "c3")
     ))
 
@@ -81,7 +91,8 @@ class FakeReservationRepository : ReservationRepository {
             Reservation("r1", areas.value[0], today.plusDays(3), ReservationPeriod.NIGHT, "Apto 302 - Bloco B", ReservationStatus.CONFIRMED, "Marina Costa"),
             Reservation("r2", areas.value[1], today.plusDays(2), ReservationPeriod.AFTERNOON, "Apto 104 - Bloco A", ReservationStatus.CONFIRMED, "Paulo Mendes"),
             Reservation("r3", areas.value[0], today.plusDays(7), ReservationPeriod.AFTERNOON, "Apto 201 - Bloco C", ReservationStatus.PENDING, "Helena Rocha"),
-            Reservation("r4", areas.value[2], today.plusDays(5), ReservationPeriod.NIGHT, "Apto 503 - Bloco B", ReservationStatus.PENDING, "Ricardo Alves")
+            Reservation("r4", areas.value[2], today.plusDays(5), ReservationPeriod.NIGHT, "Apto 503 - Bloco B", ReservationStatus.PENDING, "Ricardo Alves"),
+            Reservation("r5", areas.value[3], today.plusDays(1), null, "Apto 402 - Bloco C", ReservationStatus.CONFIRMED, "Gustavo Prado", startHour = 18, endHour = 20)
         )
     )
 
@@ -99,16 +110,23 @@ class FakeReservationRepository : ReservationRepository {
             list.filter { it.status != ReservationStatus.CANCELED }.sortedBy { it.date }
         }
 
-    override suspend fun bookedPeriods(areaId: String, date: LocalDate): Set<ReservationPeriod> =
-        reservations.value
-            .filter { it.area.id == areaId && it.date == date && it.status.holdsSlot() }
-            .map { it.period }
-            .toSet()
+    // Toda reserva ocupa uma faixa de horas (o turno da tarde é 13h–17h), então turnos e
+    // horas se bloqueiam entre si mesmo se o espaço trocar de modo.
+    private fun taken(areaId: String, date: LocalDate) = reservations.value
+        .filter { it.area.id == areaId && it.date == date && it.status.holdsSlot() }
+
+    override suspend fun bookedPeriods(areaId: String, date: LocalDate): Set<ReservationPeriod> {
+        val taken = taken(areaId, date)
+        return ReservationPeriod.entries.filter { p -> taken.any { it.overlaps(p.startHour, p.endHour) } }.toSet()
+    }
+
+    override suspend fun bookedHours(areaId: String, date: LocalDate): Set<Int> =
+        taken(areaId, date).flatMap { it.startHour until it.endHour }.toSet()
 
     override suspend fun reserve(
         areaId: String,
         date: LocalDate,
-        period: ReservationPeriod,
+        slot: ReservationSlot,
         unit: String,
         residentName: String
     ): Result<Reservation> {
@@ -121,8 +139,12 @@ class FakeReservationRepository : ReservationRepository {
         if (date.isBefore(today)) {
             return Result.failure(IllegalArgumentException("Escolha uma data a partir de hoje."))
         }
-        if (period in bookedPeriods(areaId, date)) {
-            return Result.failure(IllegalStateException("Este período já está reservado."))
+        val (period, start, end) = when (slot) {
+            is ReservationSlot.Period -> Triple(slot.period, slot.period.startHour, slot.period.endHour)
+            is ReservationSlot.Hours -> Triple(null, slot.startHour, slot.endHour)
+        }
+        if (taken(areaId, date).any { it.overlaps(start, end) }) {
+            return Result.failure(IllegalStateException("Este horário já está reservado."))
         }
         val reservation = Reservation(
             id = UUID.randomUUID().toString(),
@@ -132,7 +154,9 @@ class FakeReservationRepository : ReservationRepository {
             unit = unit,
             // Áreas com taxa dependem de aprovação do síndico.
             status = if (area.fee > 0) ReservationStatus.PENDING else ReservationStatus.CONFIRMED,
-            residentName = residentName
+            residentName = residentName,
+            startHour = start,
+            endHour = end
         )
         reservations.update { it + reservation }
         return Result.success(reservation)
@@ -195,3 +219,5 @@ class FakeReservationRepository : ReservationRepository {
     private fun ReservationStatus.holdsSlot() =
         this == ReservationStatus.CONFIRMED || this == ReservationStatus.PENDING
 }
+
+private fun Reservation.overlaps(start: Int, end: Int) = startHour < end && start < endHour

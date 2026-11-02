@@ -1,6 +1,8 @@
 package com.example.condo_mini.ui.screens.reservations
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -102,6 +104,8 @@ fun ReservationsRoute(
             booking = booking,
             onDateSelected = viewModel::onDateSelected,
             onPeriodSelected = viewModel::onPeriodSelected,
+            onStartHourSelected = viewModel::onStartHourSelected,
+            onDurationSelected = viewModel::onDurationSelected,
             onConfirm = viewModel::onConfirmBooking,
             onDismiss = viewModel::onDismissBooking
         )
@@ -175,7 +179,7 @@ fun ReservationsScreen(
             containerColor = MaterialTheme.colorScheme.background,
             title = { Text("Cancelar reserva?", style = MaterialTheme.typography.headlineSmall) },
             text = {
-                Text("${reservation.area.name} em ${reservation.date.formatDate()} (${reservation.period.label}).")
+                Text("${reservation.area.name} em ${reservation.date.formatDate()} (${reservation.shortLabel}).")
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -458,7 +462,7 @@ private fun MyReservationCard(reservation: Reservation, onCancel: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(reservation.area.name, style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "${reservation.period.label} · ${reservation.period.hours}",
+                    reservation.timeLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -513,6 +517,8 @@ private fun BookingSheet(
     booking: BookingState,
     onDateSelected: (LocalDate) -> Unit,
     onPeriodSelected: (ReservationPeriod) -> Unit,
+    onStartHourSelected: (Int) -> Unit,
+    onDurationSelected: (Int) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -565,23 +571,27 @@ private fun BookingSheet(
 
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                 Spacer(modifier = Modifier.height(12.dp))
-                SectionHeader("Período")
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ReservationPeriod.entries.forEach { period ->
-                        val isBooked = period in booking.bookedPeriods
-                        PillChip(
-                            selected = period == booking.period,
-                            enabled = !isBooked,
-                            onClick = { onPeriodSelected(period) },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(period.label, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    if (isBooked) "Indisponível" else period.hours,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                if (booking.area.isHourly) {
+                    HourPicker(booking, onStartHourSelected, onDurationSelected)
+                } else {
+                    SectionHeader("Período")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ReservationPeriod.entries.forEach { period ->
+                            val isBooked = period in booking.bookedPeriods
+                            PillChip(
+                                selected = period == booking.period,
+                                enabled = !isBooked,
+                                onClick = { onPeriodSelected(period) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(period.label, style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        if (isBooked) "Indisponível" else period.hours,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
                             }
                         }
                     }
@@ -618,9 +628,69 @@ private fun BookingSheet(
                 PrimaryButton(
                     text = "Confirmar reserva",
                     onClick = onConfirm,
-                    enabled = booking.period != null,
+                    enabled = booking.canConfirm,
                     loading = booking.isSubmitting
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Espaço por hora: o morador toca na hora de início (ocupadas e já passadas ficam
+ * apagadas) e escolhe quantas horas, até o máximo do espaço ou a próxima reserva.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HourPicker(
+    booking: BookingState,
+    onStartHourSelected: (Int) -> Unit,
+    onDurationSelected: (Int) -> Unit
+) {
+    val area = booking.area
+    val available = booking.startHours.toSet()
+    SectionHeader("Início", trailing = "Funciona ${area.openingHours}")
+    Spacer(modifier = Modifier.height(4.dp))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        maxItemsInEachRow = 5
+    ) {
+        (area.opensAt until area.closesAt).forEach { hour ->
+            PillChip(
+                selected = hour == booking.startHour,
+                enabled = hour in available,
+                onClick = { onStartHourSelected(hour) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("${hour}h", style = MaterialTheme.typography.titleSmall)
+            }
+        }
+        // Completa a última linha para os botões manterem a mesma largura.
+        repeat((5 - (area.closesAt - area.opensAt) % 5) % 5) { Spacer(modifier = Modifier.weight(1f)) }
+    }
+    if (available.isEmpty()) {
+        Text(
+            "Nenhum horário livre neste dia.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+    }
+
+    val start = booking.startHour ?: return
+    Spacer(modifier = Modifier.height(16.dp))
+    SectionHeader("Duração", trailing = "Das ${start}h às ${start + booking.duration}h")
+    Spacer(modifier = Modifier.height(4.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        (1..area.maxHours).forEach { hours ->
+            PillChip(
+                selected = hours == booking.duration,
+                enabled = hours in booking.durations,
+                onClick = { onDurationSelected(hours) },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(if (hours == 1) "1 hora" else "$hours horas", style = MaterialTheme.typography.titleSmall)
             }
         }
     }

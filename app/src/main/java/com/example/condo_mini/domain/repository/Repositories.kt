@@ -13,6 +13,7 @@ import com.example.condo_mini.domain.model.OccurrenceCategory
 import com.example.condo_mini.domain.model.Parcel
 import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
+import com.example.condo_mini.domain.model.ReservationSlot
 import com.example.condo_mini.domain.model.ServiceBooking
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
@@ -56,11 +57,16 @@ interface ReservationRepository {
 
     /** Todas as reservas do condomínio (visão do síndico). */
     fun observeAllReservations(): Flow<List<Reservation>>
+    /** Turnos ocupados no dia (espaços por turno). */
     suspend fun bookedPeriods(areaId: String, date: LocalDate): Set<ReservationPeriod>
+
+    /** Horas ocupadas no dia (espaços por hora): 14 = das 14h às 15h. */
+    suspend fun bookedHours(areaId: String, date: LocalDate): Set<Int>
+
     suspend fun reserve(
         areaId: String,
         date: LocalDate,
-        period: ReservationPeriod,
+        slot: ReservationSlot,
         unit: String,
         residentName: String
     ): Result<Reservation>

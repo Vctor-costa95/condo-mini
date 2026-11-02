@@ -314,7 +314,7 @@ private fun ReservationHeader(reservation: Reservation) {
             Eyebrow(reservation.unit, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(reservation.area.name, style = MaterialTheme.typography.titleLarge)
             Text(
-                "${reservation.period.label} · ${reservation.period.hours}",
+                reservation.timeLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

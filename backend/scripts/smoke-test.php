@@ -100,6 +100,27 @@ check('interditar espaço', $closed['closedReason'] === 'Pintura', $closed);
 check('reserva em espaço interditado recusada', call('POST', '/reservations', ['areaId' => 'a4', 'date' => $farDay, 'period' => 'NIGHT', 'unit' => 'Apto 101 - Bloco A'], $resident)[0] === 409);
 call('PUT', '/areas/a4/closed', ['reason' => null], $manager);
 
+echo "Reservas por hora\n";
+check('horário invertido recusado', call('POST', '/areas', ['id' => 'a4', 'name' => 'Quadra poliesportiva', 'capacity' => 20, 'bookingMode' => 'HOURLY', 'opensAt' => 22, 'closesAt' => 8, 'maxHours' => 2], $manager)[0] === 422);
+[$s, $court] = call('POST', '/areas', ['id' => 'a4', 'name' => 'Quadra poliesportiva', 'capacity' => 20, 'iconKey' => 'court', 'bookingMode' => 'HOURLY', 'opensAt' => 7, 'closesAt' => 22, 'maxHours' => 2], $manager);
+check('quadra passa a ser por hora', $s === 200 && $court['bookingMode'] === 'HOURLY' && $court['opensAt'] === 7, $court);
+$hourDay = date('Y-m-d', strtotime('+41 days'));
+[$s, $h1] = call('POST', '/reservations', ['areaId' => 'a4', 'date' => $hourDay, 'startHour' => 14, 'endHour' => 16, 'unit' => 'Apto 101 - Bloco A'], $resident);
+check('reserva das 14h às 16h', $s === 201 && $h1['period'] === null && $h1['startHour'] === 14 && $h1['endHour'] === 16 && $h1['status'] === 'CONFIRMED', $h1);
+check('15h às 17h colide', call('POST', '/reservations', ['areaId' => 'a4', 'date' => $hourDay, 'startHour' => 15, 'endHour' => 17, 'unit' => 'Apto 104 - Bloco A'], $paulo)[0] === 409);
+[$s, $h2] = call('POST', '/reservations', ['areaId' => 'a4', 'date' => $hourDay, 'startHour' => 16, 'endHour' => 18, 'unit' => 'Apto 104 - Bloco A'], $paulo);
+check('16h às 18h, logo depois, passa', $s === 201, $h2);
+check('3 horas seguidas recusadas', call('POST', '/reservations', ['areaId' => 'a4', 'date' => $hourDay, 'startHour' => 8, 'endHour' => 11, 'unit' => 'Apto 101 - Bloco A'], $resident)[0] === 422);
+check('fora do funcionamento recusada', call('POST', '/reservations', ['areaId' => 'a4', 'date' => $hourDay, 'startHour' => 21, 'endHour' => 23, 'unit' => 'Apto 101 - Bloco A'], $resident)[0] === 422);
+check('turno num espaço por hora recusado', call('POST', '/reservations', ['areaId' => 'a4', 'date' => $hourDay, 'period' => 'MORNING', 'unit' => 'Apto 101 - Bloco A'], $resident)[0] === 422);
+[$s, $hours] = call('GET', "/areas/a4/booked-hours?date=$hourDay", null, $resident);
+check('horas ocupadas: 14 a 17', $hours === [14, 15, 16, 17], $hours);
+[$s, $periods] = call('GET', "/areas/a4/booked?date=$hourDay", null, $resident);
+check('turno da tarde aparece ocupado pelas horas', $periods === ['AFTERNOON'], $periods);
+call('POST', "/reservations/{$h1['id']}/cancel", null, $resident);
+call('POST', "/reservations/{$h2['id']}/cancel", null, $paulo);
+check('cancelar libera as horas', call('GET', "/areas/a4/booked-hours?date=$hourDay", null, $resident)[1] === []);
+
 echo "Mudanças e reparos\n";
 [$s, $move] = call('POST', '/service-bookings', ['type' => 'MOVE', 'date' => $farDay, 'period' => 'AFTERNOON', 'unit' => 'Apto 101 - Bloco A', 'provider' => 'Mudanças X'], $resident);
 check('pedido de mudança', $s === 201 && $move['status'] === 'PENDING', $move);

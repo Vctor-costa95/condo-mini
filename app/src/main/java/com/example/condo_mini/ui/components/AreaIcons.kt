@@ -133,6 +133,7 @@ fun AreaCoverCard(
                     Eyebrow(
                         text = listOfNotNull(
                             area.capacity.takeIf { it > 0 }?.let { "Até $it pessoas" },
+                            area.takeIf { it.isHourly }?.let { "Por hora · ${it.openingHours}" },
                             if (area.fee > 0) area.fee.toBrl() else "Cortesia"
                         ).joinToString(" · "),
                         color = Ivory.copy(alpha = 0.75f)
