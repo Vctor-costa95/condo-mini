@@ -209,6 +209,19 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:assembleDebug
 ```
 
+### Versão de release (para instalar nos celulares ou publicar)
+
+```powershell
+.\gradlew.bat :app:assembleRelease
+```
+
+Sai em `app/build/outputs/apk/release/app-release.apk`, otimizada pelo R8 e assinada com a **chave de release**:
+
+- A chave fica em `C:\Users\jvict\condomini-assinatura\` (`condomini-release.jks` e `keystore.properties`, com a senha). O `keystore.properties` na raiz do projeto aponta para ela. Nenhum dos dois vai para o git.
+- **Faça backup dessa pasta** (pendrive, cofre de senhas, nuvem privada). Toda atualização do app precisa ser assinada com a mesma chave: sem ela, os celulares não aceitam a versão nova por cima da antiga.
+- Para publicar na Play Store, ative o "Play App Signing": o Google guarda a chave final e esta passa a ser só a chave de envio, que dá para trocar se for perdida.
+- A cada versão nova, aumente `versionCode` (e `versionName`) em `app/build.gradle.kts`.
+
 ## Licença
 
 Projeto privado. Todos os direitos reservados.
