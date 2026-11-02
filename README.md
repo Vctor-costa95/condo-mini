@@ -1,108 +1,207 @@
-# Condo-mini
+# condo.mini
 
-Aplicativo de gestão condominial para Android, voltado ao cliente final. Reúne avisos, reservas de áreas comuns, boletos, encomendas e o livro de ocorrências do condomínio em uma experiência com visual premium ("quiet luxury"), pensada para manter paridade com uma futura versão iOS.
+Aplicativo Android de gestão de condomínio. Morador, síndico, portaria e administradora usam o mesmo app; cada um vê as próprias abas, conforme o cadastro feito pela administradora.
 
-> **Status:** protótipo funcional ligado à API própria (PHP + MySQL na Hostinger, ver [`backend/`](backend/README.md)). Sem `condomini.apiUrl`, roda com dados simulados (mock).
+Este README explica **como o app funciona e o que você usa para mantê-lo de pé**. A parte técnica fica no fim, e a da API em [`backend/README.md`](backend/README.md).
 
-## Perfis de usuário
+---
 
-| Perfil | Situação | O que faz |
+## 1. As peças
+
+O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na Hostinger:
+
+```
+ Celular (app condo.mini)
+        │  HTTPS, com o token de login
+        ▼
+ API em PHP  ──────────►  Banco MySQL          (os dois na Hostinger)
+        │
+        └─────────────►  Firebase  ──►  notificação no celular
+```
+
+| Peça | O que é | Onde fica |
 |---|---|---|
-| **Morador** | ✅ Pronto | Avisos, reservas, boletos, encomendas, ocorrências e perfil |
-| **Síndico** | ✅ Pronto | Publica avisos e documentos, aprova/recusa reservas, responde ocorrências |
-| **Porteiro** | ⏳ Planejado | Registrar encomendas com foto |
-| **Administrador** | ⏳ Planejado | Gerenciar condomínios e perfis de acesso |
+| **App Android** | O que as pessoas instalam. Código Kotlin neste repositório. | Pasta `app/` |
+| **API** | O "cérebro": confere login e permissões, grava e lê o banco, guarda fotos e PDFs e manda as notificações. | Hostinger, em `https://api-condomini.tcpneus-logistica.com/api-condomini` · código na pasta `backend/` |
+| **Banco de dados** | Onde ficam condomínios, pessoas, avisos, reservas, boletos, encomendas... | Hostinger, MySQL `u248494375_condomini` |
+| **Firebase** | Serviço gratuito do Google que entrega as notificações push. | Projeto `app-condo-mini` em console.firebase.google.com |
+| **GitHub** | Guarda o código e o histórico de mudanças. | github.com/Vctor-costa95/condo-mini |
+| **Site** | Página de apresentação para administradoras. | appcondomini.lovable.app (Lovable) |
 
-O perfil é escolhido na tela de login ("Acessar como").
+---
 
-## Funcionalidades
+## 2. Quem usa o quê
+
+O login é **usuário e senha**, criados pela administradora no cadastro da pessoa. O perfil e os apartamentos vêm desse cadastro. Depois de entrar, o celular **continua logado** até a pessoa tocar em "Sair da conta".
 
 ### Morador
-- **Avisos** (aba inicial): comunicados do síndico e informações importantes, com destaque para avisos fixados.
-- **Reservas**: agendamento de salão, churrasqueira e outras áreas por período (manhã, tarde, noite). Reservas ficam pendentes até a aprovação do síndico.
-- **Boletos**: cobranças mensais com status (em aberto, vencido, pago), cópia do código de barras e visualização/compartilhamento do PDF.
-- **Encomendas**: itens aguardando retirada com código e foto tirada pela portaria, que abre em tela cheia com zoom.
-- **Ocorrências**: registro no livro de ocorrências com até 3 fotos (câmera ou galeria), acompanhamento por protocolo e conversa com a administração.
-- **Perfil**: dados da unidade, edição de contato e acesso aos **Documentos do condomínio** (regimento interno, convenção e atas de assembleia em PDF, com zoom e compartilhamento).
+| Aba | O que faz |
+|---|---|
+| **Avisos** | Comunicados do síndico, com os fixados em destaque. |
+| **Reservas** | Reserva salão, churrasqueira e outros espaços por período (manhã, tarde, noite). Espaços com taxa esperam a aprovação do síndico. Também pede **mudança** ou **reparo** (internet, elétrica, hidráulica). |
+| **Boletos** | Cobranças do mês (em aberto, vencido, pago), código de barras e o PDF do boleto. |
+| **Encomendas** | O que chegou na portaria, com foto e o **código de retirada** que ele mostra ao porteiro. |
+| **Ocorrências** | Registra problemas com até 3 fotos, acompanha pelo protocolo (OC-1045) e conversa com o síndico. |
+| **Perfil** | Dados de contato e **documentos do condomínio** (regimento, convenção, atas). |
+
+Quem tem mais de um apartamento escolhe qual ver ao entrar e troca depois, tocando no nome do apartamento no topo.
 
 ### Síndico
-- **Avisos**: criação com categoria e opção de fixar; exclusão com confirmação.
-- **Aprovações**: aprovar ou recusar reservas (a recusa exige um motivo).
-- **Ocorrências**: responder, pedir mais detalhes ao morador ou resolver, com anexo de fotos.
-- **Documentos**: publicar PDFs (regimento, convenção, atas e outros) para todos os moradores, substituir a versão vigente do regimento ou da convenção e excluir documentos.
-
-## Stack
-
-- **Kotlin** + **Jetpack Compose** (Material 3)
-- **MVVM** com `StateFlow` e ViewModels por tela
-- **Navigation Compose**
-- **Coil** para imagens
-- `PdfDocument` / `PdfRenderer` para gerar e exibir boletos
-- `FileProvider` + Photo Picker para fotos, sem permissões de câmera ou armazenamento
-- Core library desugaring para `java.time` em APIs antigas
-
-| | Versão |
+| Aba | O que faz |
 |---|---|
-| minSdk | 24 (Android 7.0) |
-| targetSdk / compileSdk | 37 |
-| AGP | 9.4.1 |
-| Kotlin | 2.2.10 |
-| Java | 11 |
+| **Avisos** | Publica avisos (com categoria e opção de fixar) e exclui. |
+| **Reservas** | Aprova ou recusa reservas, mudanças e reparos. Para recusar, informa o motivo. |
+| **Ocorrências** | Responde, pede mais detalhes ou marca como resolvida, com fotos. |
+| **Documentos** | Publica PDFs para todos os moradores e substitui o regimento ou a convenção vigente. |
 
-## Como rodar
+### Portaria
+| Aba | O que faz |
+|---|---|
+| **Encomendas** | Registra a chegada com foto. Na entrega, digita o código que o morador mostra; o porteiro **não vê o código**. |
+| **Agenda** | Mudanças e reparos aprovados para hoje e os próximos dias. |
+| **Moradores** | Quem mora em cada apartamento, com telefone. |
+| **Avisos** | O mesmo mural dos moradores. |
 
-**Requisitos:** Android Studio recente (com o JDK embutido) e um emulador ou aparelho com Android 7.0+.
+### Administradora
+Atende vários condomínios e escolhe qual está gerenciando no topo da tela.
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/Vctor-costa95/condo-mini.git
-   ```
-2. Abra a pasta no Android Studio e aguarde o sync do Gradle.
-3. Rode a configuração **app** (▶).
+| Aba | O que faz |
+|---|---|
+| **Unidades** | Cria o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês. |
+| **Cadastros** | Cria pessoas com usuário, senha, perfil e apartamentos. |
+| **Espaços** | Cria espaços reserváveis (capacidade, taxa, regras) e interdita para manutenção. |
 
-Pela linha de comando (Windows):
+---
+
+## 3. O caminho de uma ação
+
+Exemplo: chegou uma encomenda.
+
+1. O porteiro tira a foto e toca em **Registrar** no app.
+2. O app envia a foto para a API, que a guarda no servidor (fora da parte pública do site).
+3. A API grava a encomenda no banco e gera um código de 4 dígitos.
+4. Logo depois de responder ao porteiro, a API pede ao Firebase para notificar os celulares de quem mora no apartamento: *"Encomenda na portaria"*. O código não vai na notificação, porque ela aparece na tela bloqueada.
+5. O morador toca na notificação, o app abre na aba **Encomendas** e mostra o código.
+6. Na portaria, o porteiro digita o código. A API confere e marca como entregue.
+
+Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morador só vê os próprios apartamentos; um porteiro não aprova reservas) e só então lê ou grava no banco. As listas se atualizam sozinhas a cada 30 segundos e logo depois de qualquer ação no app.
+
+### Quem recebe notificação
+
+| Quando | Quem recebe |
+|---|---|
+| Encomenda registrada | Moradores do apartamento |
+| Aviso ou documento publicado | Todo o condomínio |
+| PDF do boleto enviado | Moradores do apartamento |
+| Pedido de reserva com taxa, mudança ou reparo | Síndico |
+| Reserva, mudança ou reparo aprovado ou recusado | Moradores do apartamento |
+| Ocorrência nova ou resposta do morador | Síndico |
+| Resposta do síndico na ocorrência | Moradores do apartamento |
+
+Quem fez a ação não recebe a própria notificação.
+
+---
+
+## 4. Contas de teste
+
+O banco ainda tem **dados de demonstração**: três condomínios fictícios (Residencial Jardins, Edifício Vista Mar, Parque das Águas) com moradores, avisos, reservas e boletos.
+
+| Usuário | Senha | Quem é |
+|---|---|---|
+| `morador` | (vazia) | Ana Ribeiro, com dois apartamentos no Bloco A |
+| `sindico` | (vazia) | Carlos Andrade, síndico do Residencial Jardins |
+| `porteiro` | (vazia) | José Silva, portaria do Residencial Jardins |
+| `admin` | (vazia) | Renata Prime, administradora |
+| `nome.sobrenome` | `condo123` | Os outros moradores fictícios (ex.: `paulo.mendes`) |
+
+> ⚠️ **Antes de cadastrar moradores de verdade:** desligue as contas sem senha no servidor (`'allow_passwordless_logins' => false` no `config.php` da API) e limpe os dados de demonstração. Enquanto estiverem ligadas, qualquer pessoa com o app entra como síndico ou administradora.
+
+---
+
+## 5. Tarefas do dia a dia
+
+### Rodar o app no seu PC
+1. Abra a pasta do projeto no **Android Studio** e espere o Gradle terminar.
+2. Ligue o emulador (ou conecte o celular com depuração USB) e aperte **▶ Run**.
+
+O app já vem apontado para a API da Hostinger. Para rodar só com dados fictícios em memória, sem internet, compile com `-Pcondomini.apiUrl=` (vazio).
+
+### Mudar algo no app
+Altere, rode no emulador, teste e só então faça commit e push. O app no celular das pessoas só muda quando você gera uma versão nova e instala (ou publica na Play Store).
+
+### Atualizar a API no servidor
+A Hostinger não recebe o código pelo GitHub automaticamente. Para publicar uma mudança em `backend/`:
+1. Gere o zip com os arquivos alterados (`index.php`, `.htaccess`, `lib/`, `sql/`).
+2. No **hPanel** → Sites → tcpneus-logistica.com → **Gerenciador de arquivos**, entre em `public_html/api-condomini/api-condomini`.
+3. Envie e extraia **na própria pasta**. **Não substitua o `config.php`** do servidor, que tem a senha do banco.
+
+### Mudar a estrutura do banco
+Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
+
+### Testar a API
+`backend/scripts/smoke-test.php` faz login com cada perfil e passa por todas as telas, inclusive permissões e notificações. Rode só contra uma cópia local (ele cria registros). Veja [`backend/README.md`](backend/README.md#rodar-localmente).
+
+---
+
+## 6. Senhas e arquivos secretos
+
+Estes arquivos **nunca vão para o GitHub** (já estão no `.gitignore`):
+
+| Arquivo | O que tem | Onde está |
+|---|---|---|
+| `backend/config.php` | Senha do banco e configurações do servidor | No servidor, ao lado do `index.php`, e uma cópia local para testes |
+| Chave do Firebase (`condomini-firebase.json`) | Permite mandar notificações em nome do app | No servidor, em `domains/tcpneus-logistica.com/`, fora do `public_html`. O original está na sua pasta Downloads. |
+| `backend/dist/` | Zips preparados para subir na Hostinger | Só no seu PC |
+
+O `app/google-services.json` **não** é secreto: ele identifica o app no Firebase e vai junto no código.
+
+O token de login fica no celular **cifrado** com uma chave do próprio aparelho (Android Keystore) e não entra em backups.
+
+---
+
+## 7. O que ainda não existe
+
+- **Criar cobranças pelo app.** A lista de boletos (valor, vencimento, pago ou não) vem do banco; hoje só existe a dos dados de demonstração. A administradora consegue enviar o **PDF** de cada mês, mas falta uma tela para lançar ou importar os valores.
+- **Pagamento pelo app** (Pix, cartão).
+- **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
+- **Abrir o app sem internet**: ele abre logado, mas as listas precisam da API.
+- **Versão iOS**, prevista para o início de 2027.
+- **Publicação na Play Store.**
+
+---
+
+## 8. Parte técnica
+
+**App:** Kotlin, Jetpack Compose (Material 3), MVVM com `StateFlow`, Navigation Compose, OkHttp, Coil e Firebase Cloud Messaging. Pacote `com.appcondomini`, Android 7.0+ (minSdk 24, targetSdk 37).
+
+**API:** PHP 8 sem dependências e MySQL. Rotas, permissões e notificações estão em [`backend/README.md`](backend/README.md).
+
+```
+app/src/main/java/com/example/condo_mini/
+├── data/
+│   ├── AppContainer.kt   # Escolhe API (data/remote) ou dados fictícios (data/fake)
+│   ├── remote/           # Cliente da API, conversão JSON, sessão salva cifrada
+│   ├── fake/             # Dados de demonstração em memória
+│   └── pdf/              # PDFs gerados no aparelho (boleto e documentos de demonstração)
+├── domain/
+│   ├── model/            # User, Notice, Reservation, Bill, Parcel, Occurrence...
+│   └── repository/       # Interfaces que as telas usam
+├── push/                 # Firebase: registro do aparelho e exibição das notificações
+└── ui/
+    ├── screens/          # Telas por perfil: morador, manager/, doorman/, admin/
+    ├── components/       # Cards, fotos, visualizador de PDF
+    ├── navigation/       # Login, escolha de apartamento e tela principal
+    └── theme/            # Cores, fontes e formas
+backend/                  # API em PHP (ver backend/README.md)
+docs/design-system.md     # Cores, tipografia e componentes (referência para o iOS)
+```
+
+Compilar pela linha de comando (Windows):
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:assembleDebug
 ```
-
-Na tela de login, escolha o perfil (Morador ou Síndico) e informe qualquer nome; os dados são simulados.
-
-## Estrutura do projeto
-
-```
-app/src/main/java/com/example/condo_mini/
-├── data/
-│   ├── AppContainer.kt      # Injeção de dependência manual (troque os fakes aqui)
-│   ├── fake/                # Repositórios simulados em memória
-│   └── pdf/                 # PDFs de demonstração (boleto, documentos) e cópia dos PDFs enviados
-├── domain/
-│   ├── model/               # Modelos: User, Notice, Reservation, Bill, Parcel, Occurrence, CondoDocument
-│   └── repository/          # Interfaces dos repositórios
-└── ui/
-    ├── components/          # Componentes compartilhados (cards, chips, fotos, zoom)
-    ├── navigation/          # Rotas do app
-    ├── screens/             # Telas do morador e do síndico (manager/)
-    ├── theme/               # Cores, tipografia e formas
-    └── util/                # Formatação de datas e valores
-```
-
-As telas dependem apenas das **interfaces** em `domain/repository`. O `AppContainer` escolhe as implementações: `data/remote` (API) quando `BuildConfig.API_BASE_URL` está preenchido, `data/fake` (memória) quando está vazio. Para trocar o endereço: `./gradlew assembleDebug -Pcondomini.apiUrl=<url>` (vazio = mock).
-
-## Design system
-
-Tokens de cor, tipografia, formas e componentes estão documentados em [`docs/design-system.md`](docs/design-system.md), servindo de referência para a versão iOS.
-
-## Próximos passos
-
-- [x] Backend: API em PHP + MySQL na Hostinger
-- [ ] Cache local com Room e sessão com DataStore
-- [ ] Perfis de porteiro e administrador
-- [ ] Notificações push (FCM)
-- [ ] Integração de boletos com gateway de pagamento
-- [ ] Ambientes dev/staging/prod e CI com GitHub Actions
-- [ ] Versão iOS
 
 ## Licença
 
