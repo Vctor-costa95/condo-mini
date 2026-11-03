@@ -26,7 +26,7 @@ App Android  →  HTTPS/JSON  →  api-condomini.tcpneus-logistica.com  →  MyS
 
 Cada perfil só vê o próprio condomínio; o administrador escolhe com `?condoId=` (ou `condoId` no corpo). Morador só lê e altera os próprios apartamentos. O código de retirada de encomendas só aparece para o morador.
 
-Contas de teste sem senha (`morador`, `sindico`, `porteiro`, `admin`) só entram com `allow_passwordless_logins => true`. Os demais cadastros de demonstração usam `nome.sobrenome` / `condo123`. **Desligue a opção e troque as senhas antes de cadastrar moradores de verdade.**
+Contas de teste sem senha (`morador`, `sindico`, `porteiro`, `admin`) só entram com `allow_passwordless_logins => true` e só num banco recém-semeado: na produção elas já têm senha (ver o README principal). Os demais cadastros de demonstração usam `nome.sobrenome` / `condo123`. **Desligue a opção e troque as senhas antes de cadastrar moradores de verdade.**
 
 ## Rotas
 
