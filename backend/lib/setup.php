@@ -150,7 +150,7 @@ function seed_demo(): void
         ['a5', 'c1', 'Sala de reuniões', 'Sala com TV, mesa e 8 cadeiras.', 8, 0, 'Até 3 horas por reserva.', 'meeting', ['HOURLY', 8, 22, 3]],
         ['a6', 'c2', 'Rooftop com piscina', 'Piscina com borda infinita e vista para o mar.', 25, 0, 'Uso até 22h. Crianças acompanhadas.', 'pool'],
         ['a7', 'c2', 'Academia', 'Equipamentos Technogym e sala de pilates.', 12, 0, 'Uso de toalha obrigatório.', 'gym'],
-        ['a8', 'c3', 'Salão de festas', 'Salão para 120 pessoas com copa.', 120, 250, 'Som até 23h.', 'party'],
+        ['a8', 'c3', 'Salão de festas', 'Salão para 120 pessoas com copa.', 120, 250, 'Som até 23h.', 'party', ['DAILY', 8, 22, 2]],
         ['a9', 'c3', 'Quadra de tênis', 'Quadra de saibro com iluminação.', 4, 0, 'Até 2 horas por reserva.', 'tennis', ['HOURLY', 7, 21, 2]],
         ['a10', 'c3', 'Brinquedoteca', 'Espaço infantil com monitoria aos sábados.', 15, 0, 'Crianças até 10 anos.', 'kids'],
     ];

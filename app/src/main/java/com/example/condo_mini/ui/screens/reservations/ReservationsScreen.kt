@@ -571,7 +571,9 @@ private fun BookingSheet(
 
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                 Spacer(modifier = Modifier.height(12.dp))
-                if (booking.area.isHourly) {
+                if (booking.area.isDaily) {
+                    FullDayStatus(booking)
+                } else if (booking.area.isHourly) {
                     HourPicker(booking, onStartHourSelected, onDurationSelected)
                 } else {
                     SectionHeader("Período")
@@ -632,6 +634,27 @@ private fun BookingSheet(
                     loading = booking.isSubmitting
                 )
             }
+        }
+    }
+}
+
+/** Espaço do dia inteiro: não há horário para escolher, só se a data está livre. */
+@Composable
+private fun FullDayStatus(booking: BookingState) {
+    SectionHeader("Horário")
+    Spacer(modifier = Modifier.height(4.dp))
+    PillChip(
+        selected = !booking.isDayTaken,
+        enabled = !booking.isDayTaken,
+        onClick = {},
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Dia inteiro", style = MaterialTheme.typography.titleSmall)
+            Text(
+                if (booking.isDayTaken) "Indisponível · já reservado nesta data" else "O espaço fica com você o dia todo",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }

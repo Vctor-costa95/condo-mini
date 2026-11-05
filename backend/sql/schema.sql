@@ -94,8 +94,9 @@ CREATE TABLE IF NOT EXISTS notices (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Espaço excluído vira deleted_at: as reservas antigas continuam mostrando o nome dele.
--- booking_mode: PERIOD (manhã, tarde, noite) ou HOURLY (início e duração, das opens_at
--- às closes_at, até max_hours seguidas). A taxa é por reserva nos dois.
+-- booking_mode: PERIOD (manhã, tarde, noite), HOURLY (início e duração, das opens_at
+-- às closes_at, até max_hours seguidas) ou DAILY (o dia inteiro, guardado como 0h às 24h).
+-- A taxa é por reserva em todos.
 CREATE TABLE IF NOT EXISTS common_areas (
     id            VARCHAR(36)   NOT NULL PRIMARY KEY,
     condo_id      VARCHAR(36)   NOT NULL,
@@ -105,7 +106,7 @@ CREATE TABLE IF NOT EXISTS common_areas (
     fee           DECIMAL(10,2) NOT NULL DEFAULT 0,
     rules         TEXT          NOT NULL,
     icon_key      VARCHAR(40)   NOT NULL DEFAULT '',
-    booking_mode  ENUM('PERIOD','HOURLY') NOT NULL DEFAULT 'PERIOD',
+    booking_mode  ENUM('PERIOD','HOURLY','DAILY') NOT NULL DEFAULT 'PERIOD',
     opens_at      TINYINT       NOT NULL DEFAULT 8,
     closes_at     TINYINT       NOT NULL DEFAULT 22,
     max_hours     TINYINT       NOT NULL DEFAULT 2,

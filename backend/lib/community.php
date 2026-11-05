@@ -93,6 +93,15 @@ function find_reservation(string $id): array
     return $found;
 }
 
+/** Aprovar e recusar só valem para reserva que ainda espera o síndico. */
+function require_pending(array $reservation): array
+{
+    if ($reservation['status'] !== 'PENDING') {
+        throw new ApiError(409, 'Esta reserva não está mais aguardando aprovação.');
+    }
+    return $reservation;
+}
+
 function find_booking(string $id): array
 {
     $found = require_same_condo(row('SELECT * FROM service_bookings WHERE id = ?', [$id]), 'Agendamento não encontrado.');
@@ -102,13 +111,13 @@ function find_booking(string $id): array
 
 /**
  * Modo, funcionamento e máximo de horas do espaço, do corpo do POST /areas.
- * No modo por turno, os campos de hora ficam com o padrão.
+ * Nos modos por turno e dia inteiro, os campos de hora ficam com o padrão.
  */
 function area_schedule(): array
 {
-    $mode = require_enum((string) input('bookingMode', 'PERIOD'), ['PERIOD', 'HOURLY'], 'bookingMode');
-    if ($mode === 'PERIOD') {
-        return ['booking_mode' => 'PERIOD', 'opens_at' => 8, 'closes_at' => 22, 'max_hours' => 2];
+    $mode = require_enum((string) input('bookingMode', 'PERIOD'), ['PERIOD', 'HOURLY', 'DAILY'], 'bookingMode');
+    if ($mode !== 'HOURLY') {
+        return ['booking_mode' => $mode, 'opens_at' => 8, 'closes_at' => 22, 'max_hours' => 2];
     }
     $opens = (int) input('opensAt', 8);
     $closes = (int) input('closesAt', 22);
@@ -134,6 +143,10 @@ function taken_slots(string $areaId, string $date): array
  */
 function requested_slot(array $area, string $date): array
 {
+    // O dia inteiro ocupa as 24 horas: colide com qualquer reserva da data.
+    if ($area['booking_mode'] === 'DAILY') {
+        return [null, 0, 24];
+    }
     if ($area['booking_mode'] !== 'HOURLY') {
         $period = require_enum((string) input('period', ''), PERIODS, 'period');
         return [$period, ...PERIOD_HOURS[$period]];
@@ -156,13 +169,17 @@ function requested_slot(array $area, string $date): array
     return [null, $start, $end];
 }
 
-/** "12/11 · tarde" ou "12/11 · 14h às 16h" */
+/** "12/11 · tarde", "12/11 · 14h às 16h" ou "12/11 · dia inteiro" */
 function reservation_slot_label(array $reservation): string
 {
     if ($reservation['period'] !== null) {
         return slot_label($reservation['date'], $reservation['period']);
     }
-    return date('d/m', strtotime($reservation['date'])) . " · {$reservation['start_hour']}h às {$reservation['end_hour']}h";
+    $day = date('d/m', strtotime($reservation['date']));
+    if ((int) $reservation['start_hour'] === 0 && (int) $reservation['end_hour'] === 24) {
+        return "$day · dia inteiro";
+    }
+    return "$day · {$reservation['start_hour']}h às {$reservation['end_hour']}h";
 }
 
 /** Avisa o apartamento da reserva: "Salão de festas · 12/11 · tarde", mais o motivo da recusa. */
@@ -357,14 +374,20 @@ function register_community_routes(Router $r): void
         }
         [$period, $start, $end] = requested_slot($area, $date);
         $reservation = transaction(function () use ($area, $date, $period, $start, $end, $unit, $me) {
-            // Trava as reservas do dia para duas iguais não passarem juntas.
+            // Trava o espaço: dois pedidos que colidem (pendentes contam) são conferidos um de
+            // cada vez, mesmo quando o dia ainda não tem nenhuma reserva para travar.
+            row('SELECT id FROM common_areas WHERE id = ? FOR UPDATE', [$area['id']]);
             $clash = row(
                 'SELECT id FROM reservations WHERE area_id = ? AND date = ? AND ' . HOLDS_SLOT . '
                  AND start_hour < ? AND end_hour > ? FOR UPDATE',
                 [$area['id'], $date, $end, $start]
             );
             if ($clash !== null) {
-                throw new ApiError(409, $period === null ? 'Esse horário já está reservado.' : 'Este período já está reservado.');
+                throw new ApiError(409, match (true) {
+                    $area['booking_mode'] === 'DAILY' => 'Este dia já está reservado.',
+                    $period === null => 'Esse horário já está reservado.',
+                    default => 'Este período já está reservado.',
+                });
             }
             $reservation = [
                 'id' => uuid(),
@@ -402,13 +425,14 @@ function register_community_routes(Router $r): void
     $r->add('POST', '/reservations/{id}/cancel', function (string $id) {
         require_role('RESIDENT', 'MANAGER', 'ADMIN');
         find_reservation($id);
-        exec_sql("UPDATE reservations SET status = 'CANCELED' WHERE id = ?", [$id]);
+        exec_sql("UPDATE reservations SET status = 'CANCELED' WHERE id = ? AND " . HOLDS_SLOT, [$id]);
         send_json(reservation_json(row('SELECT * FROM reservations WHERE id = ?', [$id])));
     });
 
+    // Só pendentes: aprovar uma recusada ou cancelada poderia passar por cima de quem reservou depois.
     $r->add('POST', '/reservations/{id}/approve', function (string $id) {
         require_role('MANAGER', 'ADMIN');
-        $reservation = find_reservation($id);
+        $reservation = require_pending(find_reservation($id));
         exec_sql("UPDATE reservations SET status = 'CONFIRMED' WHERE id = ?", [$id]);
         notify_reservation($reservation, 'Reserva confirmada', '');
         send_json(reservation_json(row('SELECT * FROM reservations WHERE id = ?', [$id])));
@@ -416,7 +440,7 @@ function register_community_routes(Router $r): void
 
     $r->add('POST', '/reservations/{id}/reject', function (string $id) {
         require_role('MANAGER', 'ADMIN');
-        $reservation = find_reservation($id);
+        $reservation = require_pending(find_reservation($id));
         $reason = optional_string('reason');
         exec_sql(
             "UPDATE reservations SET status = 'REJECTED', rejection_reason = ? WHERE id = ?",
