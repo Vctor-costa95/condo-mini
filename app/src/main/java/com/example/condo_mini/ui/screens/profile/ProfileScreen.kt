@@ -1,9 +1,14 @@
 package com.example.condo_mini.ui.screens.profile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.HomeWork
@@ -41,6 +47,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -57,6 +67,7 @@ import com.example.condo_mini.ui.components.LoadingState
 import com.example.condo_mini.ui.components.SectionHeader
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.theme.CondominiTheme
+import com.example.condo_mini.ui.theme.ThemeMode
 
 @Composable
 fun ProfileRoute(
@@ -66,6 +77,7 @@ fun ProfileRoute(
     viewModel: ProfileViewModel = viewModel()
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val current = user
     if (current == null) {
         LoadingState(modifier)
@@ -73,6 +85,8 @@ fun ProfileRoute(
     }
     ProfileScreen(
         user = current,
+        themeMode = themeMode,
+        onThemeModeChange = viewModel::onThemeModeChange,
         onSaveContact = viewModel::onSaveContact,
         onLogoutClick = onLogoutClick,
         onDocumentsClick = onDocumentsClick,
@@ -83,6 +97,8 @@ fun ProfileRoute(
 @Composable
 fun ProfileScreen(
     user: User,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onSaveContact: (email: String, phone: String) -> Unit,
     onLogoutClick: () -> Unit,
     onDocumentsClick: () -> Unit,
@@ -167,6 +183,21 @@ fun ProfileScreen(
                 }
             )
             RowDivider()
+            ProfileRow(
+                Icons.Outlined.Contrast,
+                "Tema",
+                when (themeMode) {
+                    ThemeMode.SYSTEM -> "Igual ao do celular"
+                    ThemeMode.LIGHT -> "Sempre claro"
+                    ThemeMode.DARK -> "Sempre escuro"
+                }
+            )
+            ThemeSelector(
+                selected = themeMode,
+                onSelect = onThemeModeChange,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)
+            )
+            RowDivider()
             ProfileRow(Icons.Outlined.Info, "Sobre", "condo.mini · versão 1.0")
         }
 
@@ -234,6 +265,45 @@ private fun ProfileRow(
     }
 }
 
+/** Seletor em pílula Sistema / Claro / Escuro; a troca vale na hora, sem reabrir o app. */
+@Composable
+private fun ThemeSelector(
+    selected: ThemeMode,
+    onSelect: (ThemeMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(4.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        ThemeMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(CircleShape)
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onSelect(mode) })
+                    .padding(vertical = 10.dp, horizontal = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = mode.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun RowDivider() {
     HorizontalDivider(
@@ -289,12 +359,15 @@ private fun EditContactDialog(
     )
 }
 
-@Preview(showBackground = true)
+@Preview(name = "Padrão", showBackground = true)
+@Preview(name = "Compacto + fonte 150%", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.5f)
 @Composable
 private fun ProfileScreenPreview() {
     CondominiTheme {
         ProfileScreen(
             user = User("1", "Ana Clara", "Apto 201 - Bloco A", UserRole.RESIDENT, "ana@email.com", "(11) 98888-7777", "c1"),
+            themeMode = ThemeMode.SYSTEM,
+            onThemeModeChange = {},
             onSaveContact = { _, _ -> },
             onLogoutClick = {},
             onDocumentsClick = {}
