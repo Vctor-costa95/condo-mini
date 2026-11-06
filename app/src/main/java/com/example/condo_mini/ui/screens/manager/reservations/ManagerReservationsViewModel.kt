@@ -86,6 +86,20 @@ class ManagerReservationsViewModel(
         "Pedido do ${booking.unit} recusado."
     }
 
+    fun onCancel(reservation: Reservation, reason: String) = process(reservation.id) {
+        reservationRepository.cancelByManager(reservation.id, reason).fold(
+            onSuccess = { "Reserva de ${reservation.unit} cancelada. O morador foi avisado." },
+            onFailure = { it.message ?: "Não foi possível cancelar." }
+        )
+    }
+
+    fun onCancelService(booking: ServiceBooking, reason: String) = process(booking.id) {
+        serviceBookingRepository.cancelByManager(booking.id, reason).fold(
+            onSuccess = { "Pedido do ${booking.unit} cancelado. O morador foi avisado." },
+            onFailure = { it.message ?: "Não foi possível cancelar." }
+        )
+    }
+
     fun onMessageShown() {
         userMessage.value = null
     }

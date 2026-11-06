@@ -97,6 +97,11 @@ class ApiReservationRepository(private val api: ApiClient, private val condoId: 
         api.send("POST", "reservations/$reservationId/cancel")
     }
 
+    override suspend fun cancelByManager(reservationId: String, reason: String): Result<Unit> = runCatching {
+        api.send("POST", "reservations/$reservationId/cancel", JSONObject().put("reason", reason.trim()))
+        Unit
+    }
+
     override suspend fun approve(reservationId: String) = api.quietly {
         api.send("POST", "reservations/$reservationId/approve")
     }
@@ -147,6 +152,11 @@ class ApiServiceBookingRepository(private val api: ApiClient) : ServiceBookingRe
 
     override suspend fun cancel(bookingId: String) = api.quietly {
         api.send("POST", "service-bookings/$bookingId/cancel")
+    }
+
+    override suspend fun cancelByManager(bookingId: String, reason: String): Result<Unit> = runCatching {
+        api.send("POST", "service-bookings/$bookingId/cancel", JSONObject().put("reason", reason.trim()))
+        Unit
     }
 
     override suspend fun approve(bookingId: String): Result<ServiceBooking> = runCatching {

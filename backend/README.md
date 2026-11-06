@@ -43,7 +43,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /areas`, `POST /areas`, `DELETE /areas/{id}`, `PUT /areas/{id}/closed` | todos leem / síndico e admin editam |
 | `GET /areas/{id}/booked?date=` | todos |
 | `GET /reservations[?unit=]`, `POST /reservations` | morador com `unit`; síndico e portaria sem |
-| `POST /reservations/{id}/cancel\|approve\|reject` | morador cancela / síndico aprova e recusa |
+| `POST /reservations/{id}/cancel\|approve\|reject` | morador cancela / síndico aprova, recusa e cancela (com `reason` obrigatório) |
 | `GET /service-bookings[?unit=]`, `GET /service-bookings/taken-moves?date=`, `POST /service-bookings` | idem |
 | `POST /service-bookings/{id}/cancel\|approve\|reject` | idem |
 | `GET /bills?unit=`, `GET /bills/{id}`, `GET /bills/{id}/pdf` | morador do apartamento |
@@ -67,7 +67,7 @@ O app registra o celular em `POST /devices` (`{"token", "platform"}`) depois de 
 | Aviso ou documento publicado | todo o condomínio |
 | Boleto (PDF) enviado | moradores do apartamento |
 | Reserva com taxa, pedido de mudança ou reparo | síndico |
-| Reserva, mudança ou reparo aprovado ou recusado | moradores do apartamento |
+| Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | moradores do apartamento |
 | Ocorrência nova; resposta do morador | síndico |
 | Resposta, pedido de detalhes ou ocorrência resolvida | moradores do apartamento |
 

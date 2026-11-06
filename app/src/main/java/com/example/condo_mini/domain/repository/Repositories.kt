@@ -72,6 +72,10 @@ interface ReservationRepository {
     ): Result<Reservation>
 
     suspend fun cancel(reservationId: String)
+
+    /** Síndico cancela uma reserva pendente ou confirmada (emergência no espaço); o apartamento é avisado com o motivo. */
+    suspend fun cancelByManager(reservationId: String, reason: String): Result<Unit>
+
     suspend fun approve(reservationId: String)
     suspend fun reject(reservationId: String, reason: String)
 
@@ -98,6 +102,10 @@ interface ServiceBookingRepository {
     /** Registra o pedido como aguardando aprovação. */
     suspend fun request(booking: ServiceBooking): Result<ServiceBooking>
     suspend fun cancel(bookingId: String)
+
+    /** Síndico cancela um pedido pendente ou aprovado; o apartamento é avisado com o motivo. */
+    suspend fun cancelByManager(bookingId: String, reason: String): Result<Unit>
+
     suspend fun approve(bookingId: String): Result<ServiceBooking>
     suspend fun reject(bookingId: String, reason: String)
 }

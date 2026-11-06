@@ -253,6 +253,34 @@ if ($pushLog !== null) {
     call('POST', "/service-bookings/{$b['id']}/approve", null, $manager);
     $sent = $pushed();
     check('reparo aprovado avisa o morador', ($sent[0]['notification']['title'] ?? '') === 'Reparo aprovado', $sent);
+    check('síndico não cancela pedido sem motivo', call('POST', "/service-bookings/{$b['id']}/cancel", null, $manager)[0] === 422);
+    [$s, $canceledBooking] = call('POST', "/service-bookings/{$b['id']}/cancel", ['reason' => 'Falta de luz no prédio'], $manager);
+    $sent = $pushed();
+    check('síndico cancela reparo aprovado', $s === 200 && $canceledBooking['status'] === 'CANCELED'
+        && $canceledBooking['rejectionReason'] === 'Falta de luz no prédio', $canceledBooking);
+    check('cancelamento do reparo avisa o morador com o motivo', count($sent) === 1 && $sent[0]['token'] === 'test-ana-device'
+        && $sent[0]['notification']['title'] === 'Reparo cancelado pelo síndico'
+        && str_contains($sent[0]['notification']['body'], 'Motivo: Falta de luz no prédio'), $sent);
+
+    // Emergência: o síndico cancela uma reserva já confirmada.
+    [, $c] = call('POST', '/reservations', ['areaId' => 'a3', 'date' => $farDay, 'period' => 'AFTERNOON', 'unit' => 'Apto 101 - Bloco A'], $resident);
+    if ($c['status'] === 'PENDING') {
+        $pushed();
+        call('POST', "/reservations/{$c['id']}/approve", null, $manager);
+    }
+    $pushed();
+    check('síndico não cancela reserva sem motivo', call('POST', "/reservations/{$c['id']}/cancel", null, $manager)[0] === 422);
+    [$s, $canceled] = call('POST', "/reservations/{$c['id']}/cancel", ['reason' => 'Vazamento no salão'], $manager);
+    $sent = $pushed();
+    check('síndico cancela reserva confirmada', $s === 200 && $canceled['status'] === 'CANCELED'
+        && $canceled['rejectionReason'] === 'Vazamento no salão', $canceled);
+    check('cancelamento avisa o morador com o motivo', count($sent) === 1 && $sent[0]['token'] === 'test-ana-device'
+        && $sent[0]['notification']['title'] === 'Reserva cancelada pelo síndico'
+        && str_contains($sent[0]['notification']['body'], 'Motivo: Vazamento no salão'), $sent);
+    check('reserva já cancelada não cancela de novo', call('POST', "/reservations/{$c['id']}/cancel", ['reason' => 'x'], $manager)[0] === 409);
+    [$s, $mine] = call('GET', '/reservations?unit=' . rawurlencode('Apto 101 - Bloco A'), null, $resident);
+    $seen = array_values(array_filter($mine, fn ($x) => $x['id'] === $c['id']));
+    check('morador vê a reserva cancelada com o motivo', $s === 200 && ($seen[0]['rejectionReason'] ?? '') === 'Vazamento no salão', $seen);
 
     [, $o] = call('POST', '/occurrences', ['title' => 'Push', 'description' => 'Teste', 'category' => 'OTHER', 'unit' => 'Apto 101 - Bloco A'], $resident);
     $sent = $pushed();

@@ -291,7 +291,8 @@ private fun MyServiceCard(booking: ServiceBooking, onCancel: () -> Unit) {
                     )
                 }
             }
-            if (booking.status != ReservationStatus.REJECTED) {
+            // Recusados e cancelados pelo síndico ficam na lista só para o morador ver o motivo.
+            if (booking.status == ReservationStatus.PENDING || booking.status == ReservationStatus.CONFIRMED) {
                 TextButton(onClick = onCancel) {
                     Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -477,7 +478,7 @@ private fun MyReservationCard(reservation: Reservation, onCancel: () -> Unit) {
                     )
                 }
             }
-            if (reservation.status != ReservationStatus.REJECTED) {
+            if (reservation.status == ReservationStatus.PENDING || reservation.status == ReservationStatus.CONFIRMED) {
                 TextButton(onClick = onCancel) {
                     Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

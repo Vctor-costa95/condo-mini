@@ -34,7 +34,10 @@ class FakeServiceBookingRepository : ServiceBookingRepository {
 
     override fun observeBookings(condoId: String, unit: String): Flow<List<ServiceBooking>> =
         bookings.map { list ->
-            list.filter { it.condoId == condoId && it.unit == unit && it.status != ReservationStatus.CANCELED }
+            list.filter {
+                it.condoId == condoId && it.unit == unit &&
+                    (it.status != ReservationStatus.CANCELED || it.rejectionReason != null)
+            }
                 .sortedBy { it.date }
         }
 
@@ -72,6 +75,19 @@ class FakeServiceBookingRepository : ServiceBookingRepository {
 
     override suspend fun cancel(bookingId: String) {
         update(bookingId) { it.copy(status = ReservationStatus.CANCELED) }
+    }
+
+    override suspend fun cancelByManager(bookingId: String, reason: String): Result<Unit> {
+        delay(300)
+        val current = bookings.value.firstOrNull { it.id == bookingId }
+            ?: return Result.failure(IllegalArgumentException("Agendamento não encontrado."))
+        if (current.status != ReservationStatus.PENDING && current.status != ReservationStatus.CONFIRMED) {
+            return Result.failure(IllegalStateException("Este pedido já foi recusado ou cancelado."))
+        }
+        update(bookingId) {
+            it.copy(status = ReservationStatus.CANCELED, rejectionReason = reason.trim().ifBlank { null })
+        }
+        return Result.success(Unit)
     }
 
     override suspend fun approve(bookingId: String): Result<ServiceBooking> {
