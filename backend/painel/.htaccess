@@ -1,0 +1,14 @@
+# Painel web da administradora: só arquivos estáticos; a API continua na pasta de cima.
+RewriteEngine Off
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_headers.c>
+    # Nada de scripts, estilos ou fontes de fora; a página não pode ser embutida em outro site.
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; frame-src blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    Header always set X-Frame-Options "DENY"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "no-referrer"
+    # Sempre a versão mais nova depois de cada envio pelo Gerenciador de Arquivos.
+    Header set Cache-Control "no-cache"
+</IfModule>

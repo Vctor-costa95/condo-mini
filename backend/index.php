@@ -3,6 +3,24 @@
 
 declare(strict_types=1);
 
+// Servidor local (php -S ... index.php): o painel é estático; deixa o próprio servidor entregar os arquivos.
+// Na Hostinger quem faz isso é o .htaccess.
+if (PHP_SAPI === 'cli-server') {
+    $requested = rawurldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/');
+    if (preg_match('#^/painel(/|$)#', $requested) && !str_contains($requested, '..')) {
+        if (is_file(__DIR__ . $requested)) {
+            return false;
+        }
+        if (is_file(__DIR__ . rtrim($requested, '/') . '/index.html')) {
+            if (!str_ends_with($requested, '/')) {
+                header('Location: ' . $requested . '/');
+                return true;
+            }
+            return false;
+        }
+    }
+}
+
 require __DIR__ . '/lib/core.php';
 require __DIR__ . '/lib/files.php';
 require __DIR__ . '/lib/directory.php';

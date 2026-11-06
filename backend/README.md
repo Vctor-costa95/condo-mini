@@ -87,6 +87,16 @@ php scripts/smoke-test.php http://127.0.0.1:8080 storage/push-test.log   # com p
 
 O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela; ele cria registros, então use um banco de desenvolvimento.
 
+## Painel web da administradora
+
+`painel/` é o painel para o administrador usar no computador, com as mesmas funções do perfil administrador no app: condomínios (criar, editar blocos e andares, trocar), unidades (boletos em PDF do mês, alocar e desalocar moradores), cadastros e espaços. Só o perfil `ADMIN` entra; os outros são mandados para o app.
+
+- São só arquivos estáticos (HTML, CSS e JavaScript em módulos, sem framework e sem build), na mesma pasta da API: sem CORS, e o painel chama as mesmas rotas do app.
+- Endereço: `<endereço da API>/painel/`. Localmente, `http://127.0.0.1:8080/painel/` (o `index.php` deixa o `php -S` entregar os arquivos do painel).
+- O `.htaccess` da API deixa `painel/` passar direto, e o `painel/.htaccess` liga os cabeçalhos de segurança (CSP só com arquivos próprios, sem embutir em outros sites).
+- O token fica no navegador (`localStorage` com "Manter conectado", senão `sessionStorage`). PDFs são baixados com o token e abertos numa aba nova.
+- A numeração dos apartamentos (`painel/js/units.js`) é a mesma do app (`CondoUnit.kt`) e da API (`tower_unit_labels`): mude as três juntas.
+
 ## Hostinger
 
 - Endereço da API: `https://api-condomini.tcpneus-logistica.com/api-condomini` (pasta `public_html/api-condomini/api-condomini`; o app usa este endereço por padrão).
@@ -94,4 +104,5 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
 - Arquivos enviados: `/home/u248494375/condomini-storage`, fora do `public_html`.
 - Chave do Firebase: `domains/tcpneus-logistica.com/condomini-firebase.json`, fora do `public_html` (configurada em `push.service_account_file`).
 - Para atualizar: envie `index.php`, `.htaccess`, `lib/` e `sql/` pelo Gerenciador de Arquivos, sem sobrescrever o `config.php` do servidor.
+- Painel: envie a pasta `painel/` inteira (inclusive o `painel/.htaccess`, que fica oculto em alguns gerenciadores) para dentro da pasta da API. Endereço: `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
 - Mudanças no esquema: libere seu IP em hPanel → Bancos de dados → MySQL remoto, rode `scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e remova a liberação depois.

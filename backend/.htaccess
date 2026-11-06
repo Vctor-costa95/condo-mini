@@ -10,5 +10,8 @@ RewriteRule ^(lib|sql|storage|scripts)(/|$) - [F,L]
 RewriteRule ^(config|config\.example)\.php$ - [F,L]
 RewriteRule (^|/)\. - [F,L]
 
+# Painel web da administradora: arquivos estáticos, servidos direto (ver painel/.htaccess).
+RewriteRule ^painel(/.*)?$ - [L]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [QSA,L]
