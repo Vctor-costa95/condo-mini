@@ -57,6 +57,9 @@ interface ReservationRepository {
 
     /** Todas as reservas do condomínio (visão do síndico). */
     fun observeAllReservations(): Flow<List<Reservation>>
+
+    /** Histórico com todos os status e datas, mais recente primeiro; [unit] null = condomínio todo (síndico). */
+    fun observeReservationHistory(unit: String?): Flow<List<Reservation>>
     /** Turnos ocupados no dia (espaços por turno). */
     suspend fun bookedPeriods(areaId: String, date: LocalDate): Set<ReservationPeriod>
 
@@ -72,6 +75,10 @@ interface ReservationRepository {
     ): Result<Reservation>
 
     suspend fun cancel(reservationId: String)
+
+    /** Síndico cancela uma reserva pendente ou confirmada (emergência no espaço); o apartamento é avisado com o motivo. */
+    suspend fun cancelByManager(reservationId: String, reason: String): Result<Unit>
+
     suspend fun approve(reservationId: String)
     suspend fun reject(reservationId: String, reason: String)
 
@@ -92,12 +99,19 @@ interface ServiceBookingRepository {
     /** Todos os pedidos do condomínio (visão do síndico). */
     fun observeAllBookings(condoId: String): Flow<List<ServiceBooking>>
 
+    /** Histórico com todos os status e datas, mais recente primeiro; [unit] null = condomínio todo (síndico). */
+    fun observeBookingHistory(condoId: String, unit: String?): Flow<List<ServiceBooking>>
+
     /** Períodos do dia que já têm mudança: só uma por manhã e uma por tarde. */
     suspend fun takenMovePeriods(condoId: String, date: LocalDate): Set<ReservationPeriod>
 
     /** Registra o pedido como aguardando aprovação. */
     suspend fun request(booking: ServiceBooking): Result<ServiceBooking>
     suspend fun cancel(bookingId: String)
+
+    /** Síndico cancela um pedido pendente ou aprovado; o apartamento é avisado com o motivo. */
+    suspend fun cancelByManager(bookingId: String, reason: String): Result<Unit>
+
     suspend fun approve(bookingId: String): Result<ServiceBooking>
     suspend fun reject(bookingId: String, reason: String)
 }

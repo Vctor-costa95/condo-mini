@@ -50,12 +50,14 @@ import com.example.condo_mini.ui.components.SectionHeader
 import com.example.condo_mini.ui.components.StatusChip
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.screens.reservations.DateBlock
+import com.example.condo_mini.ui.screens.reservations.history.HistoryLinkCard
 import com.example.condo_mini.ui.screens.reservations.tone
 import com.example.condo_mini.ui.util.toBrl
 
 @Composable
 fun ManagerReservationsRoute(
     snackbarHostState: SnackbarHostState,
+    onHistoryClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ManagerReservationsViewModel = viewModel()
 ) {
@@ -74,6 +76,9 @@ fun ManagerReservationsRoute(
         onReject = viewModel::onReject,
         onApproveService = viewModel::onApproveService,
         onRejectService = viewModel::onRejectService,
+        onCancel = viewModel::onCancel,
+        onCancelService = viewModel::onCancelService,
+        onHistoryClick = onHistoryClick,
         modifier = modifier
     )
 }
@@ -85,6 +90,9 @@ fun ManagerReservationsScreen(
     onReject: (Reservation, String) -> Unit,
     onApproveService: (ServiceBooking) -> Unit,
     onRejectService: (ServiceBooking, String) -> Unit,
+    onCancel: (Reservation, String) -> Unit,
+    onCancelService: (ServiceBooking, String) -> Unit,
+    onHistoryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (uiState.isLoading) {
@@ -93,12 +101,15 @@ fun ManagerReservationsScreen(
     }
     var toReject by remember { mutableStateOf<Reservation?>(null) }
     var serviceToReject by remember { mutableStateOf<ServiceBooking?>(null) }
+    var toCancel by remember { mutableStateOf<Reservation?>(null) }
+    var serviceToCancel by remember { mutableStateOf<ServiceBooking?>(null) }
 
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item { HistoryLinkCard(onClick = onHistoryClick) }
         item {
             SectionHeader(
                 "Aguardando aprovação",
@@ -142,7 +153,14 @@ fun ManagerReservationsScreen(
                 )
             }
             items(uiState.upcomingServices, key = { it.id }) { booking ->
-                CondoCard(contentPadding = PaddingValues(18.dp)) { ServiceHeader(booking) }
+                CondoCard(contentPadding = PaddingValues(18.dp)) {
+                    ServiceHeader(booking)
+                    Spacer(modifier = Modifier.height(14.dp))
+                    CancelButton(
+                        processing = booking.id in uiState.processingIds,
+                        onClick = { serviceToCancel = booking }
+                    )
+                }
             }
         }
         if (uiState.upcoming.isNotEmpty()) {
@@ -153,8 +171,42 @@ fun ManagerReservationsScreen(
                     modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)
                 )
             }
-            items(uiState.upcoming, key = { it.id }) { ReservationSummaryCard(it) }
+            items(uiState.upcoming, key = { it.id }) { reservation ->
+                ReservationSummaryCard(
+                    reservation = reservation,
+                    processing = reservation.id in uiState.processingIds,
+                    onCancel = { toCancel = reservation }
+                )
+            }
         }
+    }
+
+    toCancel?.let { reservation ->
+        ReasonDialog(
+            title = "Cancelar reserva",
+            subject = "${reservation.area.name} · ${reservation.unit}",
+            explanation = "O morador recebe uma notificação com o motivo e o horário fica livre.",
+            confirmLabel = "Cancelar reserva",
+            onConfirm = { reason ->
+                onCancel(reservation, reason)
+                toCancel = null
+            },
+            onDismiss = { toCancel = null }
+        )
+    }
+
+    serviceToCancel?.let { booking ->
+        ReasonDialog(
+            title = "Cancelar pedido",
+            subject = "${booking.title} · ${booking.unit}",
+            explanation = "O morador recebe uma notificação com o motivo e o período fica livre.",
+            confirmLabel = "Cancelar pedido",
+            onConfirm = { reason ->
+                onCancelService(booking, reason)
+                serviceToCancel = null
+            },
+            onDismiss = { serviceToCancel = null }
+        )
     }
 
     toReject?.let { reservation ->
@@ -299,9 +351,35 @@ private fun ServiceHeader(booking: ServiceBooking, showStatus: Boolean = true) {
 }
 
 @Composable
-private fun ReservationSummaryCard(reservation: Reservation) {
+private fun ReservationSummaryCard(reservation: Reservation, processing: Boolean, onCancel: () -> Unit) {
     CondoCard(contentPadding = PaddingValues(18.dp)) {
         ReservationHeader(reservation)
+        Spacer(modifier = Modifier.height(14.dp))
+        CancelButton(processing = processing, onClick = onCancel)
+    }
+}
+
+/** Para emergências (vazamento, manutenção urgente): o síndico desfaz o que já estava aprovado. */
+@Composable
+private fun CancelButton(processing: Boolean, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = !processing,
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+    ) {
+        if (processing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else {
+            Text("Cancelar", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 
@@ -336,6 +414,24 @@ private fun RejectDialog(
     subject: String,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
+) = ReasonDialog(
+    title = title,
+    subject = subject,
+    explanation = "O morador verá o motivo informado.",
+    confirmLabel = "Recusar",
+    onConfirm = onConfirm,
+    onDismiss = onDismiss
+)
+
+/** Pede o motivo, obrigatório, que chega ao morador junto com a recusa ou o cancelamento. */
+@Composable
+private fun ReasonDialog(
+    title: String,
+    subject: String,
+    explanation: String,
+    confirmLabel: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
 ) {
     var reason by rememberSaveable { mutableStateOf("") }
     AlertDialog(
@@ -345,7 +441,7 @@ private fun RejectDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "$subject. O morador verá o motivo informado.",
+                    "$subject. $explanation",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 OutlinedTextField(
@@ -362,7 +458,7 @@ private fun RejectDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(reason) }, enabled = reason.isNotBlank()) {
-                Text("Recusar", color = MaterialTheme.colorScheme.error)
+                Text(confirmLabel, color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {

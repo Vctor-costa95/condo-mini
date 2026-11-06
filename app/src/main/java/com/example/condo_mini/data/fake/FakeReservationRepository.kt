@@ -101,8 +101,15 @@ class FakeReservationRepository : ReservationRepository {
 
     override fun observeReservations(unit: String): Flow<List<Reservation>> =
         reservations.map { list ->
-            list.filter { it.unit == unit && it.status != ReservationStatus.CANCELED }
+            // Cancelada pelo síndico (tem motivo) continua visível para o morador.
+            list.filter { it.unit == unit && (it.status != ReservationStatus.CANCELED || it.rejectionReason != null) }
                 .sortedBy { it.date }
+        }
+
+    override fun observeReservationHistory(unit: String?): Flow<List<Reservation>> =
+        reservations.map { list ->
+            list.filter { unit == null || it.unit == unit }
+                .sortedWith(compareByDescending<Reservation> { it.date }.thenByDescending { it.startHour })
         }
 
     override fun observeAllReservations(): Flow<List<Reservation>> =
@@ -167,6 +174,19 @@ class FakeReservationRepository : ReservationRepository {
         updateReservation(reservationId) {
             if (it.status.holdsSlot()) it.copy(status = ReservationStatus.CANCELED) else it
         }
+    }
+
+    override suspend fun cancelByManager(reservationId: String, reason: String): Result<Unit> {
+        delay(300)
+        val current = reservations.value.firstOrNull { it.id == reservationId }
+            ?: return Result.failure(IllegalArgumentException("Reserva não encontrada."))
+        if (!current.status.holdsSlot()) {
+            return Result.failure(IllegalStateException("Esta reserva já foi recusada ou cancelada."))
+        }
+        updateReservation(reservationId) {
+            it.copy(status = ReservationStatus.CANCELED, rejectionReason = reason.trim().ifBlank { null })
+        }
+        return Result.success(Unit)
     }
 
     // Só pendentes: aprovar uma recusada ou cancelada poderia passar por cima de quem reservou depois.
