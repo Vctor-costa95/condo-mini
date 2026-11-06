@@ -27,6 +27,9 @@ import com.example.condo_mini.data.remote.ApiReservationRepository
 import com.example.condo_mini.data.remote.ApiServiceBookingRepository
 import com.example.condo_mini.data.remote.ApiSessionRepository
 import com.example.condo_mini.data.remote.SessionStore
+import com.example.condo_mini.data.remote.ApiSignupRepository
+import com.example.condo_mini.data.fake.FakeSignupRepository
+import com.example.condo_mini.domain.repository.SignupRepository
 import com.example.condo_mini.push.PushNotifications
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.domain.repository.BillRepository
@@ -81,6 +84,9 @@ object AppContainer {
     }
     val directoryRepository: DirectoryRepository by lazy {
         apiClient?.let { ApiDirectoryRepository(it) } ?: FakeDirectoryRepository()
+    }
+    val signupRepository: SignupRepository by lazy {
+        apiClient?.let { ApiSignupRepository(it) } ?: FakeSignupRepository(directoryRepository as FakeDirectoryRepository)
     }
     val parcelRepository: ParcelRepository by lazy {
         apiClient?.let { ApiParcelRepository(it) } ?: FakeParcelRepository(ParcelPhotoGenerator(appContext))

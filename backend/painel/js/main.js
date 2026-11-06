@@ -24,6 +24,7 @@ let sidebar = null;
 let cleanup = null;
 let unsubscribe = null;
 let unassignedCount = 0;
+let pendingRequests = 0;
 
 applyTheme();
 setUnauthorizedHandler(() => showLogin('Sua sessão terminou. Entre de novo.'));
@@ -93,12 +94,16 @@ function showShell() {
     refreshBadge();
 }
 
-/** Moradores sem apartamento: o mesmo aviso que o app mostra na aba Cadastros. */
+/** O que espera a administradora em Cadastros: pedidos feitos pelo app e moradores sem apartamento. */
 async function refreshBadge() {
     if (!state.condoId) return;
     try {
-        const users = await api.get('users', { condoId: state.condoId });
-        unassignedCount = users.filter((user) => user.role === 'RESIDENT' && !(user.units || []).length).length;
+        const [users, requests] = await Promise.all([
+            api.get('users', { condoId: state.condoId }),
+            api.get('signup-requests', { condoId: state.condoId })
+        ]);
+        pendingRequests = requests.length;
+        unassignedCount = users.filter((user) => user.role === 'RESIDENT' && !(user.units || []).length).length + pendingRequests;
         renderSidebar();
     } catch {
         // O número é só um lembrete; sem ele o painel continua funcionando.
@@ -172,7 +177,7 @@ function renderSidebar() {
                         icon(item.icon),
                         h('span', {}, item.label),
                         item.route === 'cadastros' && unassignedCount > 0
-                            ? h('span', { class: 'nav-badge', title: 'Moradores sem apartamento' }, String(unassignedCount))
+                            ? h('span', { class: 'nav-badge', title: pendingRequests ? `${pendingRequests} pedido(s) de cadastro e moradores sem apartamento` : 'Moradores sem apartamento' }, String(unassignedCount))
                             : null
                     )
                 )

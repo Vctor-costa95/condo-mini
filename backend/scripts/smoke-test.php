@@ -223,6 +223,54 @@ check('síndico publica PDF', $s === 201 && $doc['url'] !== '', $doc);
 check('foto não vale como PDF', call('POST', '/documents', null, $manager, ['title' => 'x', 'category' => 'OTHER', 'file' => $png])[0] === 415);
 check('síndico exclui', call('DELETE', "/documents/{$doc['id']}", null, $manager)[0] === 200);
 
+echo "Cadastro pelo próprio morador\n";
+[$s, $publicCondos] = call('GET', '/public/condos');
+$jardins = array_values(array_filter($publicCondos, fn ($c) => $c['id'] === 'c1'))[0] ?? null;
+check('prédios sem login, sem moradores', $s === 200 && $jardins !== null && !isset($jardins['users']), $publicCondos);
+$suffix = substr(bin2hex(random_bytes(3)), 0, 6);
+$signup = fn (string $login, array $extra = []) => call('POST', '/signup', $extra + [
+    'condoId' => 'c1', 'name' => 'Pedido Teste', 'email' => 'pedido@email.com', 'phone' => '(11) 90000-0000',
+    'login' => $login, 'password' => 'segredo1', 'unit' => 'Apto 1301 - Bloco A',
+]);
+check('apartamento inexistente recusado', $signup("pt.$suffix", ['unit' => 'Apto 9999 - Bloco A'])[0] === 422);
+check('senha curta recusada', $signup("pt.$suffix", ['password' => '123'])[0] === 422);
+check('usuário já usado recusado', $signup('morador')[0] === 409);
+[$s, $req] = $signup("pt.$suffix");
+check('pedido criado', $s === 201 && $req['status'] === 'PENDING', $req);
+check('mesmo usuário em outro pedido recusado', $signup("pt.$suffix")[0] === 409);
+[$s, $err] = call('POST', '/auth/login', ['login' => "pt.$suffix", 'password' => 'segredo1']);
+check('login pendente explica a espera', $s === 403 && str_contains($err['error'], 'aguardando'), $err);
+check('senha errada no pedido continua genérica', call('POST', '/auth/login', ['login' => "pt.$suffix", 'password' => 'errada'])[0] === 401);
+check('síndico não vê pedidos', call('GET', '/signup-requests?condoId=c1', null, $manager)[0] === 403);
+[$s, $pending] = call('GET', '/signup-requests?condoId=c1', null, $admin);
+check('admin vê o pedido', $s === 200 && in_array($req['id'], array_column($pending, 'id'), true), $pending);
+check('admin não cria usuário com login de pedido pendente', call('GET', "/logins/available?login=pt.$suffix", null, $admin)[1]['available'] === false);
+[$s, $approved] = call('POST', "/signup-requests/{$req['id']}/approve", ['unit' => 'Apto 1302 - Bloco A'], $admin);
+check('admin aceita trocando o apartamento', $s === 200 && $approved['role'] === 'RESIDENT' && $approved['units'] === ['Apto 1302 - Bloco A'], $approved);
+check('pedido aceito não aceita de novo', call('POST', "/signup-requests/{$req['id']}/approve", null, $admin)[0] === 404);
+$newResident = login("pt.$suffix", 'segredo1');
+[$s, $meNew] = call('GET', '/me', null, $newResident);
+check('morador novo entra com a própria senha', $s === 200 && $meNew['unit'] === 'Apto 1302 - Bloco A', $meNew);
+call('DELETE', "/users/{$approved['id']}", null, $admin);
+[, $req2] = $signup("pr.$suffix");
+check('recusa exige motivo', call('POST', "/signup-requests/{$req2['id']}/reject", null, $admin)[0] === 422);
+call('POST', "/signup-requests/{$req2['id']}/reject", ['reason' => 'Apartamento sem morador novo'], $admin);
+[$s, $err] = call('POST', '/auth/login', ['login' => "pr.$suffix", 'password' => 'segredo1']);
+check('login recusado mostra o motivo', $s === 403 && str_contains($err['error'], 'Apartamento sem morador novo'), $err);
+[$s, $again] = $signup("pr.$suffix");
+check('pedido recusado pode ser refeito', $s === 201, $again);
+$flood = [$again['id'] ?? null];
+$limited = false;
+for ($i = 0; $i < 6 && !$limited; $i++) {
+    [$s, $made] = $signup("pf$i.$suffix");
+    $limited = $s === 429;
+    if ($s === 201) $flood[] = $made['id'];
+}
+check('limite de pedidos pendentes por endereço', $limited);
+foreach (array_filter($flood) as $id) {
+    call('POST', "/signup-requests/$id/reject", ['reason' => 'Teste automático'], $admin);
+}
+
 echo "Cadastro (administração)\n";
 [$s, $condos] = call('GET', '/condos', null, $admin);
 check('admin vê 3 condomínios', $s === 200 && count($condos) === 3, $condos);

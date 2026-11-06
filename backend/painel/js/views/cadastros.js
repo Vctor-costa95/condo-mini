@@ -4,13 +4,13 @@ import { api } from '../api.js';
 import { refreshSidebarBadge } from '../main.js';
 import { hasUnits, ROLES, towerUnits } from '../units.js';
 import {
-    busy, button, confirmDialog, drawer, emptyState, field, formError, h, icon, initials, input, loading,
+    busy, button, confirmDialog, drawer, emptyState, field, formatDateTime, formError, h, icon, initials, input, loading,
     mount, normalize, select, toast
 } from '../ui.js';
 
 export function renderUsers(container, { condo, user: me }) {
     let alive = true;
-    const view = { users: [], role: 'ALL', query: '' };
+    const view = { users: [], requests: [], role: 'ALL', query: '' };
 
     const page = h('div', { class: 'page' });
     const results = h('div', {});
@@ -34,7 +34,131 @@ export function renderUsers(container, { condo, user: me }) {
     }
 
     async function load() {
-        view.users = await api.get('users', { condoId: condo.id });
+        const [users, requests] = await Promise.all([
+            api.get('users', { condoId: condo.id }),
+            api.get('signup-requests', { condoId: condo.id })
+        ]);
+        view.users = users;
+        view.requests = requests;
+    }
+
+    // -------------------------------------------------------------- pedidos feitos pelo app
+
+    function requestsSection() {
+        if (!view.requests.length) return null;
+        return h('section', { class: 'requests' },
+            h('div', { class: 'section-title' },
+                h('h3', {}, 'Pedidos de cadastro'),
+                h('span', { class: 'chip chip-accent' }, `${view.requests.length} aguardando`)
+            ),
+            h('p', { class: 'muted small' }, 'Pessoas que criaram a conta pelo app. Confira o apartamento antes de aceitar: elas entram com o usuário e a senha que escolheram.'),
+            h('div', { class: 'request-grid' }, view.requests.map(requestCard))
+        );
+    }
+
+    function requestCard(request) {
+        return h('article', { class: 'card request-card' },
+            h('div', { class: 'request-head' },
+                h('span', { class: 'avatar' }, initials(request.name)),
+                h('div', { class: 'grow' },
+                    h('strong', {}, request.name),
+                    h('small', {}, `Pediu em ${formatDateTime(request.createdAt)}`)
+                )
+            ),
+            h('div', { class: 'request-unit' }, icon('building', 16), request.unit),
+            h('dl', { class: 'request-info' },
+                h('dt', {}, 'Usuário'), h('dd', {}, h('code', {}, request.login)),
+                h('dt', {}, 'E-mail'), h('dd', {}, request.email || '—'),
+                h('dt', {}, 'Telefone'), h('dd', {}, request.phone || '—')
+            ),
+            h('div', { class: 'request-actions' },
+                button('Recusar', { variant: 'danger-outline', small: true, onclick: () => reject(request) }),
+                button('Aceitar', { small: true, iconName: 'check', onclick: () => openApprove(request) })
+            )
+        );
+    }
+
+    async function reject(request) {
+        const reason = await confirmDialog({
+            title: `Recusar o pedido de ${request.name}?`,
+            message: 'A pessoa vê o motivo quando tentar entrar no app e pode fazer um novo pedido.',
+            confirmLabel: 'Recusar', danger: true,
+            reason: { label: 'Motivo', placeholder: 'Ex.: não encontramos morador com esse nome no apartamento', maxLength: 255 }
+        });
+        if (!reason) return;
+        try {
+            await api.post(`signup-requests/${request.id}/reject`, { reason });
+            await load();
+            render();
+            refreshSidebarBadge();
+            toast(`Pedido de ${request.name} recusado.`);
+        } catch (error) {
+            toast(error.message, 'danger');
+        }
+    }
+
+    function openApprove(request) {
+        const panel = drawer(request.name, { eyebrow: 'Aceitar pedido de cadastro', wide: true });
+        let unit = request.unit;
+        const errorBox = h('div', {});
+        const picker = h('div', { class: 'unit-picker' });
+        const accept = button('Aceitar e criar cadastro', { iconName: 'check' });
+
+        function drawPicker() {
+            const occupants = (label) => view.users.filter((user) => (user.units || []).includes(label)).map((user) => user.name);
+            mount(picker,
+                h('p', { class: 'muted small' }, unit === request.unit
+                    ? `Apartamento pedido: ${request.unit}. Troque abaixo se estiver errado.`
+                    : `Trocado de ${request.unit} para ${unit}.`),
+                unit && occupants(unit).length
+                    ? h('p', { class: 'warn-tag' }, icon('alert', 15), `Já mora aqui: ${occupants(unit).join(', ')}. A pessoa entra junto, como mais um morador.`)
+                    : null,
+                condo.towers.map((tower) => {
+                    const list = towerUnits(tower);
+                    const hasChosen = list.some((item) => item.label === unit);
+                    return h('details', { class: 'unit-picker-tower', open: condo.towers.length === 1 || hasChosen },
+                        h('summary', {}, tower.name, h('small', {}, hasChosen ? 'escolhido' : `${list.length} apartamentos`)),
+                        h('div', { class: 'unit-picker-grid' }, list.map((item) =>
+                            h('button', {
+                                type: 'button', title: item.label, 'aria-pressed': String(item.label === unit),
+                                class: `unit-option${item.label === unit ? ' selected main' : ''}`,
+                                onclick: () => { unit = item.label; drawPicker(); }
+                            }, item.number)
+                        ))
+                    );
+                })
+            );
+        }
+        drawPicker();
+
+        accept.addEventListener('click', () => busy(accept, async () => {
+            mount(errorBox);
+            try {
+                const created = await api.post(`signup-requests/${request.id}/approve`, { unit });
+                await load();
+                render();
+                refreshSidebarBadge();
+                panel.close();
+                toast(`${created.name} agora é morador do ${unit}. Já pode entrar no app.`);
+            } catch (error) {
+                mount(errorBox, formError(error.message));
+            }
+        }));
+
+        mount(panel.body,
+            errorBox,
+            h('dl', { class: 'request-info' },
+                h('dt', {}, 'Usuário'), h('dd', {}, h('code', {}, request.login)),
+                h('dt', {}, 'E-mail'), h('dd', {}, request.email || '—'),
+                h('dt', {}, 'Telefone'), h('dd', {}, request.phone || '—'),
+                h('dt', {}, 'Pedido em'), h('dd', {}, formatDateTime(request.createdAt))
+            ),
+            h('section', { class: 'form-section' }, h('h3', {}, 'Apartamento'), picker)
+        );
+        mount(panel.footer,
+            button('Cancelar', { variant: 'ghost', onclick: () => panel.close() }),
+            accept
+        );
     }
 
     function unassigned() {
@@ -49,6 +173,7 @@ export function renderUsers(container, { condo, user: me }) {
         mount(
             page,
             header(),
+            requestsSection(),
             missing.length
                 ? h('div', { class: 'notice', role: 'status' }, icon('alert', 18),
                     missing.length === 1

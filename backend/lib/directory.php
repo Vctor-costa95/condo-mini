@@ -65,9 +65,68 @@ function set_user_units(string $userId, array $units): void
     }
 }
 
+/** Livre se nenhum cadastro nem pedido de cadastro pendente usa o login. */
 function login_available(string $login, string $exceptUserId = ''): bool
 {
-    return row('SELECT id FROM users WHERE login_key = ? AND id <> ?', [login_key($login), $exceptUserId]) === null;
+    $key = login_key($login);
+    return row('SELECT id FROM users WHERE login_key = ? AND id <> ?', [$key, $exceptUserId]) === null
+        && row("SELECT id FROM signup_requests WHERE login_key = ? AND status = 'PENDING'", [$key]) === null;
+}
+
+/** Todos os apartamentos do condomínio, com a numeração do app. @return list<string> */
+function condo_unit_labels(string $condoId): array
+{
+    $condo = row('SELECT * FROM condominiums WHERE id = ?', [$condoId]);
+    if ($condo === null) {
+        return [];
+    }
+    $labels = [];
+    foreach (condo_json($condo)['towers'] as $tower) {
+        $tower['floorOverrides'] = (array) $tower['floorOverrides'];
+        array_push($labels, ...tower_unit_labels($tower));
+    }
+    return $labels;
+}
+
+function signup_request_json(array $s): array
+{
+    return [
+        'id' => $s['id'],
+        'condoId' => $s['condo_id'],
+        'name' => $s['name'],
+        'email' => $s['email'],
+        'phone' => $s['phone'],
+        'login' => $s['login'],
+        'unit' => $s['unit'],
+        'status' => $s['status'],
+        'createdAt' => iso($s['created_at']),
+    ];
+}
+
+function find_signup_request(string $id): array
+{
+    $found = row("SELECT * FROM signup_requests WHERE id = ? AND status = 'PENDING'", [$id]);
+    if ($found === null) {
+        throw new ApiError(404, 'Este pedido já foi aceito ou recusado.');
+    }
+    return $found;
+}
+
+/** Validações comuns do cadastro feito pelo próprio morador. */
+function validate_signup_fields(string $login, string $password, string $email): void
+{
+    if (preg_match('/\s/', $login)) {
+        throw new ApiError(422, 'O usuário não pode ter espaços.');
+    }
+    if (mb_strlen($login) < 3) {
+        throw new ApiError(422, 'O usuário precisa ter pelo menos 3 letras.');
+    }
+    if (mb_strlen($password) < 6) {
+        throw new ApiError(422, 'A senha precisa ter pelo menos 6 caracteres.');
+    }
+    if ($email !== '' && !str_contains($email, '@')) {
+        throw new ApiError(422, 'E-mail inválido.');
+    }
 }
 
 /** Usuário que o administrador pode editar: qualquer um; o síndico, só os do condomínio. */
@@ -92,6 +151,18 @@ function register_directory_routes(Router $r): void
                 ? config()['allow_passwordless_logins'] && $password === ''
                 : password_verify($password, $user['password_hash'])
         );
+        if (!$ok && $user === null && $login !== '') {
+            // Conta criada pelo próprio morador que ainda não virou cadastro: diz em que pé está,
+            // só para quem acertou a senha.
+            $request = row('SELECT s.*, c.name AS condo_name FROM signup_requests s JOIN condominiums c ON c.id = s.condo_id WHERE s.login_key = ?', [login_key($login)]);
+            if ($request !== null && password_verify($password, $request['password_hash'])) {
+                if ($request['status'] === 'PENDING') {
+                    throw new ApiError(403, "Seu cadastro no {$request['condo_name']} está aguardando a aprovação da administradora.");
+                }
+                $reason = $request['reject_reason'] ? " Motivo: {$request['reject_reason']}." : '';
+                throw new ApiError(403, "Seu pedido de cadastro não foi aprovado.$reason Fale com a administração do condomínio.");
+            }
+        }
         if (!$ok) {
             throw new ApiError(401, 'Usuário ou senha incorretos.');
         }
@@ -194,6 +265,110 @@ function register_directory_routes(Router $r): void
     $r->add('GET', '/logins/available', function () {
         require_role('ADMIN');
         send_json(['available' => login_available(query('login', ''), query('exceptUserId', ''))]);
+    });
+
+    // ------------------------------------------------------------ cadastro pelo próprio morador
+
+    // Sem login: só o necessário para escolher prédio e apartamento. Nada de moradores.
+    $r->add('GET', '/public/condos', function () {
+        $condos = rows('SELECT * FROM condominiums ORDER BY name');
+        send_json(array_map(fn ($c) => condo_json($c), $condos));
+    });
+
+    $r->add('POST', '/signup', function () {
+        $ip = substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+        // Contra fila de pedidos falsos: no máximo 5 pendentes por endereço na última hora.
+        $recent = (int) row(
+            "SELECT COUNT(*) AS n FROM signup_requests WHERE ip = ? AND status = 'PENDING' AND created_at > ?",
+            [$ip, date('Y-m-d H:i:s', time() - 3600)]
+        )['n'];
+        if ($ip !== '' && $recent >= 5) {
+            throw new ApiError(429, 'Muitos pedidos de cadastro deste aparelho. Tente de novo mais tarde.');
+        }
+        $condoId = required_string('condoId', 36);
+        $condo = row('SELECT * FROM condominiums WHERE id = ?', [$condoId]);
+        if ($condo === null) {
+            throw new ApiError(422, 'Escolha um condomínio da lista.');
+        }
+        $unit = required_string('unit', 80);
+        if (!in_array($unit, condo_unit_labels($condoId), true)) {
+            throw new ApiError(422, 'Escolha um apartamento da lista.');
+        }
+        $login = mb_strtolower(required_string('login', 80));
+        $password = (string) input('password', '');
+        $email = optional_string('email', 160);
+        validate_signup_fields($login, $password, $email);
+        if (!login_available($login)) {
+            throw new ApiError(409, 'Esse usuário já existe. Escolha outro.');
+        }
+        $request = [
+            'id' => uuid(),
+            'condo_id' => $condoId,
+            'name' => required_string('name', 120),
+            'email' => $email,
+            'phone' => optional_string('phone', 40),
+            'login' => $login,
+            'login_key' => login_key($login),
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'unit' => $unit,
+            'ip' => $ip,
+            'created_at' => now_sql(),
+        ];
+        transaction(function () use ($request) {
+            // Um pedido recusado com o mesmo usuário dá lugar ao novo.
+            exec_sql("DELETE FROM signup_requests WHERE login_key = ? AND status = 'REJECTED'", [$request['login_key']]);
+            exec_sql(
+                'INSERT INTO signup_requests (id, condo_id, name, email, phone, login, login_key, password_hash, unit, ip, created_at)
+                 VALUES (:id, :condo_id, :name, :email, :phone, :login, :login_key, :password_hash, :unit, :ip, :created_at)',
+                $request
+            );
+        });
+        notify(
+            array_column(rows("SELECT id FROM users WHERE role = 'ADMIN'"), 'id'),
+            'Novo pedido de cadastro',
+            "{$request['name']} · {$request['unit']} · {$condo['name']}",
+            ['tab' => 'signup_requests', 'id' => $request['id']]
+        );
+        send_json(signup_request_json(row('SELECT * FROM signup_requests WHERE id = ?', [$request['id']])), 201);
+    });
+
+    $r->add('GET', '/signup-requests', function () {
+        require_role('ADMIN');
+        $rows = rows("SELECT * FROM signup_requests WHERE condo_id = ? AND status = 'PENDING' ORDER BY created_at", [condo_id()]);
+        send_json(array_map('signup_request_json', $rows));
+    });
+
+    // Vira morador com a senha que a própria pessoa escolheu; a administradora pode trocar o apartamento.
+    $r->add('POST', '/signup-requests/{id}/approve', function (string $id) {
+        require_role('ADMIN');
+        $request = find_signup_request($id);
+        $unit = trim((string) input('unit', $request['unit'])) ?: $request['unit'];
+        if (!in_array($unit, condo_unit_labels($request['condo_id']), true)) {
+            throw new ApiError(422, 'Escolha um apartamento deste condomínio.');
+        }
+        if (row('SELECT id FROM users WHERE login_key = ?', [$request['login_key']]) !== null) {
+            throw new ApiError(409, "O usuário {$request['login']} já foi usado em outro cadastro. Recuse este pedido e peça para a pessoa escolher outro.");
+        }
+        $userId = uuid();
+        transaction(function () use ($request, $unit, $userId) {
+            exec_sql(
+                "INSERT INTO users (id, condo_id, name, role, email, phone, login, login_key, password_hash)
+                 VALUES (?, ?, ?, 'RESIDENT', ?, ?, ?, ?, ?)",
+                [$userId, $request['condo_id'], $request['name'], $request['email'], $request['phone'],
+                    $request['login'], $request['login_key'], $request['password_hash']]
+            );
+            set_user_units($userId, [$unit]);
+            exec_sql('DELETE FROM signup_requests WHERE id = ?', [$request['id']]);
+        });
+        send_json(user_json(row('SELECT * FROM users WHERE id = ?', [$userId])));
+    });
+
+    $r->add('POST', '/signup-requests/{id}/reject', function (string $id) {
+        require_role('ADMIN');
+        $request = find_signup_request($id);
+        $reason = required_string('reason', 255);
+        exec_sql("UPDATE signup_requests SET status = 'REJECTED', reject_reason = ? WHERE id = ?", [$reason, $request['id']]);
+        send_json(['ok' => true]);
     });
 
     // Cria quando não há id (no condomínio informado); senão atualiza.

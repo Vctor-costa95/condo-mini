@@ -15,6 +15,7 @@ import com.example.condo_mini.domain.model.Reservation
 import com.example.condo_mini.domain.model.ReservationPeriod
 import com.example.condo_mini.domain.model.ReservationSlot
 import com.example.condo_mini.domain.model.ServiceBooking
+import com.example.condo_mini.domain.model.SignupForm
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
@@ -36,6 +37,14 @@ interface SessionRepository {
     fun selectUnit(unit: String)
     fun logout()
     suspend fun updateContact(email: String, phone: String): Result<User>
+}
+
+/** Cadastro pelo próprio morador, antes de ter login: escolhe o prédio e manda o pedido. */
+interface SignupRepository {
+    /** Prédios administrados, com os blocos (para escolher o apartamento). Sem moradores. */
+    suspend fun condos(): Result<List<Condominium>>
+
+    suspend fun submit(form: SignupForm): Result<Unit>
 }
 
 interface NoticeRepository {

@@ -22,7 +22,7 @@ App Android  →  HTTPS/JSON  →  api-condomini.tcpneus-logistica.com  →  MyS
 
 ## Autenticação
 
-`POST /auth/login` com `{"login", "password"}` devolve `{"token", "user"}`. As demais rotas exigem `Authorization: Bearer <token>`. O banco guarda só o SHA-256 do token; `POST /auth/logout` o invalida.
+`POST /auth/login` com `{"login", "password"}` devolve `{"token", "user"}`. As demais rotas exigem `Authorization: Bearer <token>`. O banco guarda só o SHA-256 do token; `POST /auth/logout` o invalida. Quem criou a conta pelo app e ainda não foi aceito recebe 403 com a situação do pedido (aguardando ou recusado, com o motivo), só se acertar a senha.
 
 Cada perfil só vê o próprio condomínio; o administrador escolhe com `?condoId=` (ou `condoId` no corpo). Morador só lê e altera os próprios apartamentos. O código de retirada de encomendas só aparece para o morador.
 
@@ -38,7 +38,10 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /condos`, `POST /condos` | todos lê o seu / admin salva |
 | `GET /users`, `POST /users`, `DELETE /users/{id}` | admin, síndico e portaria leem / admin salva |
 | `POST /users/{id}/units`, `DELETE /users/{id}/units?unit=` | admin |
-| `GET /logins/available?login=&exceptUserId=` | admin |
+| `GET /logins/available?login=&exceptUserId=` | admin (considera também pedidos de cadastro pendentes) |
+| `GET /public/condos` | sem login: prédios e blocos para quem vai criar a conta (sem moradores) |
+| `POST /signup` `{condoId, name, email, phone, login, password, unit}` | sem login: pedido de cadastro do morador; até 5 pendentes por endereço por hora |
+| `GET /signup-requests?condoId=`, `POST /signup-requests/{id}/approve` `{unit?}`, `POST /signup-requests/{id}/reject` `{reason}` | admin: aceitar vira morador com a senha que a pessoa escolheu |
 | `GET /notices`, `POST /notices`, `DELETE /notices/{id}` | todos leem / síndico e admin publicam |
 | `GET /areas`, `POST /areas`, `DELETE /areas/{id}`, `PUT /areas/{id}/closed` | todos leem / síndico e admin editam |
 | `GET /areas/{id}/booked?date=` | todos |
@@ -70,6 +73,7 @@ O app registra o celular em `POST /devices` (`{"token", "platform"}`) depois de 
 | Reserva com taxa, pedido de mudança ou reparo | síndico |
 | Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | moradores do apartamento |
 | Ocorrência nova; resposta do morador | síndico |
+| Pedido de cadastro feito pelo app | administradores |
 | Resposta, pedido de detalhes ou ocorrência resolvida | moradores do apartamento |
 
 Quem faz a ação não recebe a própria notificação. O envio usa a API HTTP v1 do FCM, com o token OAuth assinado em PHP (`openssl`), e roda depois da resposta ao app. Configure `push.service_account_file` no `config.php`; com `push.log_file`, as mensagens vão para um arquivo (usado pelo teste de fumaça).

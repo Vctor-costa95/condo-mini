@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
@@ -85,6 +87,7 @@ fun LoginScreen(
     onPasswordChanged: (String) -> Unit,
     onTogglePassword: () -> Unit,
     onLoginClick: () -> Unit,
+    onCreateAccountClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LightStatusBarIcons()
@@ -121,7 +124,7 @@ fun LoginScreen(
                     Text("Entrar", style = MaterialTheme.typography.headlineSmall)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Use o usuário e a senha que a administração do condomínio passou para você.",
+                        text = "Use o usuário e a senha da sua conta no condomínio.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -193,10 +196,39 @@ fun LoginScreen(
                 }
             }
 
+            // Primeiro acesso: a pessoa cria a conta e a administradora aprova.
             Row(
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
                     .offset(y = (-16).dp)
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable(onClick = onCreateAccountClick)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Outlined.PersonAdd,
+                    contentDescription = null,
+                    tint = CondoTheme.colors.accent,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Ainda não tem conta?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Criar conta", style = MaterialTheme.typography.titleMedium)
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 20.dp)
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainer)
@@ -211,11 +243,12 @@ fun LoginScreen(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Esqueceu a senha ou ainda não tem acesso? Fale com a administração do seu condomínio.",
+                    text = "Esqueceu a senha? Fale com a administração do seu condomínio.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -306,7 +339,7 @@ private fun AppIcon() {
 
 /** O topo é escuro nos dois temas: os ícones da barra de status ficam claros enquanto a tela está aberta. */
 @Composable
-private fun LightStatusBarIcons() {
+internal fun LightStatusBarIcons() {
     if (LocalInspectionMode.current) return
     val view = LocalView.current
     DisposableEffect(view) {
@@ -334,7 +367,8 @@ fun LoginScreenPreview() {
             onLoginChanged = {},
             onPasswordChanged = {},
             onTogglePassword = {},
-            onLoginClick = {}
+            onLoginClick = {},
+            onCreateAccountClick = {}
         )
     }
 }

@@ -668,3 +668,20 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --on-danger: #1A0E0F; } }
 :root[data-theme="dark"] { --on-danger: #1A0E0F; }
 .btn-danger, .toast-danger { color: var(--on-danger); }
+
+/* ------------------------------------------------------------ pedidos de cadastro */
+
+.requests { display: grid; gap: 12px; margin-bottom: 28px; padding: 22px 24px; border-radius: var(--radius-l); background: var(--accent-container); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.requests .section-title h3 { color: var(--on-accent-container); }
+.requests > p { color: var(--on-accent-container); opacity: 0.85; }
+.request-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.request-card { padding: 18px; display: grid; gap: 12px; border-radius: var(--radius); }
+.request-head { display: flex; align-items: center; gap: 12px; }
+.request-head strong { display: block; font-weight: 600; }
+.request-head small { color: var(--text-3); font-size: 12.5px; }
+.request-unit { display: inline-flex; align-items: center; gap: 8px; font-family: var(--serif); font-size: 19px; }
+.request-unit .icon { color: var(--accent); }
+.request-info { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 13.5px; }
+.request-info dt { color: var(--text-3); }
+.request-info dd { margin: 0; overflow: hidden; text-overflow: ellipsis; }
+.request-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; border-top: 1px solid var(--hairline); padding-top: 12px; }
