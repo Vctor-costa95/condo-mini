@@ -22,7 +22,7 @@ App Android  →  HTTPS/JSON  →  api-condomini.tcpneus-logistica.com  →  MyS
 
 ## Autenticação
 
-`POST /auth/login` com `{"login", "password"}` devolve `{"token", "user"}`. As demais rotas exigem `Authorization: Bearer <token>`. O banco guarda só o SHA-256 do token; `POST /auth/logout` o invalida.
+`POST /auth/login` com `{"login", "password"}` devolve `{"token", "user"}`. As demais rotas exigem `Authorization: Bearer <token>`. O banco guarda só o SHA-256 do token; `POST /auth/logout` o invalida. Quem criou a conta pelo app e ainda não foi aceito recebe 403 com a situação do pedido (aguardando ou recusado, com o motivo), só se acertar a senha.
 
 Cada perfil só vê o próprio condomínio; o administrador escolhe com `?condoId=` (ou `condoId` no corpo). Morador só lê e altera os próprios apartamentos. O código de retirada de encomendas só aparece para o morador.
 
@@ -38,7 +38,10 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /condos`, `POST /condos` | todos lê o seu / admin salva |
 | `GET /users`, `POST /users`, `DELETE /users/{id}` | admin, síndico e portaria leem / admin salva |
 | `POST /users/{id}/units`, `DELETE /users/{id}/units?unit=` | admin |
-| `GET /logins/available?login=&exceptUserId=` | admin |
+| `GET /logins/available?login=&exceptUserId=` | admin (considera também pedidos de cadastro pendentes) |
+| `GET /public/condos` | sem login: prédios e blocos para quem vai criar a conta (sem moradores) |
+| `POST /signup` `{condoId, name, email, phone, login, password, unit}` | sem login: pedido de cadastro do morador; até 5 pendentes por endereço por hora |
+| `GET /signup-requests?condoId=`, `POST /signup-requests/{id}/approve` `{unit?}`, `POST /signup-requests/{id}/reject` `{reason}` | admin: aceitar vira morador com a senha que a pessoa escolheu |
 | `GET /notices`, `POST /notices`, `DELETE /notices/{id}` | todos leem / síndico e admin publicam |
 | `GET /areas`, `POST /areas`, `DELETE /areas/{id}`, `PUT /areas/{id}/closed` | todos leem / síndico e admin editam |
 | `GET /areas/{id}/booked?date=` | todos |
@@ -70,6 +73,7 @@ O app registra o celular em `POST /devices` (`{"token", "platform"}`) depois de 
 | Reserva com taxa, pedido de mudança ou reparo | síndico |
 | Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | moradores do apartamento |
 | Ocorrência nova; resposta do morador | síndico |
+| Pedido de cadastro feito pelo app | administradores |
 | Resposta, pedido de detalhes ou ocorrência resolvida | moradores do apartamento |
 
 Quem faz a ação não recebe a própria notificação. O envio usa a API HTTP v1 do FCM, com o token OAuth assinado em PHP (`openssl`), e roda depois da resposta ao app. Configure `push.service_account_file` no `config.php`; com `push.log_file`, as mensagens vão para um arquivo (usado pelo teste de fumaça).
@@ -87,6 +91,16 @@ php scripts/smoke-test.php http://127.0.0.1:8080 storage/push-test.log   # com p
 
 O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela; ele cria registros, então use um banco de desenvolvimento.
 
+## Painel web da administradora
+
+`painel/` é o painel para o administrador usar no computador, com as mesmas funções do perfil administrador no app: condomínios (criar, editar blocos e andares, trocar), unidades (boletos em PDF do mês, alocar e desalocar moradores), cadastros e espaços. Só o perfil `ADMIN` entra; os outros são mandados para o app.
+
+- São só arquivos estáticos (HTML, CSS e JavaScript em módulos, sem framework e sem build), na mesma pasta da API: sem CORS, e o painel chama as mesmas rotas do app.
+- Endereço: `<endereço da API>/painel/`. Localmente, `http://127.0.0.1:8080/painel/` (o `index.php` deixa o `php -S` entregar os arquivos do painel).
+- O `.htaccess` da API deixa `painel/` passar direto, e o `painel/.htaccess` liga os cabeçalhos de segurança (CSP só com arquivos próprios, sem embutir em outros sites).
+- O token fica no navegador (`localStorage` com "Manter conectado", senão `sessionStorage`). PDFs são baixados com o token e abertos numa aba nova.
+- A numeração dos apartamentos (`painel/js/units.js`) é a mesma do app (`CondoUnit.kt`) e da API (`tower_unit_labels`): mude as três juntas.
+
 ## Hostinger
 
 - Endereço da API: `https://api-condomini.tcpneus-logistica.com/api-condomini` (pasta `public_html/api-condomini/api-condomini`; o app usa este endereço por padrão).
@@ -94,4 +108,5 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
 - Arquivos enviados: `/home/u248494375/condomini-storage`, fora do `public_html`.
 - Chave do Firebase: `domains/tcpneus-logistica.com/condomini-firebase.json`, fora do `public_html` (configurada em `push.service_account_file`).
 - Para atualizar: envie `index.php`, `.htaccess`, `lib/` e `sql/` pelo Gerenciador de Arquivos, sem sobrescrever o `config.php` do servidor.
+- Painel: envie a pasta `painel/` inteira (inclusive o `painel/.htaccess`, que fica oculto em alguns gerenciadores) para dentro da pasta da API. Endereço: `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
 - Mudanças no esquema: libere seu IP em hPanel → Bancos de dados → MySQL remoto, rode `scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e remova a liberação depois.

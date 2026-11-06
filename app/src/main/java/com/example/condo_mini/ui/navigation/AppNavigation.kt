@@ -13,12 +13,14 @@ import androidx.navigation.compose.rememberNavController
 import com.example.condo_mini.ui.screens.login.LoginScreen
 import com.example.condo_mini.ui.screens.login.LoginViewModel
 import com.example.condo_mini.ui.screens.main.MainScreen
+import com.example.condo_mini.ui.screens.signup.SignupRoute
 import com.example.condo_mini.ui.screens.units.UnitChoiceScreen
 
 object AppRoutes {
     const val LOGIN = "login"
     const val MAIN = "main"
     const val CHOOSE_UNIT = "choose_unit"
+    const val SIGNUP = "signup"
 }
 
 @Composable
@@ -33,7 +35,8 @@ fun AppNavigation(
     // Sessão encerrada pelo servidor com o app aberto: volta ao login.
     LaunchedEffect(currentUser) {
         val route = navController.currentDestination?.route
-        if (currentUser == null && route != null && route != AppRoutes.LOGIN) {
+        // Criar conta também é sem sessão: não conta como sessão encerrada.
+        if (currentUser == null && route != null && route != AppRoutes.LOGIN && route != AppRoutes.SIGNUP) {
             loginViewModel.onSessionEnded()
             navController.navigate(AppRoutes.LOGIN) {
                 popUpTo(navController.graph.id) { inclusive = true }
@@ -59,8 +62,13 @@ fun AppNavigation(
                             popUpTo(AppRoutes.LOGIN) { inclusive = true }
                         }
                     }
-                }
+                },
+                onCreateAccountClick = { navController.navigate(AppRoutes.SIGNUP) { launchSingleTop = true } }
             )
+        }
+
+        composable(AppRoutes.SIGNUP) {
+            SignupRoute(onFinished = { navController.popBackStack(AppRoutes.LOGIN, inclusive = false) })
         }
 
         composable(AppRoutes.CHOOSE_UNIT) {
