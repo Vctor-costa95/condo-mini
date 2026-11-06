@@ -24,6 +24,7 @@ if (PHP_SAPI === 'cli-server') {
 require __DIR__ . '/lib/core.php';
 require __DIR__ . '/lib/files.php';
 require __DIR__ . '/lib/directory.php';
+require __DIR__ . '/lib/companies.php';
 require __DIR__ . '/lib/community.php';
 require __DIR__ . '/lib/records.php';
 require __DIR__ . '/lib/push.php';
@@ -35,6 +36,7 @@ try {
     $router = new Router();
     $router->add('GET', '/health', fn () => send_json(['ok' => true, 'time' => iso(now_sql())]));
     register_directory_routes($router);
+    register_company_routes($router);
     register_community_routes($router);
     register_record_routes($router);
     register_file_routes($router);

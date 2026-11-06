@@ -15,8 +15,15 @@ function user_json(array $u): array
         'email' => $u['email'],
         'phone' => $u['phone'],
         'condoId' => $u['condo_id'] ?? '',
+        'companyId' => $u['company_id'] ?? '',
         'login' => $u['login'],
     ];
+}
+
+/** O próprio cadastro, com a marca da administradora para o app e o painel mostrarem. */
+function me_json(array $u): array
+{
+    return user_json($u) + ['brand' => brand_json(user_company_id($u))];
 }
 
 function condo_json(array $c): array
@@ -24,6 +31,7 @@ function condo_json(array $c): array
     $towers = rows('SELECT * FROM towers WHERE condo_id = ? ORDER BY position, name', [$c['id']]);
     return [
         'id' => $c['id'],
+        'companyId' => $c['company_id'] ?? '',
         'name' => $c['name'],
         'address' => $c['address'],
         'towers' => array_map(fn ($t) => [
@@ -70,15 +78,36 @@ function login_available(string $login, string $exceptUserId = ''): bool
     return row('SELECT id FROM users WHERE login_key = ? AND id <> ?', [login_key($login), $exceptUserId]) === null;
 }
 
-/** Usuário que o administrador pode editar: qualquer um; o síndico, só os do condomínio. */
+/**
+ * Cadastro que quem pede pode editar: a plataforma, qualquer um; o administrador,
+ * os dos condomínios da administradora dele e os outros administradores dela.
+ */
 function editable_user(string $id): array
 {
     $user = row('SELECT * FROM users WHERE id = ?', [$id]);
-    $me = current_user();
-    if ($user === null || ($me['role'] !== 'ADMIN' && $user['condo_id'] !== $me['condo_id'])) {
+    if ($user === null || !can_edit_user(current_user(), $user)) {
         throw new ApiError(404, 'Cadastro não encontrado.');
     }
     return $user;
+}
+
+function can_edit_user(array $me, array $user): bool
+{
+    return match (true) {
+        $me['role'] === 'PLATFORM' => true,
+        $user['role'] === 'PLATFORM' => false,
+        $user['role'] === 'ADMIN' => $me['role'] === 'ADMIN' && $user['company_id'] === $me['company_id'],
+        default => can_access_condo($me, $user['condo_id']),
+    };
+}
+
+/** Administradora existente, para a plataforma informar em companyId. */
+function require_company(string $companyId): string
+{
+    if ($companyId === '' || row('SELECT id FROM companies WHERE id = ?', [$companyId]) === null) {
+        throw new ApiError(422, 'Escolha uma administradora.');
+    }
+    return $companyId;
 }
 
 function register_directory_routes(Router $r): void
@@ -95,12 +124,13 @@ function register_directory_routes(Router $r): void
         if (!$ok) {
             throw new ApiError(401, 'Usuário ou senha incorretos.');
         }
+        require_company_active($user);
         $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         exec_sql(
             'INSERT INTO sessions (token_hash, user_id, created_at, last_used_at) VALUES (?, ?, ?, ?)',
             [hash('sha256', $token), $user['id'], now_sql(), now_sql()]
         );
-        send_json(['token' => $token, 'user' => user_json($user)]);
+        send_json(['token' => $token, 'user' => me_json($user)]);
     });
 
     $r->add('POST', '/auth/logout', function () {
@@ -110,29 +140,46 @@ function register_directory_routes(Router $r): void
         send_json(['ok' => true]);
     });
 
-    $r->add('GET', '/me', fn () => send_json(user_json(current_user())));
+    $r->add('GET', '/me', fn () => send_json(me_json(current_user())));
 
     $r->add('PATCH', '/me', function () {
         $me = current_user();
         exec_sql('UPDATE users SET email = ?, phone = ? WHERE id = ?', [
             optional_string('email', 160), optional_string('phone', 40), $me['id'],
         ]);
-        send_json(user_json(row('SELECT * FROM users WHERE id = ?', [$me['id']])));
+        send_json(me_json(row('SELECT * FROM users WHERE id = ?', [$me['id']])));
     });
 
+    // Plataforma: todos (com ?companyId= filtra; vazio = sem administradora).
+    // Administrador: os da administradora dele. Demais: o próprio.
     $r->add('GET', '/condos', function () {
         $me = current_user();
-        $list = $me['role'] === 'ADMIN'
-            ? rows('SELECT * FROM condominiums ORDER BY name')
-            : rows('SELECT * FROM condominiums WHERE id = ?', [$me['condo_id']]);
+        $list = match ($me['role']) {
+            'PLATFORM' => query('companyId') === null
+                ? rows('SELECT * FROM condominiums ORDER BY name')
+                : rows('SELECT * FROM condominiums WHERE company_id <=> NULLIF(?, \'\') ORDER BY name', [query('companyId')]),
+            'ADMIN' => rows('SELECT * FROM condominiums WHERE company_id = ? ORDER BY name', [$me['company_id'] ?? '']),
+            default => rows('SELECT * FROM condominiums WHERE id = ?', [$me['condo_id']]),
+        };
         send_json(array_map('condo_json', $list));
     });
 
-    // Cria quando não há id; senão atualiza. Apartamentos que deixam de existir
-    // saem do cadastro de quem morava neles.
+    // Cria quando não há id (só a plataforma, que já pode informar companyId);
+    // senão atualiza nome, endereço e blocos. Quem aloca o condomínio numa
+    // administradora é a plataforma, em PUT /condos/{id}/company.
+    // Apartamentos que deixam de existir saem do cadastro de quem morava neles.
     $r->add('POST', '/condos', function () {
-        require_role('ADMIN');
-        $id = optional_string('id', 36) ?: uuid();
+        $me = require_role('ADMIN');
+        $id = optional_string('id', 36);
+        $exists = $id !== '' && row('SELECT id FROM condominiums WHERE id = ?', [$id]) !== null;
+        if ($exists && !can_access_condo($me, $id)) {
+            throw new ApiError(404, 'Condomínio não encontrado.');
+        }
+        if (!$exists && $me['role'] !== 'PLATFORM') {
+            throw new ApiError(403, 'Novos condomínios são liberados pela equipe Condo-mini.');
+        }
+        $companyId = !$exists && optional_string('companyId', 36) !== '' ? require_company(optional_string('companyId', 36)) : null;
+        $id = $id ?: uuid();
         $towers = [];
         foreach ((array) input('towers', []) as $i => $t) {
             $name = trim((string) ($t['name'] ?? ''));
@@ -154,11 +201,11 @@ function register_directory_routes(Router $r): void
         }
         $name = required_string('name', 120);
         $address = optional_string('address');
-        transaction(function () use ($id, $name, $address, $towers) {
+        transaction(function () use ($id, $companyId, $name, $address, $towers) {
             exec_sql(
-                'INSERT INTO condominiums (id, name, address) VALUES (?, ?, ?)
+                'INSERT INTO condominiums (id, company_id, name, address) VALUES (?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE name = VALUES(name), address = VALUES(address)',
-                [$id, $name, $address]
+                [$id, $companyId, $name, $address]
             );
             exec_sql('DELETE FROM towers WHERE condo_id = ?', [$id]);
             $labels = [];
@@ -181,12 +228,17 @@ function register_directory_routes(Router $r): void
     });
 
     // Pessoas do condomínio: administração, síndico e portaria. O administrador
-    // também vê os outros administradores.
+    // (e a plataforma) também vê os administradores da administradora do condomínio.
     $r->add('GET', '/users', function () {
         $me = require_role('ADMIN', 'MANAGER', 'DOORMAN');
         $condoId = condo_id();
-        $list = $me['role'] === 'ADMIN'
-            ? rows("SELECT * FROM users WHERE condo_id = ? OR role = 'ADMIN' ORDER BY name", [$condoId])
+        $list = is_admin_role($me)
+            ? rows(
+                "SELECT * FROM users WHERE condo_id = ?
+                    OR (role = 'ADMIN' AND company_id = (SELECT company_id FROM condominiums WHERE id = ?))
+                 ORDER BY name",
+                [$condoId, $condoId]
+            )
             : rows('SELECT * FROM users WHERE condo_id = ? ORDER BY name', [$condoId]);
         send_json(array_map('user_json', $list));
     });
@@ -197,13 +249,25 @@ function register_directory_routes(Router $r): void
     });
 
     // Cria quando não há id (no condomínio informado); senão atualiza.
-    // Senha em branco na edição mantém a atual.
+    // Senha em branco na edição mantém a atual. Administrador novo fica na
+    // administradora de quem cria; a plataforma informa companyId.
     $r->add('POST', '/users', function () {
-        require_role('ADMIN');
+        $me = require_role('ADMIN');
         $id = optional_string('id', 36);
         $existing = $id === '' ? null : row('SELECT * FROM users WHERE id = ?', [$id]);
+        if ($existing !== null) {
+            editable_user($id);
+        }
         $role = require_enum((string) input('role', ''), ['ADMIN', 'MANAGER', 'DOORMAN', 'RESIDENT'], 'role');
+        if (($existing['role'] ?? '') === 'PLATFORM') {
+            throw new ApiError(422, 'Cadastros da plataforma não mudam por aqui.');
+        }
         $condoId = $role === 'ADMIN' ? null : condo_id($existing['condo_id'] ?? null);
+        $companyId = match (true) {
+            $role !== 'ADMIN' => null,
+            $me['role'] === 'ADMIN' => $me['company_id'],
+            default => require_company(optional_string('companyId', 36) ?: (string) ($existing['company_id'] ?? '')),
+        };
         $login = required_string('login', 80);
         if (!login_available($login, $id)) {
             throw new ApiError(409, 'Este usuário de acesso já está em uso.');
@@ -219,6 +283,7 @@ function register_directory_routes(Router $r): void
         $fields = [
             'id' => $id,
             'condo_id' => $condoId,
+            'company_id' => $companyId,
             'name' => required_string('name', 120),
             'role' => $role,
             'email' => optional_string('email', 160),
@@ -229,9 +294,9 @@ function register_directory_routes(Router $r): void
         ];
         transaction(function () use ($fields, $role) {
             exec_sql(
-                'INSERT INTO users (id, condo_id, name, role, email, phone, login, login_key, password_hash)
-                 VALUES (:id, :condo_id, :name, :role, :email, :phone, :login, :login_key, :password_hash)
-                 ON DUPLICATE KEY UPDATE condo_id = VALUES(condo_id), name = VALUES(name), role = VALUES(role),
+                'INSERT INTO users (id, condo_id, company_id, name, role, email, phone, login, login_key, password_hash)
+                 VALUES (:id, :condo_id, :company_id, :name, :role, :email, :phone, :login, :login_key, :password_hash)
+                 ON DUPLICATE KEY UPDATE condo_id = VALUES(condo_id), company_id = VALUES(company_id), name = VALUES(name), role = VALUES(role),
                    email = VALUES(email), phone = VALUES(phone), login = VALUES(login),
                    login_key = VALUES(login_key), password_hash = VALUES(password_hash)',
                 $fields

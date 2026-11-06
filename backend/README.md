@@ -13,6 +13,7 @@ App Android  →  HTTPS/JSON  →  api-condomini.tcpneus-logistica.com  →  MyS
 | `index.php` | Ponto de entrada; o `.htaccess` manda toda requisição para cá |
 | `lib/core.php` | Configuração, PDO, roteador, sessão e regras de acesso por perfil |
 | `lib/directory.php` | Login, pessoas e condomínios (blocos e apartamentos) |
+| `lib/companies.php` | Administradoras, logo e alocação de condomínios (plataforma) |
 | `lib/community.php` | Avisos, espaços comuns, reservas, mudanças e reparos |
 | `lib/records.php` | Boletos, encomendas, ocorrências e documentos |
 | `lib/files.php` | Upload e download de fotos e PDFs (fora do alcance público) |
@@ -26,7 +27,19 @@ App Android  →  HTTPS/JSON  →  api-condomini.tcpneus-logistica.com  →  MyS
 
 Cada perfil só vê o próprio condomínio; o administrador escolhe com `?condoId=` (ou `condoId` no corpo). Morador só lê e altera os próprios apartamentos. O código de retirada de encomendas só aparece para o morador.
 
-Contas de teste sem senha (`morador`, `sindico`, `porteiro`, `admin`) só entram com `allow_passwordless_logins => true` e só num banco recém-semeado: na produção elas já têm senha (ver o README principal). Os demais cadastros de demonstração usam `nome.sobrenome` / `condo123`. **Desligue a opção e troque as senhas antes de cadastrar moradores de verdade.**
+### Administradoras e plataforma
+
+```
+Plataforma (PLATFORM, a equipe Condo-mini) → Administradora → Condomínios → síndico, portaria, moradores
+```
+
+- O **administrador** (`ADMIN`) é de uma administradora (`users.company_id`) e só vê os condomínios dela (`condominiums.company_id`): `condo_id()`, `require_same_condo()` e `editable_user()` passam por `can_access_condo()`. Um condomínio de outra administradora responde como se não existisse. Ele edita nome, endereço e blocos, mas não cria condomínio.
+- A **plataforma** (`PLATFORM`) passa em toda rota de administrador, em qualquer condomínio, e é a única que cadastra administradoras, sobe a logo, cria condomínios e os aloca.
+- Administradora com `active = false` fica suspensa: ninguém dela entra (nem administradores nem quem é dos condomínios dela).
+- `GET /me` e o login trazem `brand: {companyId, name, logoUrl, color}`, a marca da administradora de quem entrou, para o app e o painel mostrarem no lugar da nossa. Sem administradora, ou sem logo, `logoUrl` vem `null`.
+- Cadastro da plataforma na produção: `php scripts/platform-user.php <usuário> "<Nome>"` (pede a senha; rodar de novo troca a senha). Na demonstração, a conta de teste `plataforma` entra sem senha.
+
+Contas de teste sem senha (`morador`, `sindico`, `porteiro`, `admin`, `plataforma`) só entram com `allow_passwordless_logins => true` e só num banco recém-semeado: na produção elas já têm senha (ver o README principal). Os demais cadastros de demonstração usam `nome.sobrenome` / `condo123`. **Desligue a opção e troque as senhas antes de cadastrar moradores de verdade.**
 
 ## Rotas
 
@@ -35,8 +48,12 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | Rota | Quem |
 |---|---|
 | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PATCH /me` | todos |
-| `GET /condos`, `POST /condos` | todos lê o seu / admin salva |
-| `GET /users`, `POST /users`, `DELETE /users/{id}` | admin, síndico e portaria leem / admin salva |
+| `GET /condos`, `POST /condos` | todos leem os seus / admin salva os da administradora; só a plataforma cria (com `companyId`) |
+| `PUT /condos/{id}/company` (`{"companyId"}`, vazio desaloca) | plataforma |
+| `GET /companies`, `POST /companies`, `DELETE /companies/{id}` (só sem condomínios) | plataforma |
+| `POST /companies/{id}/logo` (multipart: PNG, WebP ou JPEG, até 1 MB, mínimo 128 px), `DELETE /companies/{id}/logo` | plataforma |
+| `GET /companies/{id}/logo` | pública (a URL vem em `brand.logoUrl`, com `?v=` que muda a cada troca) |
+| `GET /users`, `POST /users`, `DELETE /users/{id}` | admin, síndico e portaria leem / admin salva (administrador novo fica na administradora de quem cria; a plataforma informa `companyId`) |
 | `POST /users/{id}/units`, `DELETE /users/{id}/units?unit=` | admin |
 | `GET /logins/available?login=&exceptUserId=` | admin |
 | `GET /notices`, `POST /notices`, `DELETE /notices/{id}` | todos leem / síndico e admin publicam |

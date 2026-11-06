@@ -4,10 +4,27 @@
 
 SET NAMES utf8mb4;
 
+-- Administradora: empresa que cuida de vários condomínios. A plataforma (perfil
+-- PLATFORM) cadastra e aloca os condomínios; a logo aparece no app e no painel.
+-- logo_file: nome do arquivo em storage/companies/; brand_color: "#RRGGBB" ou vazio.
+CREATE TABLE IF NOT EXISTS companies (
+    id              VARCHAR(36)  NOT NULL PRIMARY KEY,
+    name            VARCHAR(120) NOT NULL,
+    cnpj            VARCHAR(20)  NOT NULL DEFAULT '',
+    brand_color     VARCHAR(7)   NOT NULL DEFAULT '',
+    logo_file       VARCHAR(80)  NULL,
+    logo_updated_at DATETIME     NULL,
+    active          TINYINT(1)   NOT NULL DEFAULT 1,
+    created_at      DATETIME     NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- company_id NULL = ainda sem administradora (só a plataforma vê).
 CREATE TABLE IF NOT EXISTS condominiums (
     id          VARCHAR(36)  NOT NULL PRIMARY KEY,
+    company_id  VARCHAR(36)  NULL,
     name        VARCHAR(120) NOT NULL,
-    address     VARCHAR(255) NOT NULL DEFAULT ''
+    address     VARCHAR(255) NOT NULL DEFAULT '',
+    CONSTRAINT fk_condos_company FOREIGN KEY (company_id) REFERENCES companies(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- floor_overrides: {"andar": quantidade}, ex. {"14": 2}.
@@ -23,18 +40,22 @@ CREATE TABLE IF NOT EXISTS towers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- password_hash NULL = conta de teste sem senha (só entra com allow_passwordless_logins).
+-- company_id: só do ADMIN (a administradora dele); os demais perfis seguem o condomínio.
+-- PLATFORM: nós, donos do Condo-mini; sem condomínio nem administradora.
 CREATE TABLE IF NOT EXISTS users (
     id            VARCHAR(36)  NOT NULL PRIMARY KEY,
     condo_id      VARCHAR(36)  NULL,
+    company_id    VARCHAR(36)  NULL,
     name          VARCHAR(120) NOT NULL,
-    role          ENUM('ADMIN','MANAGER','DOORMAN','RESIDENT') NOT NULL,
+    role          ENUM('PLATFORM','ADMIN','MANAGER','DOORMAN','RESIDENT') NOT NULL,
     email         VARCHAR(160) NOT NULL DEFAULT '',
     phone         VARCHAR(40)  NOT NULL DEFAULT '',
     login         VARCHAR(80)  NOT NULL,
     login_key     VARCHAR(80)  NOT NULL,
     password_hash VARCHAR(255) NULL,
     UNIQUE KEY uq_users_login (login_key),
-    CONSTRAINT fk_users_condo FOREIGN KEY (condo_id) REFERENCES condominiums(id) ON DELETE CASCADE
+    CONSTRAINT fk_users_condo FOREIGN KEY (condo_id) REFERENCES condominiums(id) ON DELETE CASCADE,
+    CONSTRAINT fk_users_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS user_units (
