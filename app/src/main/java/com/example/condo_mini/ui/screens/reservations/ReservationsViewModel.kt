@@ -121,12 +121,14 @@ class ReservationsViewModel(
         sheets,
         userMessage
     ) { areas, reservations, services, (booking, service), message ->
+        // Cada item fica até o dia do evento; no dia seguinte só aparece no Histórico.
+        val today = LocalDate.now()
         ReservationsUiState(
             isLoading = false,
             areas = areas,
-            myReservations = reservations,
+            myReservations = reservations.filter { !it.date.isBefore(today) },
             booking = booking,
-            myServices = services,
+            myServices = services.filter { !it.date.isBefore(today) },
             serviceRequest = service,
             userMessage = message
         )

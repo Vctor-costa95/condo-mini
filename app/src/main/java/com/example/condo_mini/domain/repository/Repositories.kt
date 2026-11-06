@@ -57,6 +57,9 @@ interface ReservationRepository {
 
     /** Todas as reservas do condomínio (visão do síndico). */
     fun observeAllReservations(): Flow<List<Reservation>>
+
+    /** Histórico com todos os status e datas, mais recente primeiro; [unit] null = condomínio todo (síndico). */
+    fun observeReservationHistory(unit: String?): Flow<List<Reservation>>
     /** Turnos ocupados no dia (espaços por turno). */
     suspend fun bookedPeriods(areaId: String, date: LocalDate): Set<ReservationPeriod>
 
@@ -95,6 +98,9 @@ interface ServiceBookingRepository {
 
     /** Todos os pedidos do condomínio (visão do síndico). */
     fun observeAllBookings(condoId: String): Flow<List<ServiceBooking>>
+
+    /** Histórico com todos os status e datas, mais recente primeiro; [unit] null = condomínio todo (síndico). */
+    fun observeBookingHistory(condoId: String, unit: String?): Flow<List<ServiceBooking>>
 
     /** Períodos do dia que já têm mudança: só uma por manhã e uma por tarde. */
     suspend fun takenMovePeriods(condoId: String, date: LocalDate): Set<ReservationPeriod>

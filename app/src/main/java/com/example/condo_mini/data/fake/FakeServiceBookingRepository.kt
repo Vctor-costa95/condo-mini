@@ -41,6 +41,12 @@ class FakeServiceBookingRepository : ServiceBookingRepository {
                 .sortedBy { it.date }
         }
 
+    override fun observeBookingHistory(condoId: String, unit: String?): Flow<List<ServiceBooking>> =
+        bookings.map { list ->
+            list.filter { it.condoId == condoId && (unit == null || it.unit == unit) }
+                .sortedWith(compareByDescending<ServiceBooking> { it.date }.thenByDescending { it.period })
+        }
+
     override fun observeAllBookings(condoId: String): Flow<List<ServiceBooking>> =
         bookings.map { list ->
             list.filter { it.condoId == condoId && it.status != ReservationStatus.CANCELED }

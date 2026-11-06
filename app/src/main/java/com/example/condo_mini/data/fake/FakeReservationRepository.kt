@@ -106,6 +106,12 @@ class FakeReservationRepository : ReservationRepository {
                 .sortedBy { it.date }
         }
 
+    override fun observeReservationHistory(unit: String?): Flow<List<Reservation>> =
+        reservations.map { list ->
+            list.filter { unit == null || it.unit == unit }
+                .sortedWith(compareByDescending<Reservation> { it.date }.thenByDescending { it.startHour })
+        }
+
     override fun observeAllReservations(): Flow<List<Reservation>> =
         reservations.map { list ->
             list.filter { it.status != ReservationStatus.CANCELED }.sortedBy { it.date }

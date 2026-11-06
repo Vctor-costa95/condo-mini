@@ -123,6 +123,7 @@ import com.example.condo_mini.ui.screens.occurrences.OccurrencesRoute
 import com.example.condo_mini.ui.screens.parcels.ParcelsRoute
 import com.example.condo_mini.ui.screens.profile.ProfileRoute
 import com.example.condo_mini.ui.screens.reservations.ReservationsRoute
+import com.example.condo_mini.ui.screens.reservations.history.ReservationHistoryRoute
 import com.example.condo_mini.ui.screens.units.UnitSwitcherSheet
 import java.time.Instant
 import java.time.LocalDate
@@ -178,6 +179,7 @@ enum class AppTab(
 
 private const val PROFILE_ROUTE = "profile"
 private const val DOCUMENTS_ROUTE = "documents"
+private const val RESERVATION_HISTORY_ROUTE = "reservation_history"
 private const val DOCUMENT_ID_ARG = "documentId"
 private const val DOCUMENT_PDF_ROUTE = "document_pdf/{$DOCUMENT_ID_ARG}"
 private const val BILL_ID_ARG = "billId"
@@ -225,6 +227,7 @@ fun MainScreen(
     val subScreen = when (currentDestination?.route) {
         PROFILE_ROUTE -> "Conta" to "Meu perfil"
         DOCUMENTS_ROUTE -> "Condomínio" to "Documentos"
+        RESERVATION_HISTORY_ROUTE -> "Reservas" to "Histórico"
         else -> null
     }
     // Telas de detalhe em tela cheia desenham o próprio cabeçalho.
@@ -278,7 +281,13 @@ fun MainScreen(
         ) {
             // Morador
             composable(AppTab.NOTICES.route) { NoticesRoute() }
-            composable(AppTab.RESERVATIONS.route) { ReservationsRoute(snackbarHostState) }
+            composable(AppTab.RESERVATIONS.route) {
+                ReservationsRoute(
+                    snackbarHostState = snackbarHostState,
+                    onHistoryClick = { navController.navigate(RESERVATION_HISTORY_ROUTE) { launchSingleTop = true } }
+                )
+            }
+            composable(RESERVATION_HISTORY_ROUTE) { ReservationHistoryRoute() }
             composable(AppTab.BILLS.route) {
                 BillsRoute(
                     snackbarHostState = snackbarHostState,
@@ -296,7 +305,12 @@ fun MainScreen(
 
             // Síndico
             composable(AppTab.MANAGER_NOTICES.route) { ManagerNoticesRoute() }
-            composable(AppTab.MANAGER_RESERVATIONS.route) { ManagerReservationsRoute(snackbarHostState) }
+            composable(AppTab.MANAGER_RESERVATIONS.route) {
+                ManagerReservationsRoute(
+                    snackbarHostState = snackbarHostState,
+                    onHistoryClick = { navController.navigate(RESERVATION_HISTORY_ROUTE) { launchSingleTop = true } }
+                )
+            }
             composable(AppTab.MANAGER_OCCURRENCES.route) { ManagerOccurrencesRoute(snackbarHostState) }
             composable(AppTab.MANAGER_DOCUMENTS.route) {
                 ManagerDocumentsRoute(onOpenDocument = { navController.navigate("document_pdf/${it.id}") })

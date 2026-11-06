@@ -104,6 +104,22 @@ function require_pending(array $reservation): array
     return $reservation;
 }
 
+/**
+ * Histórico: todos os status e datas. Com [unit], o do apartamento (morador ou administração);
+ * sem, o do condomínio todo, só para síndico e administrador.
+ *
+ * @return list<array>
+ */
+function history_rows(string $table, string $condoId, string $unit, string $order): array
+{
+    if ($unit === '') {
+        require_role('MANAGER', 'ADMIN');
+        return rows("SELECT * FROM $table WHERE condo_id = ? ORDER BY $order", [$condoId]);
+    }
+    require_unit_access($unit);
+    return rows("SELECT * FROM $table WHERE condo_id = ? AND unit = ? ORDER BY $order", [$condoId, $unit]);
+}
+
 /** Cancelar só vale para o que ainda ocupa o horário (pendente ou confirmado). */
 function require_holds_slot(string $status, string $message): void
 {
@@ -358,9 +374,14 @@ function register_community_routes(Router $r): void
     // ------------------------------------------------------------ reservas
 
     // Com ?unit=, as do apartamento; sem, todas do condomínio (síndico e portaria).
+    // ?history=1: tudo, de qualquer status e data, mais recente primeiro (tela Histórico).
     $r->add('GET', '/reservations', function () {
         $condoId = condo_id();
         $unit = query('unit', '');
+        if (query('history') === '1') {
+            send_json(array_map('reservation_json', history_rows('reservations', $condoId, $unit, 'date DESC, start_hour DESC')));
+            return;
+        }
         if ($unit === '') {
             require_role('MANAGER', 'ADMIN', 'DOORMAN');
             $list = rows("SELECT * FROM reservations WHERE condo_id = ? AND status <> 'CANCELED' ORDER BY date, start_hour", [$condoId]);
@@ -477,6 +498,10 @@ function register_community_routes(Router $r): void
     $r->add('GET', '/service-bookings', function () {
         $condoId = condo_id();
         $unit = query('unit', '');
+        if (query('history') === '1') {
+            send_json(array_map('booking_json', history_rows('service_bookings', $condoId, $unit, 'date DESC, ' . PERIOD_ORDER . ' DESC')));
+            return;
+        }
         if ($unit === '') {
             require_role('MANAGER', 'ADMIN', 'DOORMAN');
             $list = rows("SELECT * FROM service_bookings WHERE condo_id = ? AND status <> 'CANCELED' ORDER BY date, " . PERIOD_ORDER, [$condoId]);
@@ -562,9 +587,13 @@ function register_community_routes(Router $r): void
         send_json(booking_json(row('SELECT * FROM service_bookings WHERE id = ?', [$id])));
     });
 
+    // Só pendentes, como nas reservas: aprovar um cancelado ou recusado passaria por cima de quem marcou depois.
     $r->add('POST', '/service-bookings/{id}/approve', function (string $id) {
         require_role('MANAGER', 'ADMIN');
         $booking = find_booking($id);
+        if ($booking['status'] !== 'PENDING') {
+            throw new ApiError(409, 'Este pedido não está mais aguardando aprovação.');
+        }
         $clash = $booking['type'] === 'MOVE' && row(
             "SELECT id FROM service_bookings WHERE id <> ? AND condo_id = ? AND type = 'MOVE'
              AND date = ? AND period = ? AND status = 'CONFIRMED'",

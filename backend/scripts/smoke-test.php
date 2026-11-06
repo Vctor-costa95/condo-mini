@@ -149,6 +149,33 @@ check('horário de mudança ocupado', $taken === ['AFTERNOON'], $taken);
 check('síndico recusa com motivo', $rej['status'] === 'REJECTED' && $rej['rejectionReason'] === 'Elevador em obra', $rej);
 [$s, $agenda] = call('GET', '/service-bookings', null, $doorman);
 check('portaria vê agenda', $s === 200 && count($agenda) >= 5, $agenda);
+check('pedido recusado não pode ser aprovado', call('POST', "/service-bookings/{$move['id']}/approve", null, $manager)[0] === 409);
+
+echo "Histórico\n";
+[, $fix] = call('POST', '/service-bookings', ['type' => 'REPAIR', 'repairKind' => 'ELECTRICAL', 'date' => $farDay, 'period' => 'MORNING', 'unit' => 'Apto 101 - Bloco A'], $resident);
+call('POST', "/service-bookings/{$fix['id']}/approve", null, $manager);
+call('POST', "/service-bookings/{$fix['id']}/cancel", ['reason' => 'Obra na rede'], $manager);
+check('pedido cancelado não pode ser aprovado', call('POST', "/service-bookings/{$fix['id']}/approve", null, $manager)[0] === 409);
+$unitQuery = 'unit=' . rawurlencode('Apto 101 - Bloco A');
+[$s, $history] = call('GET', "/reservations?history=1&$unitQuery", null, $resident);
+$ids = array_column($history, 'id');
+check('histórico do morador traz a reserva que ele cancelou', $s === 200 && in_array($r['id'], $ids, true), $ids);
+$dates = array_column($history, 'date');
+$sorted = $dates;
+rsort($sorted);
+check('histórico vem do mais recente para o mais antigo', $dates === $sorted, $dates);
+[, $active] = call('GET', "/reservations?$unitQuery", null, $resident);
+check('lista normal continua sem a reserva cancelada pelo morador', !in_array($r['id'], array_column($active, 'id'), true));
+[$s, $servicesHistory] = call('GET', "/service-bookings?history=1&$unitQuery", null, $resident);
+$byId = array_column($servicesHistory, null, 'id');
+check('histórico traz pedido recusado e cancelado pelo síndico, com motivo', $s === 200
+    && ($byId[$move['id']]['status'] ?? '') === 'REJECTED'
+    && ($byId[$fix['id']]['rejectionReason'] ?? '') === 'Obra na rede', array_keys($byId));
+check('morador sem apartamento não vê histórico do condomínio', call('GET', '/reservations?history=1', null, $resident)[0] === 403);
+check('portaria não vê histórico do condomínio', call('GET', '/service-bookings?history=1', null, $doorman)[0] === 403);
+[$s, $condoHistory] = call('GET', '/reservations?history=1', null, $manager);
+check('síndico vê o histórico do condomínio todo', $s === 200 && in_array($r['id'], array_column($condoHistory, 'id'), true)
+    && count(array_unique(array_column($condoHistory, 'unit'))) > 1, count($condoHistory));
 
 echo "Boletos\n";
 [$s, $bills] = call('GET', '/bills?unit=' . rawurlencode('Apto 101 - Bloco A'), null, $resident);

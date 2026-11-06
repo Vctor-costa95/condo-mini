@@ -43,6 +43,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /areas`, `POST /areas`, `DELETE /areas/{id}`, `PUT /areas/{id}/closed` | todos leem / síndico e admin editam |
 | `GET /areas/{id}/booked?date=` | todos |
 | `GET /reservations[?unit=]`, `POST /reservations` | morador com `unit`; síndico e portaria sem |
+| `GET /reservations?history=1[&unit=]`, `GET /service-bookings?history=1[&unit=]` | histórico com todos os status e datas, mais recente primeiro: morador com `unit`; síndico e admin sem (condomínio todo) |
 | `POST /reservations/{id}/cancel\|approve\|reject` | morador cancela / síndico aprova, recusa e cancela (com `reason` obrigatório) |
 | `GET /service-bookings[?unit=]`, `GET /service-bookings/taken-moves?date=`, `POST /service-bookings` | idem |
 | `POST /service-bookings/{id}/cancel\|approve\|reject` | idem |

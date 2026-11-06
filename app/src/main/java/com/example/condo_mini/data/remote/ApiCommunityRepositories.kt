@@ -56,6 +56,12 @@ class ApiReservationRepository(private val api: ApiClient, private val condoId: 
     override fun observeReservations(unit: String): Flow<List<Reservation>> =
         api.live { api.get("reservations", mapOf("condoId" to condoId(), "unit" to unit)).list { it.toReservation() } }
 
+    override fun observeReservationHistory(unit: String?): Flow<List<Reservation>> =
+        api.live {
+            val params = mapOf("condoId" to condoId(), "history" to "1") + (unit?.let { mapOf("unit" to it) } ?: emptyMap())
+            api.get("reservations", params).list { it.toReservation() }
+        }
+
     override fun observeAllReservations(): Flow<List<Reservation>> =
         api.live { api.get("reservations", mapOf("condoId" to condoId())).list { it.toReservation() } }
 
@@ -126,6 +132,12 @@ class ApiServiceBookingRepository(private val api: ApiClient) : ServiceBookingRe
 
     override fun observeBookings(condoId: String, unit: String): Flow<List<ServiceBooking>> =
         api.live { api.get("service-bookings", mapOf("condoId" to condoId, "unit" to unit)).list { it.toBooking() } }
+
+    override fun observeBookingHistory(condoId: String, unit: String?): Flow<List<ServiceBooking>> =
+        api.live {
+            val params = mapOf("condoId" to condoId, "history" to "1") + (unit?.let { mapOf("unit" to it) } ?: emptyMap())
+            api.get("service-bookings", params).list { it.toBooking() }
+        }
 
     override fun observeAllBookings(condoId: String): Flow<List<ServiceBooking>> =
         api.live { api.get("service-bookings", mapOf("condoId" to condoId)).list { it.toBooking() } }

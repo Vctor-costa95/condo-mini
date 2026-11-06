@@ -57,6 +57,7 @@ import com.example.condo_mini.domain.model.RepairKind
 import com.example.condo_mini.domain.model.SERVICE_PERIODS
 import com.example.condo_mini.domain.model.ServiceBooking
 import com.example.condo_mini.domain.model.ServiceType
+import com.example.condo_mini.ui.screens.reservations.history.HistoryLinkCard
 import com.example.condo_mini.ui.components.AreaCoverCard
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.Eyebrow
@@ -78,6 +79,7 @@ private const val BOOKING_WINDOW_DAYS = 30L
 @Composable
 fun ReservationsRoute(
     snackbarHostState: SnackbarHostState,
+    onHistoryClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ReservationsViewModel = viewModel()
 ) {
@@ -96,6 +98,7 @@ fun ReservationsRoute(
         onCancelReservation = viewModel::onCancelReservation,
         onNewService = viewModel::onNewService,
         onCancelService = viewModel::onCancelService,
+        onHistoryClick = onHistoryClick,
         modifier = modifier
     )
 
@@ -129,6 +132,7 @@ fun ReservationsScreen(
     onCancelReservation: (Reservation) -> Unit,
     onNewService: (ServiceType) -> Unit,
     onCancelService: (ServiceBooking) -> Unit,
+    onHistoryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (uiState.isLoading) {
@@ -143,6 +147,7 @@ fun ReservationsScreen(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        item { HistoryLinkCard(onClick = onHistoryClick) }
         if (uiState.myReservations.isNotEmpty()) {
             item {
                 SectionHeader(

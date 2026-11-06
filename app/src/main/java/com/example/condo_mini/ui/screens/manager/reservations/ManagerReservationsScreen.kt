@@ -50,12 +50,14 @@ import com.example.condo_mini.ui.components.SectionHeader
 import com.example.condo_mini.ui.components.StatusChip
 import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.screens.reservations.DateBlock
+import com.example.condo_mini.ui.screens.reservations.history.HistoryLinkCard
 import com.example.condo_mini.ui.screens.reservations.tone
 import com.example.condo_mini.ui.util.toBrl
 
 @Composable
 fun ManagerReservationsRoute(
     snackbarHostState: SnackbarHostState,
+    onHistoryClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ManagerReservationsViewModel = viewModel()
 ) {
@@ -76,6 +78,7 @@ fun ManagerReservationsRoute(
         onRejectService = viewModel::onRejectService,
         onCancel = viewModel::onCancel,
         onCancelService = viewModel::onCancelService,
+        onHistoryClick = onHistoryClick,
         modifier = modifier
     )
 }
@@ -89,6 +92,7 @@ fun ManagerReservationsScreen(
     onRejectService: (ServiceBooking, String) -> Unit,
     onCancel: (Reservation, String) -> Unit,
     onCancelService: (ServiceBooking, String) -> Unit,
+    onHistoryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (uiState.isLoading) {
@@ -105,6 +109,7 @@ fun ManagerReservationsScreen(
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item { HistoryLinkCard(onClick = onHistoryClick) }
         item {
             SectionHeader(
                 "Aguardando aprovação",
