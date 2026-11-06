@@ -122,7 +122,11 @@ fun UnitChoiceScreen(
     ) {
         Eyebrow(if (uiState.firstName.isBlank()) "Bem-vindo" else "Olá, ${uiState.firstName}")
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Qual apartamento você quer ver?", style = MaterialTheme.typography.displaySmall)
+        Text(
+            "Qual apartamento você quer ver?",
+            style = MaterialTheme.typography.displaySmall,
+            color = MaterialTheme.colorScheme.onBackground
+        )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             "Você tem ${uiState.options.size} apartamentos neste condomínio. Dá para trocar depois tocando no nome do apartamento, no topo do app.",

@@ -5,11 +5,13 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.push.PushNotifications
+import com.example.condo_mini.ui.theme.ThemePreference
 
 class CondoApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         AppContainer.init(this)
+        ThemePreference.init(this)
         PushNotifications.init(this)
     }
 

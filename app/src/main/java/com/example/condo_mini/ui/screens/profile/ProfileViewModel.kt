@@ -6,6 +6,8 @@ import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.data.remote.ApiClient
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.repository.SessionRepository
+import com.example.condo_mini.ui.theme.ThemeMode
+import com.example.condo_mini.ui.theme.ThemePreference
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -15,6 +17,10 @@ class ProfileViewModel(
 ) : ViewModel() {
 
     val user: StateFlow<User?> = sessionRepository.currentUser
+
+    val themeMode: StateFlow<ThemeMode> = ThemePreference.mode
+
+    fun onThemeModeChange(mode: ThemeMode) = ThemePreference.set(mode)
 
     fun onSaveContact(email: String, phone: String) {
         viewModelScope.launch {

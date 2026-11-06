@@ -8,6 +8,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -63,6 +65,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
@@ -218,6 +221,7 @@ fun LoginScreen(
 }
 
 /** Topo escuro com a marca e, em poucas palavras, para que o app serve. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BrandHeader() {
     val condo = CondoTheme.colors
@@ -243,13 +247,19 @@ private fun BrandHeader() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Avisos, encomendas, reservas e boletos\ndo seu prédio, tudo num lugar só.",
-            style = MaterialTheme.typography.bodyMedium,
+            // Sem quebra fixa: o Android equilibra as linhas conforme a largura e a fonte do aparelho.
+            text = "Avisos, encomendas, reservas e boletos do seu prédio, tudo num lugar só.",
+            style = MaterialTheme.typography.bodyMedium.copy(lineBreak = LineBreak.Heading),
             color = condo.onHeroMuted,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Em tela estreita ou com a fonte do sistema aumentada os selos não cabem lado a lado:
+        // o que sobrar desce inteiro para a linha de baixo, centralizado, em vez de quebrar o texto.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             FeatureTag(Icons.Outlined.Inventory2, "Encomendas")
             FeatureTag(Icons.Outlined.Campaign, "Avisos")
             FeatureTag(Icons.Outlined.EventAvailable, "Reservas")
@@ -269,7 +279,7 @@ private fun FeatureTag(icon: ImageVector, label: String) {
     ) {
         Icon(icon, contentDescription = null, tint = condo.accent, modifier = Modifier.size(14.dp))
         Spacer(modifier = Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = condo.onHero)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = condo.onHero, maxLines = 1, softWrap = false)
     }
 }
 
@@ -308,7 +318,14 @@ private fun LightStatusBarIcons() {
     }
 }
 
-@Preview(showBackground = true)
+/**
+ * Os casos que quebram layout em aparelho real: tela estreita (320dp, celulares compactos)
+ * e fonte do sistema aumentada (Configurações > Tela > Tamanho da fonte). Confira aqui antes de gerar o APK.
+ */
+@Preview(name = "Padrão", showBackground = true)
+@Preview(name = "Compacto 320dp", showBackground = true, widthDp = 320, heightDp = 640)
+@Preview(name = "Fonte 130%", showBackground = true, fontScale = 1.3f)
+@Preview(name = "Compacto + fonte 150%", showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.5f)
 @Composable
 fun LoginScreenPreview() {
     CondominiTheme {
