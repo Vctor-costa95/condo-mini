@@ -78,7 +78,7 @@ class FakeReservationRepository : ReservationRepository {
         ),
         CommonArea("a6", "Rooftop com piscina", "Piscina com borda infinita e vista para o mar.", 25, 0.0, "Uso até 22h. Crianças acompanhadas.", "pool", condoId = "c2"),
         CommonArea("a7", "Academia", "Equipamentos Technogym e sala de pilates.", 12, 0.0, "Uso de toalha obrigatório.", "gym", condoId = "c2"),
-        CommonArea("a8", "Salão de festas", "Salão para 120 pessoas com copa.", 120, 250.0, "Som até 23h.", "party", condoId = "c3"),
+        CommonArea("a8", "Salão de festas", "Salão para 120 pessoas com copa.", 120, 250.0, "Som até 23h.", "party", condoId = "c3", bookingMode = BookingMode.DAILY),
         CommonArea("a9", "Quadra de tênis", "Quadra de saibro com iluminação.", 4, 0.0, "Até 2 horas por reserva.", "tennis", condoId = "c3", bookingMode = BookingMode.HOURLY, opensAt = 7, closesAt = 21),
         CommonArea("a10", "Brinquedoteca", "Espaço infantil com monitoria aos sábados.", 15, 0.0, "Crianças até 10 anos.", "kids", condoId = "c3")
     ))
@@ -142,6 +142,7 @@ class FakeReservationRepository : ReservationRepository {
         val (period, start, end) = when (slot) {
             is ReservationSlot.Period -> Triple(slot.period, slot.period.startHour, slot.period.endHour)
             is ReservationSlot.Hours -> Triple(null, slot.startHour, slot.endHour)
+            ReservationSlot.FullDay -> Triple(null, ReservationSlot.FullDay.START_HOUR, ReservationSlot.FullDay.END_HOUR)
         }
         if (taken(areaId, date).any { it.overlaps(start, end) }) {
             return Result.failure(IllegalStateException("Este horário já está reservado."))
@@ -163,18 +164,27 @@ class FakeReservationRepository : ReservationRepository {
     }
 
     override suspend fun cancel(reservationId: String) {
-        updateReservation(reservationId) { it.copy(status = ReservationStatus.CANCELED) }
+        updateReservation(reservationId) {
+            if (it.status.holdsSlot()) it.copy(status = ReservationStatus.CANCELED) else it
+        }
     }
 
+    // Só pendentes: aprovar uma recusada ou cancelada poderia passar por cima de quem reservou depois.
     override suspend fun approve(reservationId: String) {
         delay(300)
-        updateReservation(reservationId) { it.copy(status = ReservationStatus.CONFIRMED) }
+        updateReservation(reservationId) {
+            if (it.status == ReservationStatus.PENDING) it.copy(status = ReservationStatus.CONFIRMED) else it
+        }
     }
 
     override suspend fun reject(reservationId: String, reason: String) {
         delay(300)
         updateReservation(reservationId) {
-            it.copy(status = ReservationStatus.REJECTED, rejectionReason = reason.trim().ifBlank { null })
+            if (it.status == ReservationStatus.PENDING) {
+                it.copy(status = ReservationStatus.REJECTED, rejectionReason = reason.trim().ifBlank { null })
+            } else {
+                it
+            }
         }
     }
 

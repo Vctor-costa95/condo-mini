@@ -21,7 +21,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Endereço da API. Vazio = dados de demonstração em memória (repositórios Fake).
-        // Para a API local no emulador: -Pcondomini.apiUrl=http://10.0.2.2:8080
+        // Para a API local no emulador: `adb reverse tcp:8080 tcp:8080` e
+        // -Pcondomini.apiUrl=http://127.0.0.1:8080. O 10.0.2.2 não serve: no Android 17,
+        // endereço de rede local exige a permissão ACCESS_LOCAL_NETWORK, e o app não pede.
         val apiUrl = providers.gradleProperty("condomini.apiUrl")
             .orElse("https://api-condomini.tcpneus-logistica.com/api-condomini").get()
         buildConfigField("String", "API_BASE_URL", "\"$apiUrl\"")

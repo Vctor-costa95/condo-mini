@@ -87,6 +87,8 @@ class ApiReservationRepository(private val api: ApiClient, private val condoId: 
         when (slot) {
             is ReservationSlot.Period -> body.put("period", slot.period.name)
             is ReservationSlot.Hours -> body.put("startHour", slot.startHour).put("endHour", slot.endHour)
+            // O servidor sabe pelo modo do espaço que a reserva é do dia inteiro.
+            ReservationSlot.FullDay -> Unit
         }
         api.send("POST", "reservations", body).obj { it.toReservation() }
     }

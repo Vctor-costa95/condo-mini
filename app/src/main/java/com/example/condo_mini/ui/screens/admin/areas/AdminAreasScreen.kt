@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -324,22 +326,34 @@ private fun AreaFormSheet(
             Spacer(modifier = Modifier.height(16.dp))
             SectionHeader("Como reservar")
             Spacer(modifier = Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Mesma altura nos três, mesmo quando a dica de um quebra em duas linhas.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.height(IntrinsicSize.Min)
+            ) {
                 BookingMode.entries.forEach { mode ->
                     PillChip(
                         selected = form.bookingMode == mode,
                         onClick = { onChange { it.copy(bookingMode = mode) } },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
                             Text(mode.label, style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                if (mode == BookingMode.PERIOD) "Manhã, tarde, noite" else "Início e duração",
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Text(mode.hint, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                         }
                     }
                 }
+            }
+            if (form.bookingMode == BookingMode.DAILY) {
+                Text(
+                    "O morador reserva a data inteira; ninguém mais reserva o espaço nesse dia.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp, start = 4.dp)
+                )
             }
             if (form.bookingMode == BookingMode.HOURLY) {
                 Spacer(modifier = Modifier.height(12.dp))

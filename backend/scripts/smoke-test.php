@@ -121,6 +121,23 @@ call('POST', "/reservations/{$h1['id']}/cancel", null, $resident);
 call('POST', "/reservations/{$h2['id']}/cancel", null, $paulo);
 check('cancelar libera as horas', call('GET', "/areas/a4/booked-hours?date=$hourDay", null, $resident)[1] === []);
 
+echo "Reservas do dia inteiro\n";
+$hall = ['id' => 'a1', 'name' => 'Salão de festas', 'description' => 'Salão climatizado com cozinha equipada e banheiros.', 'capacity' => 80, 'fee' => 150, 'rules' => 'Limpeza por conta do morador. Som até 22h.', 'iconKey' => 'party'];
+[$s, $daily] = call('POST', '/areas', $hall + ['bookingMode' => 'DAILY'], $manager);
+check('salão passa a ser do dia inteiro', $s === 200 && $daily['bookingMode'] === 'DAILY', $daily);
+$dayDay = date('Y-m-d', strtotime('+43 days'));
+[$s, $d1] = call('POST', '/reservations', ['areaId' => 'a1', 'date' => $dayDay, 'unit' => 'Apto 101 - Bloco A'], $resident);
+check('reserva do dia inteiro, pendente', $s === 201 && $d1['period'] === null && $d1['startHour'] === 0 && $d1['endHour'] === 24 && $d1['status'] === 'PENDING', $d1);
+check('mesmo dia recusado enquanto pendente', call('POST', '/reservations', ['areaId' => 'a1', 'date' => $dayDay, 'unit' => 'Apto 104 - Bloco A'], $paulo)[0] === 409);
+check('dia todo aparece ocupado', call('GET', "/areas/a1/booked-hours?date=$dayDay", null, $resident)[1] === range(0, 23));
+check('síndico recusa', call('POST', "/reservations/{$d1['id']}/reject", ['reason' => 'Teste'], $manager)[1]['status'] === 'REJECTED');
+[$s, $d2] = call('POST', '/reservations', ['areaId' => 'a1', 'date' => $dayDay, 'unit' => 'Apto 104 - Bloco A'], $paulo);
+check('recusada libera o dia', $s === 201, $d2);
+check('recusada não pode ser aprovada depois', call('POST', "/reservations/{$d1['id']}/approve", null, $manager)[0] === 409);
+call('POST', "/reservations/{$d2['id']}/cancel", null, $paulo);
+check('cancelada não pode ser aprovada', call('POST', "/reservations/{$d2['id']}/approve", null, $manager)[0] === 409);
+call('POST', '/areas', $hall + ['bookingMode' => 'PERIOD'], $manager);
+
 echo "Mudanças e reparos\n";
 [$s, $move] = call('POST', '/service-bookings', ['type' => 'MOVE', 'date' => $farDay, 'period' => 'AFTERNOON', 'unit' => 'Apto 101 - Bloco A', 'provider' => 'Mudanças X'], $resident);
 check('pedido de mudança', $s === 201 && $move['status'] === 'PENDING', $move);

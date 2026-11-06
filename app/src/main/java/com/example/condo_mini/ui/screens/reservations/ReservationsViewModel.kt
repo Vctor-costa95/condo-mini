@@ -58,8 +58,15 @@ data class BookingState(
             }
         }
 
+    /** Espaços do dia inteiro: qualquer reserva na data, pendente ou confirmada, ocupa o dia. */
+    val isDayTaken: Boolean get() = bookedHours.isNotEmpty()
+
     val canConfirm: Boolean
-        get() = if (area.isHourly) startHour != null && duration in durations else period != null
+        get() = when {
+            area.isDaily -> !isDayTaken
+            area.isHourly -> startHour != null && duration in durations
+            else -> period != null
+        }
 }
 
 /** Estado do bottom sheet de mudança ou reparo. */
@@ -160,6 +167,12 @@ class ReservationsViewModel(
         val current = booking.value ?: return
         val start = current.startHour
         val slot = when {
+            current.area.isDaily -> if (current.isDayTaken) {
+                booking.update { it?.copy(error = "Este dia já está reservado.") }
+                return
+            } else {
+                ReservationSlot.FullDay
+            }
             current.area.isHourly && start != null && current.duration in current.durations ->
                 ReservationSlot.Hours(start, start + current.duration)
             !current.area.isHourly && current.period != null -> ReservationSlot.Period(current.period)
@@ -287,8 +300,10 @@ class ReservationsViewModel(
     private fun refreshAvailability() {
         val current = booking.value ?: return
         viewModelScope.launch {
-            val periods = if (current.area.isHourly) emptySet() else reservationRepository.bookedPeriods(current.area.id, current.date)
-            val hours = if (current.area.isHourly) reservationRepository.bookedHours(current.area.id, current.date) else emptySet()
+            val area = current.area
+            val byPeriod = !area.isHourly && !area.isDaily
+            val periods = if (byPeriod) reservationRepository.bookedPeriods(area.id, current.date) else emptySet()
+            val hours = if (byPeriod) emptySet() else reservationRepository.bookedHours(area.id, current.date)
             booking.update { state ->
                 if (state?.area?.id == current.area.id && state.date == current.date) {
                     // Um início que ficou ocupado enquanto a ficha estava aberta sai da seleção.

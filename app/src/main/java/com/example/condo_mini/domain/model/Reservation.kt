@@ -3,9 +3,10 @@ package com.example.condo_mini.domain.model
 import java.time.LocalDate
 
 /** Como o espaço é reservado; a administração escolhe ao criar o espaço. */
-enum class BookingMode(val label: String, val description: String) {
-    PERIOD("Por turno", "Manhã, tarde ou noite"),
-    HOURLY("Por hora", "Início e duração, dentro do horário de funcionamento")
+enum class BookingMode(val label: String, val description: String, val hint: String) {
+    PERIOD("Por turno", "Manhã, tarde ou noite", "Manhã, tarde, noite"),
+    HOURLY("Por hora", "Início e duração, dentro do horário de funcionamento", "Início e duração"),
+    DAILY("Dia inteiro", "Uma reserva por dia, do começo ao fim", "Uma por dia")
 }
 
 data class CommonArea(
@@ -32,6 +33,8 @@ data class CommonArea(
 
     val isHourly: Boolean get() = bookingMode == BookingMode.HOURLY
 
+    val isDaily: Boolean get() = bookingMode == BookingMode.DAILY
+
     /** "7h às 22h" */
     val openingHours: String get() = "${opensAt}h às ${closesAt}h"
 }
@@ -42,10 +45,16 @@ enum class ReservationPeriod(val label: String, val hours: String, val startHour
     NIGHT("Noite", "18h às 22h", 18, 22)
 }
 
-/** O horário pedido: um turno inteiro, ou horas cheias de [startHour] até [endHour]. */
+/** O horário pedido: um turno inteiro, horas cheias de [startHour] até [endHour] ou o dia todo. */
 sealed interface ReservationSlot {
     data class Period(val period: ReservationPeriod) : ReservationSlot
     data class Hours(val startHour: Int, val endHour: Int) : ReservationSlot
+
+    /** Ocupa das 0h às 24h, então colide com qualquer outra reserva da data. */
+    data object FullDay : ReservationSlot {
+        const val START_HOUR = 0
+        const val END_HOUR = 24
+    }
 }
 
 enum class ReservationStatus(val label: String) {
@@ -59,7 +68,7 @@ data class Reservation(
     val id: String,
     val area: CommonArea,
     val date: LocalDate,
-    /** null nas reservas por hora. */
+    /** null nas reservas por hora e nas do dia inteiro. */
     val period: ReservationPeriod?,
     val unit: String,
     val status: ReservationStatus,
@@ -68,12 +77,15 @@ data class Reservation(
     val startHour: Int = period?.startHour ?: 0,
     val endHour: Int = period?.endHour ?: 0
 ) {
-    /** "14h às 16h" */
-    val hoursLabel: String get() = "${startHour}h às ${endHour}h"
+    val isFullDay: Boolean
+        get() = period == null && startHour == ReservationSlot.FullDay.START_HOUR && endHour == ReservationSlot.FullDay.END_HOUR
 
-    /** Curto, para frases: "Tarde" ou "14h às 16h". */
+    /** "14h às 16h", ou "Dia inteiro" */
+    val hoursLabel: String get() = if (isFullDay) "Dia inteiro" else "${startHour}h às ${endHour}h"
+
+    /** Curto, para frases: "Tarde", "14h às 16h" ou "Dia inteiro". */
     val shortLabel: String get() = period?.label ?: hoursLabel
 
-    /** Completo, para cartões: "Tarde · 13h às 17h" ou "14h às 16h". */
+    /** Completo, para cartões: "Tarde · 13h às 17h", "14h às 16h" ou "Dia inteiro". */
     val timeLabel: String get() = period?.let { "${it.label} · ${it.hours}" } ?: hoursLabel
 }

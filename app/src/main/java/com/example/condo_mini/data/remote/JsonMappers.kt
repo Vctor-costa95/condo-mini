@@ -134,7 +134,8 @@ internal fun JSONObject.toArea(): CommonArea = CommonArea(
     iconKey = text("iconKey"),
     closedReason = str("closedReason"),
     condoId = text("condoId"),
-    bookingMode = BookingMode.valueOf(optString("bookingMode", BookingMode.PERIOD.name)),
+    // Modo que este app ainda não conhece vira turno, em vez de derrubar a lista de espaços.
+    bookingMode = BookingMode.entries.firstOrNull { it.name == optString("bookingMode") } ?: BookingMode.PERIOD,
     opensAt = optInt("opensAt", 8),
     closesAt = optInt("closesAt", 22),
     maxHours = optInt("maxHours", 2)
