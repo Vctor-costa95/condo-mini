@@ -6,6 +6,9 @@ import com.example.condo_mini.domain.model.ReservationPeriod
 import com.example.condo_mini.domain.model.ReservationSlot
 import com.example.condo_mini.domain.model.BookingMode
 import com.example.condo_mini.domain.model.ReservationStatus
+import com.example.condo_mini.domain.model.cleanGuestName
+import com.example.condo_mini.domain.model.guestLimit
+import com.example.condo_mini.domain.model.hasGuest
 import com.example.condo_mini.domain.repository.ReservationRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -88,8 +91,14 @@ class FakeReservationRepository : ReservationRepository {
     // Reservas de outras unidades: simulam indisponibilidade e alimentam a fila do síndico.
     private val reservations = MutableStateFlow(
         listOf(
-            Reservation("r1", areas.value[0], today.plusDays(3), ReservationPeriod.NIGHT, "Apto 302 - Bloco B", ReservationStatus.CONFIRMED, "Marina Costa"),
-            Reservation("r2", areas.value[1], today.plusDays(2), ReservationPeriod.AFTERNOON, "Apto 104 - Bloco A", ReservationStatus.CONFIRMED, "Paulo Mendes"),
+            Reservation(
+                "r1", areas.value[0], today.plusDays(3), ReservationPeriod.NIGHT, "Apto 302 - Bloco B", ReservationStatus.CONFIRMED, "Marina Costa",
+                guests = listOf("Beatriz Costa", "Felipe Andrade", "Luana Martins", "Rafael Nogueira", "Sofia Pires")
+            ),
+            Reservation(
+                "r2", areas.value[1], today.plusDays(2), ReservationPeriod.AFTERNOON, "Apto 104 - Bloco A", ReservationStatus.CONFIRMED, "Paulo Mendes",
+                guests = listOf("Marcos Teixeira", "Juliana Freitas")
+            ),
             Reservation("r3", areas.value[0], today.plusDays(7), ReservationPeriod.AFTERNOON, "Apto 201 - Bloco C", ReservationStatus.PENDING, "Helena Rocha"),
             Reservation("r4", areas.value[2], today.plusDays(5), ReservationPeriod.NIGHT, "Apto 503 - Bloco B", ReservationStatus.PENDING, "Ricardo Alves"),
             Reservation("r5", areas.value[3], today.plusDays(1), null, "Apto 402 - Bloco C", ReservationStatus.CONFIRMED, "Gustavo Prado", startHour = 18, endHour = 20)
@@ -135,7 +144,8 @@ class FakeReservationRepository : ReservationRepository {
         date: LocalDate,
         slot: ReservationSlot,
         unit: String,
-        residentName: String
+        residentName: String,
+        guests: List<String>
     ): Result<Reservation> {
         delay(400)
         val area = areas.value.firstOrNull { it.id == areaId }
@@ -164,10 +174,34 @@ class FakeReservationRepository : ReservationRepository {
             status = if (area.fee > 0) ReservationStatus.PENDING else ReservationStatus.CONFIRMED,
             residentName = residentName,
             startHour = start,
-            endHour = end
+            endHour = end,
+            guests = cleanGuests(guests, area).getOrElse { return Result.failure(it) }
         )
         reservations.update { it + reservation }
         return Result.success(reservation)
+    }
+
+    override suspend fun updateGuests(reservationId: String, guests: List<String>): Result<Reservation> {
+        delay(300)
+        val current = reservations.value.firstOrNull { it.id == reservationId }
+            ?: return Result.failure(IllegalArgumentException("Reserva não encontrada."))
+        if (!current.canEditGuests) {
+            return Result.failure(IllegalStateException("Esta reserva não aceita mais mudanças."))
+        }
+        val cleaned = cleanGuests(guests, current.area).getOrElse { return Result.failure(it) }
+        updateReservation(reservationId) { it.copy(guests = cleaned) }
+        return Result.success(current.copy(guests = cleaned))
+    }
+
+    /** Mesma limpeza do servidor: nomes aparados, sem vazios nem repetidos, até a capacidade. */
+    private fun cleanGuests(guests: List<String>, area: CommonArea): Result<List<String>> {
+        val names = guests.map { it.cleanGuestName() }.filter { it.isNotEmpty() }
+            .fold(emptyList<String>()) { acc, name -> if (acc.hasGuest(name)) acc else acc + name }
+        return if (names.size > area.guestLimit) {
+            Result.failure(IllegalArgumentException("O espaço comporta até ${area.guestLimit} convidados."))
+        } else {
+            Result.success(names)
+        }
     }
 
     override suspend fun cancel(reservationId: String) {

@@ -138,6 +138,22 @@ call('POST', "/reservations/{$d2['id']}/cancel", null, $paulo);
 check('cancelada não pode ser aprovada', call('POST', "/reservations/{$d2['id']}/approve", null, $manager)[0] === 409);
 call('POST', '/areas', $hall + ['bookingMode' => 'PERIOD'], $manager);
 
+echo "Convidados da reserva\n";
+$guestDay = date('Y-m-d', strtotime('+45 days'));
+[$s, $g] = call('POST', '/reservations', ['areaId' => 'a2', 'date' => $guestDay, 'period' => 'NIGHT', 'unit' => 'Apto 101 - Bloco A', 'guests' => ['  Bruno   Lima ', 'Carla Dias', 'bruno lima', '']], $resident);
+check('reserva com convidados, limpos e sem repetidos', $s === 201 && $g['guests'] === ['Bruno Lima', 'Carla Dias'], $g);
+[$s, $g2] = call('PUT', "/reservations/{$g['id']}/guests", ['guests' => ['Carla Dias', 'Diego Souza']], $resident);
+check('morador troca a lista', $s === 200 && $g2['guests'] === ['Carla Dias', 'Diego Souza'], $g2);
+check('lista maior que a capacidade recusada', call('PUT', "/reservations/{$g['id']}/guests", ['guests' => array_map(fn ($i) => "Pessoa $i", range(1, 31))], $resident)[0] === 422);
+check('outro apartamento não mexe na lista', call('PUT', "/reservations/{$g['id']}/guests", ['guests' => []], $paulo)[0] === 403);
+check('portaria não mexe na lista', call('PUT', "/reservations/{$g['id']}/guests", ['guests' => []], $doorman)[0] === 403);
+[$s, $seen] = call('GET', '/reservations', null, $doorman);
+$mine = array_values(array_filter($seen, fn ($x) => $x['id'] === $g['id']));
+check('portaria vê os convidados', $s === 200 && ($mine[0]['guests'] ?? null) === ['Carla Dias', 'Diego Souza'], $mine);
+check('lista vazia volta a ser nenhum', call('PUT', "/reservations/{$g['id']}/guests", ['guests' => []], $resident)[1]['guests'] === []);
+call('POST', "/reservations/{$g['id']}/cancel", null, $resident);
+check('cancelada não muda a lista', call('PUT', "/reservations/{$g['id']}/guests", ['guests' => ['X']], $resident)[0] === 409);
+
 echo "Mudanças e reparos\n";
 [$s, $move] = call('POST', '/service-bookings', ['type' => 'MOVE', 'date' => $farDay, 'period' => 'AFTERNOON', 'unit' => 'Apto 101 - Bloco A', 'provider' => 'Mudanças X'], $resident);
 check('pedido de mudança', $s === 201 && $move['status'] === 'PENDING', $move);

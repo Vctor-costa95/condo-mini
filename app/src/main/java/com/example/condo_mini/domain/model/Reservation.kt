@@ -57,6 +57,19 @@ sealed interface ReservationSlot {
     }
 }
 
+/** Teto da lista quando o espaço não informa capacidade (o servidor confere o mesmo). */
+const val MAX_GUESTS = 200
+const val MAX_GUEST_NAME = 80
+
+/** Quantos convidados cabem: a capacidade do espaço, ou o teto geral. */
+val CommonArea.guestLimit: Int get() = if (capacity > 0) minOf(capacity, MAX_GUESTS) else MAX_GUESTS
+
+/** Nome digitado, limpo como o servidor guarda: sem espaços sobrando e no tamanho máximo. */
+fun String.cleanGuestName(): String = trim().replace(Regex("\\s+"), " ").take(MAX_GUEST_NAME)
+
+/** Já está na lista? Sem diferenciar maiúsculas, como o servidor. */
+fun List<String>.hasGuest(name: String): Boolean = any { it.equals(name, ignoreCase = true) }
+
 enum class ReservationStatus(val label: String) {
     CONFIRMED("Confirmada"),
     PENDING("Aguardando aprovação"),
@@ -75,8 +88,15 @@ data class Reservation(
     val residentName: String = "",
     val rejectionReason: String? = null,
     val startHour: Int = period?.startHour ?: 0,
-    val endHour: Int = period?.endHour ?: 0
+    val endHour: Int = period?.endHour ?: 0,
+    /** Nomes que a portaria deixa entrar para a reserva. */
+    val guests: List<String> = emptyList()
 ) {
+    /** Ainda dá para mexer nos convidados: a reserva segura o horário e não passou. */
+    val canEditGuests: Boolean
+        get() = (status == ReservationStatus.PENDING || status == ReservationStatus.CONFIRMED) &&
+            !date.isBefore(LocalDate.now())
+
     val isFullDay: Boolean
         get() = period == null && startHour == ReservationSlot.FullDay.START_HOUR && endHour == ReservationSlot.FullDay.END_HOUR
 

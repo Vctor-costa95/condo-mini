@@ -181,12 +181,19 @@ function seed_demo(): void
         ['r4', 'a3', 5, ['NIGHT'], 'Apto 503 - Bloco B', 'PENDING', 'Ricardo Alves'],
         ['r5', 'a4', 1, [null, 18, 20], 'Apto 402 - Bloco C', 'CONFIRMED', 'Gustavo Prado'],
     ];
+    // Convidados para a portaria ver na Agenda.
+    $guests = [
+        'r1' => ['Beatriz Costa', 'Felipe Andrade', 'Luana Martins', 'Rafael Nogueira', 'Sofia Pires'],
+        'r2' => ['Marcos Teixeira', 'Juliana Freitas'],
+    ];
     foreach ($reservations as [$id, $areaId, $offset, $slot, $unit, $status, $resident]) {
         [$start, $end] = $slot[0] === null ? [$slot[1], $slot[2]] : PERIOD_HOURS[$slot[0]];
         $insert('reservations', [
             'id' => $id, 'condo_id' => 'c1', 'area_id' => $areaId, 'date' => $day($offset), 'period' => $slot[0],
             'start_hour' => $start, 'end_hour' => $end,
-            'unit' => $unit, 'status' => $status, 'resident_name' => $resident, 'created_at' => $at('-1 day'),
+            'unit' => $unit, 'status' => $status, 'resident_name' => $resident,
+            'guests' => isset($guests[$id]) ? json_encode($guests[$id], JSON_UNESCAPED_UNICODE) : null,
+            'created_at' => $at('-1 day'),
         ]);
     }
 

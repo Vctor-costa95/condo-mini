@@ -80,8 +80,12 @@ interface ReservationRepository {
         date: LocalDate,
         slot: ReservationSlot,
         unit: String,
-        residentName: String
+        residentName: String,
+        guests: List<String> = emptyList()
     ): Result<Reservation>
+
+    /** Troca a lista de convidados que a portaria vê (a lista inteira). */
+    suspend fun updateGuests(reservationId: String, guests: List<String>): Result<Reservation>
 
     suspend fun cancel(reservationId: String)
 

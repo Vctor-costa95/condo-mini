@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,10 +24,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Handyman
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -46,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -57,6 +61,7 @@ import com.example.condo_mini.domain.model.RepairKind
 import com.example.condo_mini.domain.model.SERVICE_PERIODS
 import com.example.condo_mini.domain.model.ServiceBooking
 import com.example.condo_mini.domain.model.ServiceType
+import com.example.condo_mini.domain.model.guestLimit
 import com.example.condo_mini.ui.screens.reservations.history.HistoryLinkCard
 import com.example.condo_mini.ui.components.AreaCoverCard
 import com.example.condo_mini.ui.components.CondoCard
@@ -96,6 +101,7 @@ fun ReservationsRoute(
         uiState = uiState,
         onAreaClick = viewModel::onAreaSelected,
         onCancelReservation = viewModel::onCancelReservation,
+        onEditGuests = viewModel::onEditGuests,
         onNewService = viewModel::onNewService,
         onCancelService = viewModel::onCancelService,
         onHistoryClick = onHistoryClick,
@@ -109,8 +115,18 @@ fun ReservationsRoute(
             onPeriodSelected = viewModel::onPeriodSelected,
             onStartHourSelected = viewModel::onStartHourSelected,
             onDurationSelected = viewModel::onDurationSelected,
+            onGuestsChanged = viewModel::onBookingGuestsChanged,
             onConfirm = viewModel::onConfirmBooking,
             onDismiss = viewModel::onDismissBooking
+        )
+    }
+
+    uiState.guestsEdit?.let { state ->
+        GuestsSheet(
+            state = state,
+            onChange = viewModel::onGuestsChanged,
+            onSave = viewModel::onSaveGuests,
+            onDismiss = viewModel::onDismissGuests
         )
     }
 
@@ -130,6 +146,7 @@ fun ReservationsScreen(
     uiState: ReservationsUiState,
     onAreaClick: (CommonArea) -> Unit,
     onCancelReservation: (Reservation) -> Unit,
+    onEditGuests: (Reservation) -> Unit,
     onNewService: (ServiceType) -> Unit,
     onCancelService: (ServiceBooking) -> Unit,
     onHistoryClick: () -> Unit,
@@ -157,7 +174,11 @@ fun ReservationsScreen(
                 )
             }
             items(uiState.myReservations, key = { it.id }) { reservation ->
-                MyReservationCard(reservation, onCancel = { toCancel = reservation })
+                MyReservationCard(
+                    reservation,
+                    onCancel = { toCancel = reservation },
+                    onEditGuests = { onEditGuests(reservation) }
+                )
             }
         }
         // Mudança e reparo não são espaços: ficam num bloco próprio, antes da lista de áreas.
@@ -460,8 +481,8 @@ private fun ServiceRequestSheet(
 }
 
 @Composable
-private fun MyReservationCard(reservation: Reservation, onCancel: () -> Unit) {
-    CondoCard(contentPadding = PaddingValues(16.dp)) {
+private fun MyReservationCard(reservation: Reservation, onCancel: () -> Unit, onEditGuests: () -> Unit) {
+    CondoCard(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = if (reservation.canEditGuests) 4.dp else 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             DateBlock(reservation.date)
             Spacer(modifier = Modifier.width(16.dp))
@@ -488,6 +509,42 @@ private fun MyReservationCard(reservation: Reservation, onCancel: () -> Unit) {
                     Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+        }
+        if (reservation.canEditGuests) {
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            GuestsRow(reservation.guests, onClick = onEditGuests)
+        }
+    }
+}
+
+/** Rodapé do cartão: quem está na lista da portaria e o atalho para mexer nela. */
+@Composable
+private fun GuestsRow(guests: List<String>, onClick: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+        Icon(
+            Icons.Outlined.Groups,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(guestCountLabel(guests.size), style = MaterialTheme.typography.titleSmall)
+            Text(
+                if (guests.isEmpty()) {
+                    "Vai receber alguém? Avise a portaria."
+                } else {
+                    guests.take(3).joinToString(", ") + if (guests.size > 3) " e mais ${guests.size - 3}" else ""
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        TextButton(onClick = onClick) {
+            Text(if (guests.isEmpty()) "Adicionar" else "Editar", color = MaterialTheme.colorScheme.tertiary)
         }
     }
 }
@@ -525,6 +582,7 @@ private fun BookingSheet(
     onPeriodSelected: (ReservationPeriod) -> Unit,
     onStartHourSelected: (Int) -> Unit,
     onDurationSelected: (Int) -> Unit,
+    onGuestsChanged: (List<String>) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -537,10 +595,13 @@ private fun BookingSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background
     ) {
+        // Rola: com a lista de convidados a ficha passa da altura da tela.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
+                .imePadding()
                 .padding(bottom = 16.dp)
         ) {
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
@@ -626,6 +687,9 @@ private fun BookingSheet(
                         Text(booking.area.fee.toBrl(), style = MaterialTheme.typography.titleLarge)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                GuestListEditor(guests = booking.guests, limit = booking.area.guestLimit, onChange = onGuestsChanged)
 
                 booking.error?.let {
                     Spacer(modifier = Modifier.height(12.dp))

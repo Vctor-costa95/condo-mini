@@ -65,6 +65,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /reservations[?unit=]`, `POST /reservations` | morador com `unit`; síndico e portaria sem |
 | `GET /reservations?history=1[&unit=]`, `GET /service-bookings?history=1[&unit=]` | histórico com todos os status e datas, mais recente primeiro: morador com `unit`; síndico e admin sem (condomínio todo) |
 | `POST /reservations/{id}/cancel\|approve\|reject` | morador cancela / síndico aprova, recusa e cancela (com `reason` obrigatório) |
+| `PUT /reservations/{id}/guests` | morador do apartamento (ou síndico e admin) troca a lista inteira de convidados (`guests`: lista de nomes), enquanto a reserva está pendente ou confirmada e não passou. O `POST /reservations` também aceita `guests`. Nomes aparados, sem repetidos, até a capacidade do espaço (máx. 200); a portaria lê pelo `GET /reservations` |
 | `GET /service-bookings[?unit=]`, `GET /service-bookings/taken-moves?date=`, `POST /service-bookings` | idem |
 | `POST /service-bookings/{id}/cancel\|approve\|reject` | idem |
 | `GET /bills?unit=`, `GET /bills/{id}`, `GET /bills/{id}/pdf` | morador do apartamento |

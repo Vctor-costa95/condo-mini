@@ -170,6 +170,8 @@ CREATE TABLE IF NOT EXISTS reservations (
     unit             VARCHAR(80)  NOT NULL,
     status           ENUM('CONFIRMED','PENDING','REJECTED','CANCELED') NOT NULL,
     resident_name    VARCHAR(120) NOT NULL DEFAULT '',
+    -- Convidados para a portaria: JSON com os nomes, ou null.
+    guests           TEXT         NULL,
     rejection_reason VARCHAR(255) NULL,
     created_at       DATETIME     NOT NULL,
     KEY ix_reservations_slot (area_id, date),
