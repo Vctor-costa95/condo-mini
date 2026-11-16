@@ -58,7 +58,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /logins/available?login=&exceptUserId=` | admin (considera também pedidos de cadastro pendentes) |
 | `GET /public/condos` | sem login: prédios e blocos para quem vai criar a conta (sem moradores) |
 | `POST /signup` `{condoId, name, email, phone, login, password, unit}` | sem login: pedido de cadastro do morador; até 5 pendentes por endereço por hora |
-| `GET /signup-requests?condoId=`, `POST /signup-requests/{id}/approve` `{unit?}`, `POST /signup-requests/{id}/reject` `{reason}` | admin, só dos prédios da administradora dele: aceitar vira morador com a senha que a pessoa escolheu |
+| `GET /signup-requests?condoId=`, `POST /signup-requests/{id}/approve` `{unit?}`, `POST /signup-requests/{id}/reject` `{reason}` | admin, só dos prédios da administradora dele (no app, em Cadastros, e no painel): aceitar vira morador com a senha que a pessoa escolheu. A notificação de pedido novo leva `condoId`, para o app abrir no prédio certo. `GET /companies` traz `pendingSignups`, para a plataforma ver pedidos parados em administradora sem administrador |
 | `GET /notices`, `POST /notices`, `DELETE /notices/{id}` | todos leem / síndico e admin publicam |
 | `GET /areas`, `POST /areas`, `DELETE /areas/{id}`, `PUT /areas/{id}/closed` | todos leem / síndico e admin editam |
 | `GET /areas/{id}/booked?date=` | todos |

@@ -33,12 +33,17 @@ object PushNotifications {
     private const val TAG = "CondoPush"
     const val CHANNEL_ID = "condomini"
     const val EXTRA_TAB = "push_tab"
+    const val EXTRA_CONDO = "push_condo"
 
     val isConfigured: Boolean get() = BuildConfig.FIREBASE_APP_ID.isNotBlank()
 
     /** Aba pedida por uma notificação tocada; a tela principal navega e limpa. */
     private val _pendingTab = MutableStateFlow<String?>(null)
     val pendingTab: StateFlow<String?> = _pendingTab.asStateFlow()
+
+    /** Prédio da notificação (pedido de cadastro): o administrador pode estar vendo outro. */
+    var pendingCondoId: String? = null
+        private set
 
     fun init(context: Context) {
         if (!isConfigured) return
@@ -79,10 +84,11 @@ object PushNotifications {
     }
 
     /** Com o app aberto o sistema não mostra a notificação sozinho: mostramos aqui. */
-    fun show(context: Context, title: String, body: String, tab: String?) {
+    fun show(context: Context, title: String, body: String, tab: String?, condoId: String? = null) {
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             .putExtra(EXTRA_TAB, tab)
+            .putExtra(EXTRA_CONDO, condoId)
         val pending = PendingIntent.getActivity(
             context, (title + body).hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -106,10 +112,14 @@ object PushNotifications {
      */
     fun handleIntent(intent: Intent?) {
         val tab = intent?.getStringExtra(EXTRA_TAB) ?: intent?.getStringExtra("tab")
-        if (!tab.isNullOrBlank()) _pendingTab.value = tab
+        if (!tab.isNullOrBlank()) {
+            pendingCondoId = (intent?.getStringExtra(EXTRA_CONDO) ?: intent?.getStringExtra("condoId"))?.takeIf { it.isNotBlank() }
+            _pendingTab.value = tab
+        }
     }
 
     fun consumePendingTab() {
         _pendingTab.value = null
+        pendingCondoId = null
     }
 }

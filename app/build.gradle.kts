@@ -24,9 +24,11 @@ android {
         // Para a API local no emulador: `adb reverse tcp:8080 tcp:8080` e
         // -Pcondomini.apiUrl=http://127.0.0.1:8080. O 10.0.2.2 não serve: no Android 17,
         // endereço de rede local exige a permissão ACCESS_LOCAL_NETWORK, e o app não pede.
-        val apiUrl = providers.gradleProperty("condomini.apiUrl")
-            .orElse("https://api-condomini.tcpneus-logistica.com/api-condomini").get()
+        val productionApiUrl = "https://api-condomini.tcpneus-logistica.com/api-condomini"
+        val apiUrl = providers.gradleProperty("condomini.apiUrl").orElse(productionApiUrl).get()
         buildConfigField("String", "API_BASE_URL", "\"$apiUrl\"")
+        // Ligado a outra API (a local, por exemplo): o app mostra a faixa "API de teste" no topo.
+        buildConfigField("boolean", "USES_TEST_API", (apiUrl.isNotBlank() && apiUrl != productionApiUrl).toString())
         manifestPlaceholders["cleartextTraffic"] = apiUrl.startsWith("http://").toString()
 
         // Firebase (notificações push), lido do app/google-services.json baixado do console do

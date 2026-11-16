@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.SignupRequest
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.ui.components.CondoCard
@@ -107,8 +108,30 @@ fun AdminUsersRoute(
         onQueryChanged = viewModel::onQueryChanged,
         onNewUser = viewModel::onNewUser,
         onEditUser = viewModel::onEditUser,
+        onReviewRequest = viewModel::onReviewRequest,
+        onRejectRequest = viewModel::onRejectRequest,
         modifier = modifier
     )
+
+    uiState.review?.let { review ->
+        SignupReviewSheet(
+            review = review,
+            units = uiState.units,
+            occupantsByUnit = uiState.occupantsByUnit,
+            onUnitSelected = viewModel::onReviewUnitSelected,
+            onApprove = viewModel::onApproveRequest,
+            onDismiss = viewModel::onDismissReview
+        )
+    }
+
+    uiState.rejection?.let { rejection ->
+        SignupRejectionDialog(
+            rejection = rejection,
+            onReasonChange = viewModel::onRejectionReasonChanged,
+            onConfirm = viewModel::onConfirmRejection,
+            onDismiss = viewModel::onDismissRejection
+        )
+    }
 
     uiState.form?.let { form ->
         UserFormSheet(
@@ -131,6 +154,8 @@ fun AdminUsersScreen(
     onQueryChanged: (String) -> Unit,
     onNewUser: () -> Unit,
     onEditUser: (User) -> Unit,
+    onReviewRequest: (SignupRequest) -> Unit,
+    onRejectRequest: (SignupRequest) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -172,6 +197,26 @@ fun AdminUsersScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 4.dp)
                     )
+                }
+                // Pedidos pedem ação: ficam antes da lista, enquanto não há busca.
+                if (uiState.requests.isNotEmpty() && uiState.query.isBlank()) {
+                    item(key = "requests_header") {
+                        SignupRequestsHeader(
+                            uiState.requests.size,
+                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp)
+                        )
+                    }
+                    items(uiState.requests, key = { "request_${it.id}" }) { request ->
+                        SignupRequestCard(
+                            request,
+                            onReview = { onReviewRequest(request) },
+                            onReject = { onRejectRequest(request) },
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
+                    }
+                    item(key = "people_header") {
+                        SectionHeader("Pessoas", modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp))
+                    }
                 }
                 item {
                     LazyRow(

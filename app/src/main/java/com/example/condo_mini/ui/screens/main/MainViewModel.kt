@@ -80,9 +80,12 @@ class MainViewModel(
         )
     }
 
-    // Moradores cadastrados que ainda não foram alocados em um apartamento.
-    private fun adminBadges(): Flow<Map<AppTab, Int>> = directoryRepository.observeUsers().map { users ->
-        mapOf(AppTab.ADMIN_USERS to users.count { it.role == UserRole.RESIDENT && it.units.isEmpty() })
+    // Pedidos de cadastro feitos pelo app e moradores que ainda não foram alocados em um apartamento.
+    private fun adminBadges(): Flow<Map<AppTab, Int>> = combine(
+        directoryRepository.observeUsers(),
+        directoryRepository.observeSignupRequests()
+    ) { users, requests ->
+        mapOf(AppTab.ADMIN_USERS to requests.size + users.count { it.role == UserRole.RESIDENT && it.units.isEmpty() })
     }
 
     private fun managerBadges(condoId: String): Flow<Map<AppTab, Int>> = combine(

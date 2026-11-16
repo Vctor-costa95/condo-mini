@@ -16,6 +16,7 @@ import com.example.condo_mini.domain.model.ReservationPeriod
 import com.example.condo_mini.domain.model.ReservationSlot
 import com.example.condo_mini.domain.model.ServiceBooking
 import com.example.condo_mini.domain.model.SignupForm
+import com.example.condo_mini.domain.model.SignupRequest
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
@@ -180,6 +181,15 @@ interface DirectoryRepository {
 
     /** Se o usuário de acesso ainda não pertence a outro cadastro. */
     suspend fun isLoginAvailable(login: String, exceptUserId: String = ""): Boolean
+
+    /** Pedidos de cadastro feitos pelo app no condomínio selecionado, mais antigos primeiro. */
+    fun observeSignupRequests(): Flow<List<SignupRequest>>
+
+    /** Aceita o pedido em [unit] (o apartamento pedido ou outro); devolve o cadastro criado. */
+    suspend fun approveSignup(requestId: String, unit: String): Result<User>
+
+    /** Recusa com um motivo, que a pessoa vê ao tentar entrar. */
+    suspend fun rejectSignup(requestId: String, reason: String): Result<Unit>
 }
 
 interface ParcelRepository {

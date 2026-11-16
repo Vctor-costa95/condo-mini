@@ -386,7 +386,8 @@ function register_directory_routes(Router $r): void
             array_column(rows("SELECT id FROM users WHERE role = 'ADMIN' AND company_id = ?", [$condo['company_id'] ?? '']), 'id'),
             'Novo pedido de cadastro',
             "{$request['name']} · {$request['unit']} · {$condo['name']}",
-            ['tab' => 'signup_requests', 'id' => $request['id']]
+            // condoId: o administrador pode estar vendo outro prédio; o app troca para este.
+            ['tab' => 'signup_requests', 'id' => $request['id'], 'condoId' => $condoId]
         );
         send_json(signup_request_json(row('SELECT * FROM signup_requests WHERE id = ?', [$request['id']])), 201);
     });

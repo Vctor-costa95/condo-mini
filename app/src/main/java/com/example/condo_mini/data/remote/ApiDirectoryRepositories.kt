@@ -3,6 +3,7 @@ package com.example.condo_mini.data.remote
 import android.util.Log
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.Condominium
+import com.example.condo_mini.domain.model.SignupRequest
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.domain.repository.DirectoryRepository
@@ -180,4 +181,22 @@ class ApiDirectoryRepository(private val api: ApiClient) : DirectoryRepository {
     override suspend fun isLoginAvailable(login: String, exceptUserId: String): Boolean =
         JSONObject(api.get("logins/available", mapOf("login" to login.trim(), "exceptUserId" to exceptUserId)))
             .getBoolean("available")
+
+    override fun observeSignupRequests(): Flow<List<SignupRequest>> =
+        _selectedCondoId.flatMapLatest { id ->
+            if (id.isBlank()) {
+                flowOf(emptyList())
+            } else {
+                api.live { api.get("signup-requests", mapOf("condoId" to id)).list { it.toSignupRequest() } }
+            }
+        }
+
+    override suspend fun approveSignup(requestId: String, unit: String): Result<User> = runCatching {
+        api.send("POST", "signup-requests/$requestId/approve", JSONObject().put("unit", unit)).obj { it.toUser() }
+    }
+
+    override suspend fun rejectSignup(requestId: String, reason: String): Result<Unit> = runCatching {
+        api.send("POST", "signup-requests/$requestId/reject", JSONObject().put("reason", reason.trim()))
+        Unit
+    }
 }
