@@ -218,9 +218,10 @@ fun MainScreen(
         PushNotifications.consumePendingTab()
         when {
             key == DOCUMENTS_ROUTE -> navController.navigate(DOCUMENTS_ROUTE) { launchSingleTop = true }
-            // Pedido de cadastro novo: os pedidos ficam no topo de Cadastros, no prédio do pedido.
-            key == "signup_requests" -> tabs.firstOrNull { it == AppTab.ADMIN_USERS }?.let { tab ->
-                condoId?.let(AppContainer.directoryRepository::selectCondo)
+            // Pedido de cadastro novo: o administrador vê no topo de Cadastros, já no prédio do pedido;
+            // o síndico, em Aprovações.
+            key == "signup_requests" -> tabs.firstOrNull { it == AppTab.ADMIN_USERS || it == AppTab.MANAGER_RESERVATIONS }?.let { tab ->
+                if (tab == AppTab.ADMIN_USERS) condoId?.let(AppContainer.directoryRepository::selectCondo)
                 navController.navigateToTab(tab)
             }
             else -> tabs.firstOrNull { it.route == key || it.route.endsWith("_$key") }?.let(navController::navigateToTab)

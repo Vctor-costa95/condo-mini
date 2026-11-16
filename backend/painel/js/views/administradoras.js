@@ -70,29 +70,32 @@ export function renderCompanies(container) {
         );
     }
 
-    /** Sem administrador, os pedidos de cadastro dos prédios dela não chegam a ninguém. */
+    /**
+     * Sem administrador, os pedidos de cadastro só chegam ao síndico de cada prédio; em prédio
+     * sem síndico, não chegam a ninguém.
+     */
     function orphanWarning(company) {
         if (company.adminCount > 0 || company.condoCount === 0) return null;
-        const pending = company.pendingSignups || 0;
+        const stuck = company.unattendedSignups || 0;
         return h('div', { class: 'company-alert' },
             icon('alert', 16),
             h('span', {},
-                h('strong', {}, pending ? `${pending} ${pending === 1 ? 'pedido de cadastro parado' : 'pedidos de cadastro parados'}. ` : 'Sem administrador. '),
-                pending
-                    ? 'Ninguém da administradora recebe. Cadastre um administrador ou aceite pelo condomínio, em Cadastros.'
-                    : 'Pedidos de cadastro feitos pelo app não vão chegar a ninguém. Cadastre um administrador.'
+                h('strong', {}, stuck ? `${stuck} ${stuck === 1 ? 'pedido de cadastro parado' : 'pedidos de cadastro parados'}. ` : 'Sem administrador. '),
+                stuck
+                    ? 'O prédio não tem síndico e a administradora não tem administrador. Cadastre um dos dois ou aceite pelo condomínio, em Cadastros.'
+                    : 'Pedidos de cadastro feitos pelo app chegam só ao síndico de cada prédio. Cadastre um administrador.'
             )
         );
     }
 
-    /** Aviso no topo da lista: administradoras com pedidos que ninguém vê. */
+    /** Aviso no topo da lista: pedidos que ninguém além da plataforma vê. */
     function orphanNotice() {
-        const stuck = view.companies.filter((c) => c.adminCount === 0 && (c.pendingSignups || 0) > 0);
+        const stuck = view.companies.filter((c) => c.adminCount === 0 && (c.unattendedSignups || 0) > 0);
         if (!stuck.length) return null;
-        const total = stuck.reduce((sum, c) => sum + c.pendingSignups, 0);
+        const total = stuck.reduce((sum, c) => sum + c.unattendedSignups, 0);
         return h('div', { class: 'notice notice-warning' },
             icon('alert', 18),
-            h('span', {}, `${total} ${total === 1 ? 'pedido de cadastro está parado' : 'pedidos de cadastro estão parados'} em administradora sem administrador: ${stuck.map((c) => c.name).join(', ')}.`)
+            h('span', {}, `${total} ${total === 1 ? 'pedido de cadastro está parado' : 'pedidos de cadastro estão parados'} em prédio sem síndico, de administradora sem administrador: ${stuck.map((c) => c.name).join(', ')}.`)
         );
     }
 

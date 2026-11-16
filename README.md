@@ -36,7 +36,7 @@ O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na H
 O login é **usuário e senha**. A conta nasce de dois jeitos:
 
 - **A administradora cadastra** a pessoa (no app ou no painel), com usuário, senha, perfil e apartamentos.
-- **O morador cria a própria conta** em "Criar conta", na tela de login: escolhe o prédio, o apartamento, e informa os dados com o usuário e a senha que quer usar. O pedido fica **aguardando** até a administradora aceitar, no app ou no painel (ela pode trocar o apartamento), ou recusar com um motivo. Enquanto isso, quem tenta entrar vê a situação do pedido.
+- **O morador cria a própria conta** em "Criar conta", na tela de login: escolhe o prédio, o apartamento, e informa os dados com o usuário e a senha que quer usar. O pedido fica **aguardando** até a administradora (no app ou no painel) ou o **síndico do prédio** (no app) aceitar, podendo trocar o apartamento, ou recusar com um motivo. Enquanto isso, quem tenta entrar vê a situação do pedido.
 
 O perfil e os apartamentos vêm do cadastro. Depois de entrar, o celular **continua logado** até a pessoa tocar em "Sair da conta". Em **Perfil → Preferências → Tema**, cada um escolhe tema do sistema, claro ou escuro.
 
@@ -56,7 +56,7 @@ Quem tem mais de um apartamento escolhe qual ver ao entrar e troca depois, tocan
 | Aba | O que faz |
 |---|---|
 | **Avisos** | Publica avisos (com categoria e opção de fixar) e exclui. |
-| **Reservas** | Aprova ou recusa reservas, mudanças e reparos pendentes, e **cancela** os já confirmados. Para recusar ou cancelar, informa o motivo, que vai para o morador. O **Histórico** mostra todos os pedidos do condomínio, mês a mês, com filtro por apartamento e por situação. |
+| **Reservas** | Aprova ou recusa reservas, mudanças, reparos e **pedidos de cadastro** do prédio (estes no topo; aceitar confere ou troca o apartamento), e **cancela** os já confirmados. Para recusar ou cancelar, informa o motivo, que vai para o morador. O **Histórico** mostra todos os pedidos do condomínio, mês a mês, com filtro por apartamento e por situação. |
 | **Ocorrências** | Responde, pede mais detalhes ou marca como resolvida, com fotos. |
 | **Documentos** | Publica PDFs para todos os moradores e substitui o regimento ou a convenção vigente. |
 
@@ -96,7 +96,7 @@ Tudo isso se faz no **painel web**, entrando com a conta da plataforma:
 
 | Tela | O que faz |
 |---|---|
-| **Administradoras** | Cria e edita (nome, CNPJ, cor), sobe a logo com prévia no tema claro e no escuro, suspende ou reativa, e cadastra os administradores de cada uma. Administradora com prédios e **sem administrador** ganha um alerta, porque os pedidos de cadastro dela não chegam a ninguém; com pedido parado, o aviso sobe para o topo da lista. |
+| **Administradoras** | Cria e edita (nome, CNPJ, cor), sobe a logo com prévia no tema claro e no escuro, suspende ou reativa, e cadastra os administradores de cada uma. Administradora com prédios e **sem administrador** ganha um alerta: os pedidos de cadastro chegam só ao síndico de cada prédio. Pedido em prédio sem síndico fica parado, e o aviso sobe para o topo da lista. |
 | **Condomínios** | Todos os condomínios, com filtro por administradora. Cria condomínio já na administradora certa e move de uma para outra. |
 | **Unidades, Cadastros, Espaços** | As mesmas telas da administradora, em qualquer condomínio, para dar suporte. |
 
@@ -126,7 +126,7 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 | PDF do boleto enviado | Moradores do apartamento |
 | Pedido de reserva com taxa, mudança ou reparo | Síndico |
 | Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | Moradores do apartamento |
-| Pedido de cadastro feito pelo app | Administradores da administradora que cuida do prédio |
+| Pedido de cadastro feito pelo app | Administradores da administradora que cuida do prédio e o síndico dele |
 | Ocorrência nova ou resposta do morador | Síndico |
 | Resposta do síndico na ocorrência | Moradores do apartamento |
 

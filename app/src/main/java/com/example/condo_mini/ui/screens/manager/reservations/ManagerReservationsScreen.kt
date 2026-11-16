@@ -40,6 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.Reservation
+import com.example.condo_mini.domain.model.SignupRequest
+import com.example.condo_mini.ui.screens.admin.users.SignupRejectionDialog
+import com.example.condo_mini.ui.screens.admin.users.SignupRequestCard
+import com.example.condo_mini.ui.screens.admin.users.SignupReviewSheet
 import com.example.condo_mini.domain.model.ServiceBooking
 import com.example.condo_mini.domain.model.ServiceType
 import com.example.condo_mini.ui.components.CondoCard
@@ -78,9 +82,31 @@ fun ManagerReservationsRoute(
         onRejectService = viewModel::onRejectService,
         onCancel = viewModel::onCancel,
         onCancelService = viewModel::onCancelService,
+        onReviewSignup = viewModel.signups::onReview,
+        onRejectSignup = viewModel.signups::onReject,
         onHistoryClick = onHistoryClick,
         modifier = modifier
     )
+
+    uiState.review?.let { review ->
+        SignupReviewSheet(
+            review = review,
+            units = uiState.units,
+            occupantsByUnit = uiState.occupantsByUnit,
+            onUnitSelected = viewModel.signups::onUnitSelected,
+            onApprove = viewModel.signups::onApprove,
+            onDismiss = viewModel.signups::onDismissReview
+        )
+    }
+
+    uiState.rejection?.let { rejection ->
+        SignupRejectionDialog(
+            rejection = rejection,
+            onReasonChange = viewModel.signups::onReasonChanged,
+            onConfirm = viewModel.signups::onConfirmRejection,
+            onDismiss = viewModel.signups::onDismissRejection
+        )
+    }
 }
 
 @Composable
@@ -92,6 +118,8 @@ fun ManagerReservationsScreen(
     onRejectService: (ServiceBooking, String) -> Unit,
     onCancel: (Reservation, String) -> Unit,
     onCancelService: (ServiceBooking, String) -> Unit,
+    onReviewSignup: (SignupRequest) -> Unit,
+    onRejectSignup: (SignupRequest) -> Unit,
     onHistoryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -122,12 +150,20 @@ fun ManagerReservationsScreen(
                 EmptyState(
                     icon = Icons.Outlined.EventAvailable,
                     title = "Tudo em dia",
-                    message = "Nenhuma reserva, mudança ou reparo aguardando sua aprovação.",
+                    message = "Nenhuma reserva, mudança, reparo ou cadastro aguardando sua aprovação.",
                     modifier = Modifier.height(260.dp)
                 )
             }
         }
-        // Mudanças e reparos primeiro: têm data marcada com empresa e portaria envolvidas.
+        // Cadastros primeiro: a pessoa fica sem entrar no app até alguém decidir.
+        items(uiState.signupRequests, key = { "signup_${it.id}" }) { request ->
+            SignupRequestCard(
+                request = request,
+                onReview = { onReviewSignup(request) },
+                onReject = { onRejectSignup(request) }
+            )
+        }
+        // Depois mudanças e reparos: têm data marcada com empresa e portaria envolvidas.
         items(uiState.pendingServices, key = { it.id }) { booking ->
             PendingServiceCard(
                 booking = booking,

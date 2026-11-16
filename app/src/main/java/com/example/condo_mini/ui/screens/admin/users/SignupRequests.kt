@@ -87,7 +87,7 @@ fun SignupRequestCard(
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
-            StatusChip("Novo", StatusTone.WARNING)
+            StatusChip("Cadastro", StatusTone.WARNING)
         }
         Spacer(modifier = Modifier.height(12.dp))
         Row(

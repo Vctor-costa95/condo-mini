@@ -382,8 +382,11 @@ function register_directory_routes(Router $r): void
             );
         });
         notify(
-            // Só os administradores da administradora que cuida do prédio.
-            array_column(rows("SELECT id FROM users WHERE role = 'ADMIN' AND company_id = ?", [$condo['company_id'] ?? '']), 'id'),
+            // Os administradores da administradora que cuida do prédio e o síndico dele.
+            array_merge(
+                array_column(rows("SELECT id FROM users WHERE role = 'ADMIN' AND company_id = ?", [$condo['company_id'] ?? '']), 'id'),
+                managers_of($condoId)
+            ),
             'Novo pedido de cadastro',
             "{$request['name']} · {$request['unit']} · {$condo['name']}",
             // condoId: o administrador pode estar vendo outro prédio; o app troca para este.
@@ -392,15 +395,16 @@ function register_directory_routes(Router $r): void
         send_json(signup_request_json(row('SELECT * FROM signup_requests WHERE id = ?', [$request['id']])), 201);
     });
 
+    // Administradora (prédios dela) e síndico (o próprio prédio).
     $r->add('GET', '/signup-requests', function () {
-        require_role('ADMIN');
+        require_role('ADMIN', 'MANAGER');
         $rows = rows("SELECT * FROM signup_requests WHERE condo_id = ? AND status = 'PENDING' ORDER BY created_at", [condo_id()]);
         send_json(array_map('signup_request_json', $rows));
     });
 
     // Vira morador com a senha que a própria pessoa escolheu; a administradora pode trocar o apartamento.
     $r->add('POST', '/signup-requests/{id}/approve', function (string $id) {
-        require_role('ADMIN');
+        require_role('ADMIN', 'MANAGER');
         $request = find_signup_request($id);
         $unit = trim((string) input('unit', $request['unit'])) ?: $request['unit'];
         if (!in_array($unit, condo_unit_labels($request['condo_id']), true)) {
@@ -424,7 +428,7 @@ function register_directory_routes(Router $r): void
     });
 
     $r->add('POST', '/signup-requests/{id}/reject', function (string $id) {
-        require_role('ADMIN');
+        require_role('ADMIN', 'MANAGER');
         $request = find_signup_request($id);
         $reason = required_string('reason', 255);
         exec_sql("UPDATE signup_requests SET status = 'REJECTED', reject_reason = ? WHERE id = ?", [$reason, $request['id']]);
