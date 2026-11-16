@@ -181,6 +181,9 @@ class FakeDirectoryRepository : DirectoryRepository {
     override fun observeSignupRequests(): Flow<List<SignupRequest>> =
         combine(requests, _selectedCondoId) { list, id -> list.map { it.first }.filter { it.condoId == id }.sortedBy { it.createdAt } }
 
+    override fun observeSignupRequestsOf(condoId: String): Flow<List<SignupRequest>> =
+        requests.map { list -> list.map { it.first }.filter { it.condoId == condoId }.sortedBy { it.createdAt } }
+
     override suspend fun approveSignup(requestId: String, unit: String): Result<User> {
         delay(300)
         val (request, password) = requests.value.firstOrNull { it.first.id == requestId }

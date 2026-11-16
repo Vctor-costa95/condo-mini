@@ -183,13 +183,10 @@ class ApiDirectoryRepository(private val api: ApiClient) : DirectoryRepository {
             .getBoolean("available")
 
     override fun observeSignupRequests(): Flow<List<SignupRequest>> =
-        _selectedCondoId.flatMapLatest { id ->
-            if (id.isBlank()) {
-                flowOf(emptyList())
-            } else {
-                api.live { api.get("signup-requests", mapOf("condoId" to id)).list { it.toSignupRequest() } }
-            }
-        }
+        _selectedCondoId.flatMapLatest { id -> if (id.isBlank()) flowOf(emptyList()) else observeSignupRequestsOf(id) }
+
+    override fun observeSignupRequestsOf(condoId: String): Flow<List<SignupRequest>> =
+        api.live { api.get("signup-requests", mapOf("condoId" to condoId)).list { it.toSignupRequest() } }
 
     override suspend fun approveSignup(requestId: String, unit: String): Result<User> = runCatching {
         api.send("POST", "signup-requests/$requestId/approve", JSONObject().put("unit", unit)).obj { it.toUser() }

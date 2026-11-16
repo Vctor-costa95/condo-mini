@@ -58,7 +58,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /logins/available?login=&exceptUserId=` | admin (considera também pedidos de cadastro pendentes) |
 | `GET /public/condos` | sem login: prédios e blocos para quem vai criar a conta (sem moradores) |
 | `POST /signup` `{condoId, name, email, phone, login, password, unit}` | sem login: pedido de cadastro do morador; até 5 pendentes por endereço por hora |
-| `GET /signup-requests?condoId=`, `POST /signup-requests/{id}/approve` `{unit?}`, `POST /signup-requests/{id}/reject` `{reason}` | admin, só dos prédios da administradora dele (no app, em Cadastros, e no painel): aceitar vira morador com a senha que a pessoa escolheu. A notificação de pedido novo leva `condoId`, para o app abrir no prédio certo. `GET /companies` traz `pendingSignups`, para a plataforma ver pedidos parados em administradora sem administrador |
+| `GET /signup-requests?condoId=`, `POST /signup-requests/{id}/approve` `{unit?}`, `POST /signup-requests/{id}/reject` `{reason}` | admin (prédios da administradora dele; no app, em Cadastros, e no painel) e síndico (o próprio prédio; no app, em Aprovações): aceitar vira morador com a senha que a pessoa escolheu. A notificação de pedido novo leva `condoId`, para o app abrir no prédio certo. `GET /companies` traz `unattendedSignups` (pedidos em prédios sem síndico), para a plataforma ver pedidos parados em administradora sem administrador |
 | `GET /notices`, `POST /notices`, `DELETE /notices/{id}` | todos leem / síndico e admin publicam |
 | `GET /areas`, `POST /areas`, `DELETE /areas/{id}`, `PUT /areas/{id}/closed` | todos leem / síndico e admin editam |
 | `GET /areas/{id}/booked?date=` | todos |
@@ -91,7 +91,7 @@ O app registra o celular em `POST /devices` (`{"token", "platform"}`) depois de 
 | Reserva com taxa, pedido de mudança ou reparo | síndico |
 | Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | moradores do apartamento |
 | Ocorrência nova; resposta do morador | síndico |
-| Pedido de cadastro feito pelo app | administradores da administradora do prédio |
+| Pedido de cadastro feito pelo app | administradores da administradora do prédio e o síndico dele |
 | Resposta, pedido de detalhes ou ocorrência resolvida | moradores do apartamento |
 
 Quem faz a ação não recebe a própria notificação. O envio usa a API HTTP v1 do FCM, com o token OAuth assinado em PHP (`openssl`), e roda depois da resposta ao app. Configure `push.service_account_file` no `config.php`; com `push.log_file`, as mensagens vão para um arquivo (usado pelo teste de fumaça).

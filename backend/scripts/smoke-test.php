@@ -292,7 +292,10 @@ check('mesmo usuário em outro pedido recusado', $signup("pt.$suffix")[0] === 40
 [$s, $err] = call('POST', '/auth/login', ['login' => "pt.$suffix", 'password' => 'segredo1']);
 check('login pendente explica a espera', $s === 403 && str_contains($err['error'], 'aguardando'), $err);
 check('senha errada no pedido continua genérica', call('POST', '/auth/login', ['login' => "pt.$suffix", 'password' => 'errada'])[0] === 401);
-check('síndico não vê pedidos', call('GET', '/signup-requests?condoId=c1', null, $manager)[0] === 403);
+[$s, $managerSees] = call('GET', '/signup-requests', null, $manager);
+check('síndico vê os pedidos do prédio dele', $s === 200 && in_array($req['id'], array_column($managerSees, 'id'), true), $managerSees);
+check('síndico não vê pedidos de outro prédio', call('GET', '/signup-requests?condoId=c3', null, $manager)[0] === 403);
+check('porteiro não vê pedidos', call('GET', '/signup-requests', null, $doorman)[0] === 403);
 [$s, $pending] = call('GET', '/signup-requests?condoId=c1', null, $admin);
 check('admin vê o pedido', $s === 200 && in_array($req['id'], array_column($pending, 'id'), true), $pending);
 check('admin não cria usuário com login de pedido pendente', call('GET', "/logins/available?login=pt.$suffix", null, $admin)[1]['available'] === false);
@@ -374,12 +377,13 @@ check('a outra administradora vê só o dela', array_column(call('GET', '/condos
 check('outra administradora não lista pedidos do prédio', call('GET', '/signup-requests?condoId=c1', null, $marcia)[0] === 422);
 check('outra administradora não aceita pedido do prédio', call('POST', "/signup-requests/{$otherReq['id']}/approve", null, $marcia)[0] === 404);
 check('outra administradora não recusa pedido do prédio', call('POST', "/signup-requests/{$otherReq['id']}/reject", ['reason' => 'x'], $marcia)[0] === 404);
-call('POST', "/signup-requests/{$otherReq['id']}/reject", ['reason' => 'Teste automático'], $admin);
+[$s, $byManager] = call('POST', "/signup-requests/{$otherReq['id']}/reject", ['reason' => 'Teste automático'], $manager);
+check('síndico recusa pedido do prédio dele', $s === 200, $byManager);
 
 $platform = login('plataforma');
 [$s, $companies] = call('GET', '/companies', null, $platform);
 check('plataforma lista administradoras', $s === 200 && count($companies) >= 2, $companies);
-check('administradora diz quantos pedidos de cadastro esperam', array_key_exists('pendingSignups', $companies[0] ?? []), $companies);
+check('administradora diz quantos pedidos ninguém atende', array_key_exists('unattendedSignups', $companies[0] ?? []), $companies);
 check('plataforma vê todos os condomínios', count(call('GET', '/condos', null, $platform)[1]) >= 3);
 check('plataforma lê avisos de qualquer condomínio', call('GET', '/notices?condoId=c3', null, $platform)[0] === 200);
 check('cor inválida recusada', call('POST', '/companies', ['name' => 'X', 'brandColor' => 'azul'], $platform)[0] === 422);
@@ -434,13 +438,6 @@ if ($pushLog !== null) {
     check('aparelho do morador registrado', call('POST', '/devices', ['token' => 'test-ana-device', 'platform' => 'android'], $resident)[0] === 200);
     check('aparelho do síndico registrado', call('POST', '/devices', ['token' => 'test-carlos-device'], $manager)[0] === 200);
     check('token inválido recusado', call('POST', '/devices', ['token' => 'bad token!'], $resident)[0] === 422);
-
-    call('POST', '/devices', ['token' => 'test-renata-device'], $admin);
-    [, $pushReq] = $signup("pp.$suffix");
-    $sent = $pushed();
-    check('pedido de cadastro avisa o administrador, com o prédio', count($sent) === 1 && $sent[0]['token'] === 'test-renata-device'
-        && $sent[0]['data']['tab'] === 'signup_requests' && $sent[0]['data']['condoId'] === 'c1', $sent);
-    call('POST', "/signup-requests/{$pushReq['id']}/reject", ['reason' => 'Teste automático'], $admin);
 
     call('POST', '/parcels', ['unit' => 'Apto 101 - Bloco A', 'description' => 'Caixa pequena'], $doorman);
     $sent = $pushed();
@@ -503,7 +500,11 @@ if ($pushLog !== null) {
     call('POST', '/devices', ['token' => 'test-marcia-device'], $marcia);
     [, $pushReq] = $signup("pp.$suffix");
     $sent = $pushed();
-    check('pedido de cadastro avisa só a administradora do prédio', array_column($sent, 'token') === ['test-renata-device'], $sent);
+    $tokens = array_column($sent, 'token');
+    sort($tokens);
+    // A administradora do prédio e o síndico dele; a outra administradora (Márcia) não.
+    check('pedido de cadastro avisa a administradora e o síndico do prédio', $tokens === ['test-carlos-device', 'test-renata-device'], $sent);
+    check('aviso de pedido leva o prédio', ($sent[0]['data']['tab'] ?? '') === 'signup_requests' && ($sent[0]['data']['condoId'] ?? '') === 'c1', $sent);
     call('POST', "/signup-requests/{$pushReq['id']}/reject", ['reason' => 'Teste automático'], $admin);
 
     $morador = login('morador');

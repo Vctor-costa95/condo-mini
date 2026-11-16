@@ -91,11 +91,12 @@ class MainViewModel(
     private fun managerBadges(condoId: String): Flow<Map<AppTab, Int>> = combine(
         reservationRepository.observeAllReservations(),
         serviceBookingRepository.observeAllBookings(condoId),
-        occurrenceRepository.observeAllOccurrences()
-    ) { reservations, services, occurrences ->
+        occurrenceRepository.observeAllOccurrences(),
+        directoryRepository.observeSignupRequestsOf(condoId)
+    ) { reservations, services, occurrences, signups ->
         mapOf(
             AppTab.MANAGER_RESERVATIONS to reservations.count { it.status == ReservationStatus.PENDING } +
-                services.count { it.status == ReservationStatus.PENDING },
+                services.count { it.status == ReservationStatus.PENDING } + signups.size,
             AppTab.MANAGER_OCCURRENCES to occurrences.count {
                 it.status == OccurrenceStatus.OPEN || it.status == OccurrenceStatus.IN_REVIEW
             }

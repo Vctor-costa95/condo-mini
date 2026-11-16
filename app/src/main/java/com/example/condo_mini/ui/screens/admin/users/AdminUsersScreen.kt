@@ -108,8 +108,8 @@ fun AdminUsersRoute(
         onQueryChanged = viewModel::onQueryChanged,
         onNewUser = viewModel::onNewUser,
         onEditUser = viewModel::onEditUser,
-        onReviewRequest = viewModel::onReviewRequest,
-        onRejectRequest = viewModel::onRejectRequest,
+        onReviewRequest = viewModel.signups::onReview,
+        onRejectRequest = viewModel.signups::onReject,
         modifier = modifier
     )
 
@@ -118,18 +118,18 @@ fun AdminUsersRoute(
             review = review,
             units = uiState.units,
             occupantsByUnit = uiState.occupantsByUnit,
-            onUnitSelected = viewModel::onReviewUnitSelected,
-            onApprove = viewModel::onApproveRequest,
-            onDismiss = viewModel::onDismissReview
+            onUnitSelected = viewModel.signups::onUnitSelected,
+            onApprove = viewModel.signups::onApprove,
+            onDismiss = viewModel.signups::onDismissReview
         )
     }
 
     uiState.rejection?.let { rejection ->
         SignupRejectionDialog(
             rejection = rejection,
-            onReasonChange = viewModel::onRejectionReasonChanged,
-            onConfirm = viewModel::onConfirmRejection,
-            onDismiss = viewModel::onDismissRejection
+            onReasonChange = viewModel.signups::onReasonChanged,
+            onConfirm = viewModel.signups::onConfirmRejection,
+            onDismiss = viewModel.signups::onDismissRejection
         )
     }
 

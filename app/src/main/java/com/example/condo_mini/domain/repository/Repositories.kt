@@ -185,6 +185,9 @@ interface DirectoryRepository {
     /** Pedidos de cadastro feitos pelo app no condomínio selecionado, mais antigos primeiro. */
     fun observeSignupRequests(): Flow<List<SignupRequest>>
 
+    /** Pedidos de um prédio específico (o do síndico), sem depender da seleção do admin. */
+    fun observeSignupRequestsOf(condoId: String): Flow<List<SignupRequest>>
+
     /** Aceita o pedido em [unit] (o apartamento pedido ou outro); devolve o cadastro criado. */
     suspend fun approveSignup(requestId: String, unit: String): Result<User>
 

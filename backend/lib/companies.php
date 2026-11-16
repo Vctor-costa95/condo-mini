@@ -52,10 +52,11 @@ function company_json(array $c): array
         'active' => (bool) $c['active'],
         'condoCount' => (int) row('SELECT COUNT(*) AS n FROM condominiums WHERE company_id = ?', [$c['id']])['n'],
         'adminCount' => (int) row("SELECT COUNT(*) AS n FROM users WHERE company_id = ? AND role = 'ADMIN'", [$c['id']])['n'],
-        // Pedidos de cadastro esperando nos prédios dela: sem administrador, ninguém além da plataforma os vê.
-        'pendingSignups' => (int) row(
+        // Pedidos de cadastro esperando em prédios dela sem síndico: sem administrador também, só a plataforma os vê.
+        'unattendedSignups' => (int) row(
             "SELECT COUNT(*) AS n FROM signup_requests s JOIN condominiums c ON c.id = s.condo_id
-             WHERE c.company_id = ? AND s.status = 'PENDING'",
+             WHERE c.company_id = ? AND s.status = 'PENDING'
+               AND NOT EXISTS (SELECT 1 FROM users m WHERE m.condo_id = c.id AND m.role = 'MANAGER')",
             [$c['id']]
         )['n'],
         'createdAt' => iso($c['created_at']),
