@@ -6,7 +6,7 @@ Plataforma (PLATFORM, nós) → Administradora → Condomínios → síndico / p
 
 A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios. O administrador (`ADMIN`) só vê os condomínios da administradora dele, e a logo da empresa aparece no app e no painel no lugar da nossa.
 
-**Onde está:** branch `claude/administradoras`, criada a partir de `claude/painel-admin`, na pasta `C:\Users\jvict\AndroidStudioProjects\Condomini-administradoras` (worktree, separada da pasta principal). Ainda sem push e sem PR.
+**Onde está:** a fase 1 está no `main` desde 15/11/2026, junto com o painel web e o cadastro pelo app. Ainda **não foi publicada na Hostinger** (ver "Antes de publicar", no fim).
 
 **Decisões tomadas** (dá para mudar):
 - só a plataforma cria condomínios;
@@ -34,8 +34,8 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
   - `plataforma`: entra sem senha no banco local.
 - O teste de fumaça passou inteiro.
 
-### Como testar localmente (nesta worktree)
-- O `backend/config.php` da worktree aponta para o banco `condomini_adm` (porta 3307). Os arquivos enviados ficam no scratchpad da sessão; se a pasta sumir, troque `storage_dir` e `push.log_file`.
+### Como testar localmente
+- O `backend/config.php` local aponta para um MariaDB 13 na porta 3307. O MariaDB não roda como serviço: se a porta não responder, crie uma pasta de dados com `mariadb-install-db.exe --datadir=<pasta> --port=3307`, suba com `mariadbd.exe --defaults-file=<pasta>\my.ini --console`, crie o banco e o usuário `condomini` do `config.php` e rode `scripts/install.php --seed`.
 - O PHP precisa das extensões passadas na linha de comando:
   ```bash
   EXT=/c/Users/jvict/AppData/Local/Microsoft/WinGet/Packages/PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe/ext
@@ -44,9 +44,9 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
   php -d extension_dir=$EXT -d extension=pdo_mysql -d extension=fileinfo -d extension=mbstring -d extension=openssl -d extension=intl -S 127.0.0.1:8081 index.php
   ```
   ```bash
-  php scripts/smoke-test.php http://127.0.0.1:8081
+  php -d extension_dir=$EXT -d extension=mbstring -d extension=openssl -d extension=curl scripts/smoke-test.php http://127.0.0.1:8081 storage/push-test.log
   ```
-- Para recriar o banco, entre como root no MariaDB 13 (porta 3307, sem senha) e rode `DROP/CREATE DATABASE condomini_adm`. Depois rode `scripts/install.php --seed` com as extensões acima.
+- Para recriar o banco, entre como root no MariaDB (porta 3307, sem senha), rode `DROP/CREATE DATABASE` e depois `scripts/install.php --seed` com as extensões acima.
 
 ---
 
@@ -78,11 +78,11 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 
 ## ⏭️ Antes de publicar na Hostinger
 
-- **Merge com `claude/cadastro-pelo-app`:** a outra branch tem a migração `003-pedidos-de-cadastro.sql` e mexe em `schema.sql`, `directory.php` e no teste de fumaça. Resolver os conflitos com cuidado; a nossa migração é a 004.
-- **Merge com `claude/painel-admin`:** essa branch ainda não está no `main`. Fazer o merge dela antes, ou junto.
+- ✅ **Merge com o cadastro pelo app e o painel** (feito em 15/11): o aviso de pedido de cadastro vai só para os administradores da administradora do prédio, e aceitar ou recusar um pedido só vale nos prédios dela. O teste de fumaça cobre os dois.
+- ⚠️ **O painel atual tem o botão "criar condomínio"**, que dá 403 para o administrador depois desta fase. Fazer o item 3 da fase 2 antes de publicar, ou junto.
 - **Na produção:**
   1. enviar `lib/`, `sql/`, `index.php` e `scripts/`;
-  2. rodar `scripts/install.php` (aplica a 004);
+  2. rodar `scripts/install.php` (aplica a 004, e a 003 se o cadastro pelo app ainda não tiver sido publicado);
   3. criar o nosso cadastro com `scripts/platform-user.php`;
   4. criar as administradoras de verdade, subir as logos e mover os condomínios para elas.
 - Atualizar o site na Lovable ([[landing-site-lovable]]) para falar da marca própria da administradora (opcional).

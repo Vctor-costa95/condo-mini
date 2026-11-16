@@ -114,7 +114,8 @@ function signup_request_json(array $s): array
 function find_signup_request(string $id): array
 {
     $found = row("SELECT * FROM signup_requests WHERE id = ? AND status = 'PENDING'", [$id]);
-    if ($found === null) {
+    // Pedido de prédio de outra administradora responde igual a um que não existe.
+    if ($found === null || !can_access_condo(current_user(), $found['condo_id'])) {
         throw new ApiError(404, 'Este pedido já foi aceito ou recusado.');
     }
     return $found;
@@ -376,7 +377,8 @@ function register_directory_routes(Router $r): void
             );
         });
         notify(
-            array_column(rows("SELECT id FROM users WHERE role = 'ADMIN'"), 'id'),
+            // Só os administradores da administradora que cuida do prédio.
+            array_column(rows("SELECT id FROM users WHERE role = 'ADMIN' AND company_id = ?", [$condo['company_id'] ?? '']), 'id'),
             'Novo pedido de cadastro',
             "{$request['name']} · {$request['unit']} · {$condo['name']}",
             ['tab' => 'signup_requests', 'id' => $request['id']]

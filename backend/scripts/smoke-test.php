@@ -319,6 +319,11 @@ check('admin não salva condomínio de outra administradora', call('POST', '/con
 check('admin não lista administradoras', call('GET', '/companies', null, $admin)[0] === 403);
 $marcia = login('marcia.teles', 'condo123');
 check('a outra administradora vê só o dela', array_column(call('GET', '/condos', null, $marcia)[1], 'id') === ['c3']);
+[, $otherReq] = $signup("po.$suffix");
+check('outra administradora não lista pedidos do prédio', call('GET', '/signup-requests?condoId=c1', null, $marcia)[0] === 422);
+check('outra administradora não aceita pedido do prédio', call('POST', "/signup-requests/{$otherReq['id']}/approve", null, $marcia)[0] === 404);
+check('outra administradora não recusa pedido do prédio', call('POST', "/signup-requests/{$otherReq['id']}/reject", ['reason' => 'x'], $marcia)[0] === 404);
+call('POST', "/signup-requests/{$otherReq['id']}/reject", ['reason' => 'Teste automático'], $admin);
 
 $platform = login('plataforma');
 [$s, $companies] = call('GET', '/companies', null, $platform);
@@ -430,6 +435,13 @@ if ($pushLog !== null) {
     call('POST', "/occurrences/{$o['id']}/respond", ['text' => 'Resolvido', 'resolve' => true], $manager);
     $sent = $pushed();
     check('resposta avisa o morador', str_contains($sent[0]['notification']['title'] ?? '', 'resolvida'), $sent);
+
+    call('POST', '/devices', ['token' => 'test-renata-device'], $admin);
+    call('POST', '/devices', ['token' => 'test-marcia-device'], $marcia);
+    [, $pushReq] = $signup("pp.$suffix");
+    $sent = $pushed();
+    check('pedido de cadastro avisa só a administradora do prédio', array_column($sent, 'token') === ['test-renata-device'], $sent);
+    call('POST', "/signup-requests/{$pushReq['id']}/reject", ['reason' => 'Teste automático'], $admin);
 
     $morador = login('morador');
     call('POST', '/devices', ['token' => 'test-ana-device'], $morador);

@@ -73,11 +73,16 @@ Atende vários condomínios e escolhe qual está gerenciando no topo da tela.
 
 | Aba | O que faz |
 |---|---|
-| **Unidades** | Cria o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês. |
+| **Unidades** | Edita o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês. |
 | **Cadastros** | Cria pessoas com usuário, senha, perfil e apartamentos. |
 | **Espaços** | Cria espaços reserváveis (capacidade, taxa, regras, e se a reserva é por turno, por hora ou do dia inteiro) e interdita para manutenção. |
 
 No **painel web** ela faz tudo isso no computador e ainda aceita ou recusa os **pedidos de cadastro** feitos pelo app (seção "Pedidos de cadastro" em Cadastros, com a contagem na barra lateral).
+
+### Plataforma (nós)
+Cada administrador pertence a uma **administradora** e só vê os condomínios dela. Quem cadastra as administradoras, sobe a logo delas, cria os condomínios e aloca cada um a uma administradora é a **plataforma**, o perfil da equipe condo.mini. Uma administradora suspensa não entra, nem quem mora nos prédios dela.
+
+Hoje isso existe **só na API**. O console da plataforma no painel e a logo da administradora no app e no painel são as fases 2 e 3 de [`docs/plano-administradoras.md`](docs/plano-administradoras.md).
 
 ---
 
@@ -103,7 +108,7 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 | PDF do boleto enviado | Moradores do apartamento |
 | Pedido de reserva com taxa, mudança ou reparo | Síndico |
 | Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | Moradores do apartamento |
-| Pedido de cadastro feito pelo app | Administradores |
+| Pedido de cadastro feito pelo app | Administradores da administradora que cuida do prédio |
 | Ocorrência nova ou resposta do morador | Síndico |
 | Resposta do síndico na ocorrência | Moradores do apartamento |
 
@@ -159,7 +164,7 @@ A Hostinger não recebe o código pelo GitHub automaticamente. Para publicar uma
 Para o **painel web**, envie a pasta `backend/painel/` inteira para dentro dessa mesma pasta, inclusive o `painel/.htaccess` (alguns gerenciadores escondem arquivos que começam com ponto). Ele fica em `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
 
 ### Mudar a estrutura do banco
-Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro), e o `install.php` aplica as que faltam. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
+Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras), e o `install.php` aplica as que faltam. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
 
 ### Testar a API
 `backend/scripts/smoke-test.php` faz login com cada perfil e passa por todas as telas, inclusive permissões e notificações. Rode só contra uma cópia local (ele cria registros). Veja [`backend/README.md`](backend/README.md#rodar-localmente).
@@ -186,6 +191,7 @@ O token de login fica no celular **cifrado** com uma chave do próprio aparelho 
 
 - **Criar cobranças pelo app.** A lista de boletos (valor, vencimento, pago ou não) vem do banco; hoje só existe a dos dados de demonstração. A administradora consegue enviar o **PDF** de cada mês, mas falta uma tela para lançar ou importar os valores.
 - **Pagamento pelo app** (Pix, cartão).
+- **Marca da administradora e console da plataforma** no painel e no app: a API já tem, falta a tela (ver o plano das administradoras).
 - **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
 - **Fazer ações sem internet** (reservar, registrar ocorrência, entregar encomenda): sem conexão, o app avisa e a pessoa tenta de novo. Ver e consultar funciona offline (seção 3).
 - **Versão iOS**, prevista para o início de 2027.
