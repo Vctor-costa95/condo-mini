@@ -180,6 +180,36 @@ export async function readPdfText(bytes, onPage) {
     return pages;
 }
 
+/**
+ * Desenha as páginas pedidas em imagens (canvas), para ver o boleto dentro do painel,
+ * sem depender de aba nova nem do leitor de PDF do navegador.
+ */
+export async function renderPages(bytes, pageIndexes, width) {
+    const lib = await pdfjs();
+    const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise;
+    const ratio = window.devicePixelRatio || 1;
+    const canvases = [];
+    try {
+        for (const index of pageIndexes) {
+            const page = await doc.getPage(index + 1);
+            const base = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: (width / base.width) * ratio });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.floor(viewport.width);
+            canvas.height = Math.floor(viewport.height);
+            canvas.style.width = `${width}px`;
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', `Página ${index + 1} do boleto`);
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            canvases.push(canvas);
+            page.cleanup();
+        }
+    } finally {
+        await doc.destroy();
+    }
+    return canvases;
+}
+
 /** Um PDF novo só com as páginas pedidas (índices a partir de 0). */
 export async function extractPages(bytes, pageIndexes) {
     const { PDFDocument } = await pdfLib();

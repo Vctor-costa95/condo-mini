@@ -405,7 +405,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .scrim.leaving { animation: fade 0.18s ease reverse forwards; }
 .drawer-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 28px 18px; border-bottom: 1px solid var(--hairline); }
 .drawer-title { font-size: 28px; line-height: 1.15; margin-top: 2px; }
-.drawer-body { flex: 1; overflow: auto; padding: 24px 28px; display: grid; gap: 22px; align-content: start; }
+.drawer-body { flex: 1; overflow: auto; padding: 24px 28px; display: grid; gap: 22px; align-content: start; grid-auto-rows: max-content; }
 .drawer-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 28px; border-top: 1px solid var(--hairline); background: var(--surface); }
 .drawer-footer:empty { display: none; }
 .drawer-footer .spacer { margin-right: auto; }
@@ -772,8 +772,8 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .bulk-chip.tone-warning { background: var(--warning-container); color: var(--warning); }
 .bulk-chip.tone-neutral { background: var(--surface-2); color: var(--text-2); }
 
-/* A lista não encolhe para caber no painel: quem rola é o painel. */
-.bulk-list { min-height: max-content; }
+
+
 .bulk-row { align-items: flex-start; }
 .bulk-row .grow small { display: block; margin-top: 4px; }
 .bulk-state { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--text-3); margin-top: 3px; }
@@ -794,3 +794,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 @media (max-width: 860px) {
     .bulk-how { grid-template-columns: 1fr; }
 }
+
+/* Boleto desenhado dentro da lista, para ler o apartamento sem sair do painel. */
+.bulk-preview { margin-top: 12px; display: grid; gap: 10px; justify-items: start; overflow-x: auto; }
+.bulk-preview canvas { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--hairline); background: #FFFFFF; box-shadow: var(--shadow); }
