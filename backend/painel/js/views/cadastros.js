@@ -368,6 +368,8 @@ export function renderUsers(container, { condo, user: me }) {
                         const body = {
                             id: user?.id || '',
                             condoId: condo.id,
+                            // Administrador criado pela plataforma fica na administradora do condomínio aberto.
+                            companyId: condo.companyId || '',
                             name: values.name,
                             role: values.role,
                             email: values.email,

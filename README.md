@@ -23,7 +23,7 @@ O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na H
 |---|---|---|
 | **App Android** | O que as pessoas instalam. Código Kotlin neste repositório. | Pasta `app/` |
 | **API** | O "cérebro": confere login e permissões, grava e lê o banco, guarda fotos e PDFs e manda as notificações. | Hostinger, em `https://api-condomini.tcpneus-logistica.com/api-condomini` · código na pasta `backend/` |
-| **Painel web** | Site da administradora para o computador, com as mesmas funções do perfil administrador no app e a aprovação dos pedidos de cadastro. Só o perfil administrador entra. | Mesma pasta da API, em `.../api-condomini/painel/` · código em `backend/painel/` |
+| **Painel web** | Site para o computador. A administradora tem as mesmas funções do app, com a logo dela, e aprova os pedidos de cadastro. A plataforma (nós) cadastra administradoras e aloca condomínios. Só esses dois perfis entram. | Mesma pasta da API, em `.../api-condomini/painel/` · código em `backend/painel/` |
 | **Banco de dados** | Onde ficam condomínios, pessoas, avisos, reservas, boletos, encomendas... | Hostinger, MySQL `u248494375_condomini` |
 | **Firebase** | Serviço gratuito do Google que entrega as notificações push. | Projeto `app-condo-mini` em console.firebase.google.com |
 | **GitHub** | Guarda o código e o histórico de mudanças. | github.com/Vctor-costa95/condo-mini |
@@ -82,7 +82,15 @@ No **painel web** ela faz tudo isso no computador e ainda aceita ou recusa os **
 ### Plataforma (nós)
 Cada administrador pertence a uma **administradora** e só vê os condomínios dela. Quem cadastra as administradoras, sobe a logo delas, cria os condomínios e aloca cada um a uma administradora é a **plataforma**, o perfil da equipe condo.mini. Uma administradora suspensa não entra, nem quem mora nos prédios dela.
 
-Hoje isso existe **só na API**. O console da plataforma no painel e a logo da administradora no app e no painel são as fases 2 e 3 de [`docs/plano-administradoras.md`](docs/plano-administradoras.md).
+Tudo isso se faz no **painel web**, entrando com a conta da plataforma:
+
+| Tela | O que faz |
+|---|---|
+| **Administradoras** | Cria e edita (nome, CNPJ, cor), sobe a logo com prévia no tema claro e no escuro, suspende ou reativa, e cadastra os administradores de cada uma. |
+| **Condomínios** | Todos os condomínios, com filtro por administradora. Cria condomínio já na administradora certa e move de uma para outra. |
+| **Unidades, Cadastros, Espaços** | As mesmas telas da administradora, em qualquer condomínio, para dar suporte. |
+
+A administradora vê a logo e o nome dela na barra do painel, com "Desenvolvido por condo.mini" no rodapé. No app Android a marca dela ainda não aparece: é a fase 3 de [`docs/plano-administradoras.md`](docs/plano-administradoras.md).
 
 ---
 
@@ -191,7 +199,7 @@ O token de login fica no celular **cifrado** com uma chave do próprio aparelho 
 
 - **Criar cobranças pelo app.** A lista de boletos (valor, vencimento, pago ou não) vem do banco; hoje só existe a dos dados de demonstração. A administradora consegue enviar o **PDF** de cada mês, mas falta uma tela para lançar ou importar os valores.
 - **Pagamento pelo app** (Pix, cartão).
-- **Marca da administradora e console da plataforma** no painel e no app: a API já tem, falta a tela (ver o plano das administradoras).
+- **Marca da administradora no app Android**, e esconder dele o "criar condomínio" do administrador (que agora só a plataforma faz, pelo painel). Ver o plano das administradoras.
 - **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
 - **Fazer ações sem internet** (reservar, registrar ocorrência, entregar encomenda): sem conexão, o app avisa e a pessoa tenta de novo. Ver e consultar funciona offline (seção 3).
 - **Versão iOS**, prevista para o início de 2027.

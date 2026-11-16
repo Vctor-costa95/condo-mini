@@ -685,3 +685,64 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .request-info dt { color: var(--text-3); }
 .request-info dd { margin: 0; overflow: hidden; text-overflow: ellipsis; }
 .request-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; border-top: 1px solid var(--hairline); padding-top: 12px; }
+
+/* ------------------------------------------------------------ marca da administradora e plataforma */
+
+.brand-tile.has-logo { background: #FFFFFF; border-color: var(--hairline); overflow: hidden; padding: 4px; }
+.brand-tile.has-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.brand-tile.initials { background: var(--brand, #151B26); color: #FFFFFF; font-weight: 700; letter-spacing: 0.02em; border-color: transparent; }
+.sidebar-brand.company .company-name {
+    font-family: var(--sans); font-size: 16px; font-weight: 650; line-height: 1.25;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.powered { margin: 10px 10px 0; font-size: 11.5px; color: var(--text-3); }
+.powered > span { font-family: var(--serif); font-size: 13px; color: var(--text-2); }
+.nav-section { margin: 4px 14px -10px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
+
+.company-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.company-card {
+    display: grid; gap: 18px; padding: 20px 22px; text-align: left; cursor: pointer; font: inherit; color: inherit;
+    transition: border-color 0.15s, transform 0.15s;
+}
+.company-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.company-card.suspended { opacity: 0.72; }
+.company-card-head { display: flex; align-items: center; gap: 14px; }
+.company-card-title { flex: 1; min-width: 0; display: grid; }
+.company-card-title strong { font-family: var(--serif); font-size: 20px; font-weight: 400; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.company-card-title small { color: var(--text-3); font-size: 13px; }
+.company-card-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding-top: 14px; border-top: 1px solid var(--hairline); font-size: 13.5px; color: var(--text-2); }
+.company-stat strong { color: var(--ink); font-weight: 650; }
+.company-card-stats .warn-tag { margin-left: auto; }
+
+.logo-previews { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.logo-preview { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: var(--radius); border: 1px solid; }
+.logo-preview.light { background: #FFFFFF; border-color: #E4DED3; color: #151B26; }
+.logo-preview.dark { background: #151922; border-color: #2A303C; color: #ECE7DD; }
+.logo-preview-text { display: grid; min-width: 0; }
+.logo-preview-text strong { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logo-preview-text small { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; }
+
+.color-field { display: flex; gap: 8px; align-items: center; }
+.color-pick { width: 46px; height: 42px; padding: 3px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--surface); cursor: pointer; flex-shrink: 0; }
+.color-field .color-text { flex: 1; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; text-transform: uppercase; }
+.dropzone.is-busy { opacity: 0.6; pointer-events: none; }
+.add-admin { display: grid; gap: 14px; margin-top: 4px; }
+
+.select-compact { height: 36px; min-width: 200px; font-size: 13.5px; }
+.owner-warn { display: block; margin-top: 6px; }
+
+@media (max-width: 860px) {
+    .nav-section { display: none; }
+    .powered { display: none; }
+    .logo-previews { grid-template-columns: 1fr; }
+}
+
+/* Campos lado a lado com e sem dica: cada um com a própria altura. */
+.drawer .form-grid { align-items: start; }
+
+@media (max-width: 860px) {
+    /* Plataforma no celular: o menu dela primeiro, depois o condomínio aberto e as telas dele. */
+    .nav.nav-platform { order: 2; }
+    .sidebar .picker-wrap { order: 3; }
+    .sidebar .nav:not(.nav-platform) { order: 4; }
+}

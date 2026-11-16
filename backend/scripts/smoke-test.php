@@ -346,6 +346,10 @@ check('plataforma cria condomínio já alocado', $s === 200 && $condo['companyId
 check('administrador novo precisa de administradora', call('POST', '/users', ['name' => 'X', 'role' => 'ADMIN', 'login' => 'adm.sem', 'password' => 'segredo1'], $platform)[0] === 422);
 [$s, $newAdmin] = call('POST', '/users', ['name' => 'Admin Teste', 'role' => 'ADMIN', 'companyId' => $co['id'], 'login' => 'admin.teste', 'password' => 'segredo1'], $platform);
 check('plataforma cria administrador da administradora', $s === 200 && $newAdmin['companyId'] === $co['id'], $newAdmin);
+[$s, $coAdmins] = call('GET', "/users?companyId={$co['id']}", null, $platform);
+check('plataforma lista os administradores da administradora', $s === 200 && array_column($coAdmins, 'id') === [$newAdmin['id']], $coAdmins);
+check('lista de administradores pede administradora existente', call('GET', '/users?companyId=nao-existe', null, $platform)[0] === 422);
+check('admin não lista administradores de outra administradora', call('GET', "/users?companyId={$co['id']}", null, $admin)[0] === 422);
 $tAdmin = login('admin.teste', 'segredo1');
 [$s, $tMe] = call('GET', '/me', null, $tAdmin);
 check('administrador novo vê a marca com logo', ($tMe['brand']['name'] ?? '') === 'Teste Adm' && is_string($tMe['brand']['logoUrl']), $tMe);

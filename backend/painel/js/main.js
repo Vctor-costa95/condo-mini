@@ -1,22 +1,34 @@
 // Entrada do painel: login, barra lateral, seletor de condomínio e navegação por hash.
+// Entram a administradora (ADMIN), que vê só os condomínios dela com a marca dela, e
+// a plataforma (PLATFORM, a equipe condo.mini), que cadastra administradoras e aloca condomínios.
 
 import { api, hasToken, saveToken, setUnauthorizedHandler } from './api.js';
 import { applyTheme } from './theme.js';
-import { brandMark, closeDrawer, h, icon, initials, mount, toast } from './ui.js';
-import { currentCondo, loadCondos, selectCondo, setUser, state, subscribe } from './state.js';
+import { brandMark, brandTile, closeDrawer, h, icon, initials, mount, toast } from './ui.js';
+import { currentCondo, isPlatform, loadCondos, selectCondo, setUser, state, subscribe } from './state.js';
 import { renderLogin } from './views/login.js';
 import { renderUnits } from './views/unidades.js';
 import { renderUsers } from './views/cadastros.js';
 import { renderAreas } from './views/espacos.js';
 import { renderCondoEditor } from './views/condominio.js';
 import { renderProfile } from './views/perfil.js';
+import { renderCompanies } from './views/administradoras.js';
+import { renderCondoList } from './views/condominios.js';
 
 const root = document.getElementById('app');
+const PANEL_ROLES = ['ADMIN', 'PLATFORM'];
+const BRAND_KEY = 'condomini.painel.brand';
 
-const NAV = [
+/** Telas do condomínio aberto: as mesmas para a administradora e para a plataforma (suporte). */
+const CONDO_NAV = [
     { route: 'unidades', label: 'Unidades', icon: 'building', render: renderUnits },
     { route: 'cadastros', label: 'Cadastros', icon: 'users', render: renderUsers },
     { route: 'espacos', label: 'Espaços', icon: 'sofa', render: renderAreas }
+];
+
+const PLATFORM_NAV = [
+    { route: 'administradoras', label: 'Administradoras', icon: 'briefcase', render: renderCompanies },
+    { route: 'condominios', label: 'Condomínios', icon: 'building', render: renderCondoList }
 ];
 
 let content = null;
@@ -31,21 +43,45 @@ setUnauthorizedHandler(() => showLogin('Sua sessão terminou. Entre de novo.'));
 window.addEventListener('hashchange', () => content && route());
 boot();
 
+/** Última marca vista neste navegador: a tela de carregamento já abre com a logo certa. */
+function savedBrand() {
+    try {
+        return JSON.parse(window.localStorage.getItem(BRAND_KEY) || 'null');
+    } catch {
+        return null;
+    }
+}
+
+function rememberBrand(brand) {
+    try {
+        if (brand) window.localStorage.setItem(BRAND_KEY, JSON.stringify(brand));
+        else window.localStorage.removeItem(BRAND_KEY);
+    } catch {
+        // Sem armazenamento: a tela de carregamento mostra a marca do condo.mini.
+    }
+}
+
 async function boot() {
     if (!hasToken()) return showLogin();
-    mount(root, h('div', { class: 'boot' }, brandMark(48)));
+    const cached = savedBrand();
+    mount(root, h('div', { class: 'boot' }, cached?.companyId ? brandTile(cached, 64) : brandMark(48)));
     try {
         const me = await api.get('me');
-        if (me.role !== 'ADMIN') {
+        if (!PANEL_ROLES.includes(me.role)) {
             await logout();
             return showLogin(null, 'Este painel é da administradora. Use o app condo.mini.');
         }
-        setUser(me);
-        await loadCondos();
-        showShell();
+        await enter(me);
     } catch (error) {
         if (error.status !== 401) showLogin(null, error.message);
     }
+}
+
+async function enter(user) {
+    setUser(user);
+    rememberBrand(user.brand?.companyId ? user.brand : null);
+    await loadCondos();
+    showShell();
 }
 
 function showLogin(message, error) {
@@ -59,7 +95,7 @@ function showLogin(message, error) {
         message,
         error,
         onLoggedIn: async ({ token, user }, remember) => {
-            if (user.role !== 'ADMIN') {
+            if (!PANEL_ROLES.includes(user.role)) {
                 // Entrou com outro perfil: encerra a sessão criada e não guarda nada.
                 saveToken(token, false);
                 await api.post('auth/logout').catch(() => {});
@@ -67,9 +103,7 @@ function showLogin(message, error) {
                 throw new Error('Este painel é da administradora. Moradores, síndicos e portaria usam o app condo.mini.');
             }
             saveToken(token, remember);
-            setUser(user);
-            await loadCondos();
-            showShell();
+            await enter(user);
         }
     });
 }
@@ -77,6 +111,7 @@ function showLogin(message, error) {
 export async function logout() {
     await api.post('auth/logout').catch(() => {});
     saveToken(null);
+    rememberBrand(null);
 }
 
 function showShell() {
@@ -115,9 +150,10 @@ export function refreshSidebarBadge() {
 }
 
 function currentRoute() {
-    const hash = window.location.hash.replace(/^#\/?/, '');
+    // "#/condominio/novo?administradora=x": o que vem depois do "?" é só para a tela ler.
+    const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
     const [name, ...rest] = hash.split('/');
-    return { name: name || 'unidades', param: rest.join('/') };
+    return { name: name || (isPlatform() ? 'administradoras' : 'unidades'), param: rest.join('/') };
 }
 
 function route() {
@@ -128,74 +164,103 @@ function route() {
     closeDrawer();
     renderSidebar();
     const ctx = { condo: currentCondo(), condoId: state.condoId, user: state.user, navigate };
-    if (name === 'condominio') {
+    const platformItem = isPlatform() ? PLATFORM_NAV.find((entry) => entry.route === name) : null;
+    if (platformItem) {
+        cleanup = platformItem.render(content, ctx);
+    } else if (name === 'condominio' && (param !== 'novo' || isPlatform())) {
         cleanup = renderCondoEditor(content, { ...ctx, editId: param === 'novo' ? '' : param });
     } else if (name === 'perfil') {
         cleanup = renderProfile(content, { ...ctx, onLogout: async () => { await logout(); showLogin('Você saiu do painel.'); } });
     } else if (!state.condos.length) {
-        mount(
-            content,
-            h(
-                'div',
-                { class: 'page' },
-                h('div', { class: 'empty' },
-                    h('div', { class: 'empty-icon' }, icon('building', 28)),
-                    h('h3', {}, 'Nenhum condomínio ainda'),
-                    h('p', {}, 'Cadastre o primeiro condomínio para começar.'),
-                    h('a', { class: 'btn btn-primary', href: '#/condominio/novo' }, icon('plus', 18), h('span', {}, 'Novo condomínio'))
-                )
-            )
-        );
+        mount(content, h('div', { class: 'page' }, noCondos()));
     } else {
-        const item = NAV.find((entry) => entry.route === name) || NAV[0];
+        const item = CONDO_NAV.find((entry) => entry.route === name) || CONDO_NAV[0];
         cleanup = item.render(content, ctx);
     }
     content.focus({ preventScroll: true });
     window.scrollTo(0, 0);
 }
 
+function noCondos() {
+    if (isPlatform()) {
+        return h('div', { class: 'empty' },
+            h('div', { class: 'empty-icon' }, icon('building', 28)),
+            h('h3', {}, 'Nenhum condomínio ainda'),
+            h('p', {}, 'Cadastre o primeiro condomínio e escolha a administradora que cuida dele.'),
+            h('a', { class: 'btn btn-primary', href: '#/condominio/novo' }, icon('plus', 18), h('span', {}, 'Novo condomínio'))
+        );
+    }
+    return h('div', { class: 'empty' },
+        h('div', { class: 'empty-icon' }, icon('building', 28)),
+        h('h3', {}, 'Nenhum condomínio liberado ainda'),
+        h('p', {}, 'Os condomínios da sua administradora aparecem aqui assim que a equipe condo.mini liberar. Fale com a gente para cadastrar um novo.')
+    );
+}
+
 export function navigate(path) {
     window.location.hash = `#/${path}`;
 }
 
-function renderSidebar() {
-    if (!sidebar) return;
-    const { name } = currentRoute();
-    const condo = currentCondo();
-    mount(
-        sidebar,
-        h('div', { class: 'sidebar-brand' },
-            h('span', { class: 'brand-tile' }, brandMark(26)),
-            h('span', { class: 'brand-name' }, 'condo', h('span', { class: 'brand-dot' }, '.'), 'mini'),
-            h('span', { class: 'brand-tag' }, 'Administradora')
-        ),
-        condoPicker(condo),
-        h('ul', { class: 'nav' },
-            NAV.map((item) =>
-                h('li', {},
-                    h('a', { href: `#/${item.route}`, class: `nav-link${name === item.route ? ' active' : ''}`, 'aria-current': name === item.route ? 'page' : null },
-                        icon(item.icon),
-                        h('span', {}, item.label),
-                        item.route === 'cadastros' && unassignedCount > 0
-                            ? h('span', { class: 'nav-badge', title: pendingRequests ? `${pendingRequests} pedido(s) de cadastro e moradores sem apartamento` : 'Moradores sem apartamento' }, String(unassignedCount))
-                            : null
-                    )
-                )
-            )
-        ),
-        h('div', { class: 'sidebar-footer' },
-            h('a', { href: '#/perfil', class: `profile-link${name === 'perfil' ? ' active' : ''}` },
-                h('span', { class: 'avatar' }, initials(state.user?.name)),
-                h('span', { class: 'profile-text' },
-                    h('strong', {}, state.user?.name || ''),
-                    h('small', {}, 'Meu perfil')
+function navList(items, name, extraClass = '') {
+    return h('ul', { class: `nav ${extraClass}`.trim() },
+        items.map((item) =>
+            h('li', {},
+                h('a', { href: `#/${item.route}`, class: `nav-link${name === item.route ? ' active' : ''}`, 'aria-current': name === item.route ? 'page' : null },
+                    icon(item.icon),
+                    h('span', {}, item.label),
+                    item.route === 'cadastros' && unassignedCount > 0
+                        ? h('span', { class: 'nav-badge', title: pendingRequests ? `${pendingRequests} pedido(s) de cadastro e moradores sem apartamento` : 'Moradores sem apartamento' }, String(unassignedCount))
+                        : null
                 )
             )
         )
     );
 }
 
-/** Condomínio atual no topo da barra; abre a lista para trocar, editar ou criar outro. */
+function sidebarBrand() {
+    const brand = state.user?.brand;
+    if (isPlatform() || !brand?.companyId) {
+        return h('div', { class: 'sidebar-brand' },
+            h('span', { class: 'brand-tile' }, brandMark(26)),
+            h('span', { class: 'brand-name' }, 'condo', h('span', { class: 'brand-dot' }, '.'), 'mini'),
+            h('span', { class: 'brand-tag' }, isPlatform() ? 'Plataforma' : 'Administradora')
+        );
+    }
+    return h('div', { class: 'sidebar-brand company' },
+        brandTile(brand, 44),
+        h('span', { class: 'brand-name company-name', title: brand.name }, brand.name),
+        h('span', { class: 'brand-tag' }, 'Painel da administradora')
+    );
+}
+
+function renderSidebar() {
+    if (!sidebar) return;
+    const { name } = currentRoute();
+    const condo = currentCondo();
+    const platform = isPlatform();
+    mount(
+        sidebar,
+        sidebarBrand(),
+        platform ? navList(PLATFORM_NAV, name, 'nav-platform') : null,
+        platform ? h('p', { class: 'nav-section' }, 'Condomínio aberto') : null,
+        condoPicker(condo),
+        navList(CONDO_NAV, name),
+        h('div', { class: 'sidebar-footer' },
+            h('a', { href: '#/perfil', class: `profile-link${name === 'perfil' ? ' active' : ''}` },
+                h('span', { class: 'avatar' }, initials(state.user?.name)),
+                h('span', { class: 'profile-text' },
+                    h('strong', {}, state.user?.name || ''),
+                    h('small', {}, platform ? 'Equipe condo.mini' : 'Meu perfil')
+                )
+            ),
+            !platform && state.user?.brand?.companyId
+                ? h('p', { class: 'powered' }, 'Desenvolvido por ', h('span', {}, 'condo', h('span', { class: 'brand-dot' }, '.'), 'mini'))
+                : null
+        )
+    );
+}
+
+/** Condomínio atual no topo da barra; abre a lista para trocar, editar ou (plataforma) criar outro. */
 function condoPicker(condo) {
     const list = h('div', { class: 'picker-menu', role: 'menu', hidden: true });
     const toggle = h(
@@ -238,7 +303,9 @@ function condoPicker(condo) {
                 h('a', { href: `#/condominio/${item.id}`, class: 'icon-btn', title: `Editar ${item.name}`, 'aria-label': `Editar ${item.name}`, onclick: () => setOpen(false) }, icon('edit', 16))
             )
         ),
-        h('a', { href: '#/condominio/novo', class: 'picker-new', onclick: () => setOpen(false) }, icon('plus', 16), h('span', {}, 'Novo condomínio'))
+        isPlatform()
+            ? h('a', { href: '#/condominio/novo', class: 'picker-new', onclick: () => setOpen(false) }, icon('plus', 16), h('span', {}, 'Novo condomínio'))
+            : null
     );
     return h('div', { class: 'picker-wrap' }, toggle, list);
 }
