@@ -55,23 +55,28 @@ function seed_demo(): void
         );
     };
 
+    // ------------------------------------------------------------ administradoras
+    // Duas, para o isolamento entre elas aparecer: a Prime cuida de c1 e c2; a Horizonte, de c3.
+    $insert('companies', ['id' => 'co1', 'name' => 'Prime Administradora', 'cnpj' => '12.345.678/0001-90', 'brand_color' => '#1F3A5F', 'created_at' => $at('-1 year')]);
+    $insert('companies', ['id' => 'co2', 'name' => 'Horizonte Gestão Condominial', 'cnpj' => '98.765.432/0001-10', 'brand_color' => '#2E6B4F', 'created_at' => $at('-6 months')]);
+
     // ------------------------------------------------------------ condomínios
     $condos = [
-        ['c1', 'Residencial Jardins', 'Rua Oscar Freire, 1200 · Jardins, São Paulo', [
+        ['c1', 'co1', 'Residencial Jardins', 'Rua Oscar Freire, 1200 · Jardins, São Paulo', [
             ['c1-a', 'Bloco A', 14, 4, ['14' => 2]],
             ['c1-b', 'Bloco B', 12, 6, ['0' => 2]],
             ['c1-c', 'Bloco C', 10, 2, []],
         ]],
-        ['c2', 'Edifício Vista Mar', 'Av. Atlântica, 3400 · Copacabana, Rio de Janeiro', [
+        ['c2', 'co1', 'Edifício Vista Mar', 'Av. Atlântica, 3400 · Copacabana, Rio de Janeiro', [
             ['c2-t', 'Torre única', 20, 2, ['1' => 0, '20' => 1]],
         ]],
-        ['c3', 'Parque das Águas', 'Alameda das Palmeiras, 88 · Alphaville, Barueri', array_map(
+        ['c3', 'co2', 'Parque das Águas', 'Alameda das Palmeiras, 88 · Alphaville, Barueri', array_map(
             fn ($i) => ["c3-t$i", "Torre $i", 8, 10, []],
             range(1, 4)
         )],
     ];
-    foreach ($condos as [$id, $name, $address, $towers]) {
-        $insert('condominiums', ['id' => $id, 'name' => $name, 'address' => $address]);
+    foreach ($condos as [$id, $companyId, $name, $address, $towers]) {
+        $insert('condominiums', ['id' => $id, 'company_id' => $companyId, 'name' => $name, 'address' => $address]);
         foreach ($towers as $pos => [$tid, $tname, $floors, $perFloor, $overrides]) {
             $insert('towers', [
                 'id' => $tid, 'condo_id' => $id, 'name' => $tname, 'floors' => $floors,
@@ -83,7 +88,9 @@ function seed_demo(): void
     // ------------------------------------------------------------ pessoas
     // Um cadastro de cada perfil é conta de teste, sem senha, com o nome do perfil
     // como usuário; os demais entram com "nome.sobrenome" e a senha condo123.
-    $testLogins = ['u1' => 'morador', 'u11' => 'sindico', 'u12' => 'porteiro', 'u99' => 'admin'];
+    $testLogins = ['u1' => 'morador', 'u11' => 'sindico', 'u12' => 'porteiro', 'u99' => 'admin', 'u100' => 'plataforma'];
+    // Administrador → administradora dele.
+    $adminCompany = ['u98' => 'co2', 'u99' => 'co1'];
     $demoHash = password_hash('condo123', PASSWORD_DEFAULT);
     $people = [
         ['u1', 'Ana Ribeiro', 'RESIDENT', 'c1', ['Apto 101 - Bloco A', 'Apto 1402 - Bloco A']],
@@ -105,7 +112,9 @@ function seed_demo(): void
         ['u30', 'Juliana Matos', 'RESIDENT', 'c3', ['Apto 507 - Torre 2']],
         ['u31', 'Rafael Couto', 'RESIDENT', 'c3', ['Apto 110 - Torre 4']],
         ['u32', 'Camila Duarte', 'RESIDENT', 'c3', []],
+        ['u98', 'Márcia Teles', 'ADMIN', null, [], 'marcia@horizontegestao.com.br', '(11) 96600-3344'],
         ['u99', 'Renata Prime', 'ADMIN', null, [], 'renata@primeadm.com.br', '(11) 97700-1122'],
+        ['u100', 'Equipe Condo-mini', 'PLATFORM', null, [], 'contato@condomini.app', '(11) 95500-0000'],
     ];
     foreach ($people as $p) {
         [$id, $name, $role, $condoId, $units] = $p;
@@ -114,6 +123,7 @@ function seed_demo(): void
         $insert('users', [
             'id' => $id,
             'condo_id' => $condoId,
+            'company_id' => $adminCompany[$id] ?? null,
             'name' => $name,
             'role' => $role,
             'email' => $p[5] ?? str_replace(' ', '.', login_key($name)) . '@email.com',

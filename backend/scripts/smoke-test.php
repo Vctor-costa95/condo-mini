@@ -273,7 +273,7 @@ foreach (array_filter($flood) as $id) {
 
 echo "Cadastro (administração)\n";
 [$s, $condos] = call('GET', '/condos', null, $admin);
-check('admin vê 3 condomínios', $s === 200 && count($condos) === 3, $condos);
+check('admin vê os 2 condomínios da administradora dele', $s === 200 && array_column($condos, 'id') === ['c2', 'c1'], $condos);
 check('síndico vê só o dele', count(call('GET', '/condos', null, $manager)[1]) === 1);
 check('admin precisa escolher condomínio', call('GET', '/notices', null, $admin)[0] === 422);
 check('admin lê avisos do c1', call('GET', '/notices?condoId=c1', null, $admin)[0] === 200);
@@ -290,6 +290,73 @@ $c1 = array_values(array_filter($condos, fn ($c) => $c['id'] === 'c1'))[0];
 check('salvar condomínio mantém blocos', $s === 200 && count($saved['towers']) === 3, $saved);
 [$s, $me] = call('GET', '/me', null, $resident);
 check('aptos do morador continuam', count($me['units']) === 2, $me);
+
+echo "Administradoras\n";
+/** PNG de uma cor só, largura x altura, para testar a logo. */
+function solid_png(int $w, int $h): array
+{
+    $chunk = fn (string $type, string $data) => pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+    $raw = str_repeat("\0" . str_repeat("\x1f\x3a\x5f", $w), $h);
+    $data = "\x89PNG\r\n\x1a\n" . $chunk('IHDR', pack('NNCCCCC', $w, $h, 8, 2, 0, 0, 0))
+        . $chunk('IDAT', gzcompress($raw)) . $chunk('IEND', '');
+    return ['name' => 'logo.png', 'type' => 'image/png', 'data' => $data];
+}
+check('marca da administradora no /me do morador', ($me['brand']['name'] ?? '') === 'Prime Administradora'
+    && $me['brand']['logoUrl'] === null && $me['brand']['color'] === '#1F3A5F', $me['brand'] ?? $me);
+check('admin não lê avisos de condomínio de outra administradora', call('GET', '/notices?condoId=c3', null, $admin)[0] === 422);
+check('admin não vê espaço de outra administradora', call('GET', "/areas/a8/booked?date=$farDay", null, $admin)[0] === 404);
+check('admin não cria morador em outra administradora', call('POST', '/users', ['condoId' => 'c3', 'name' => 'X', 'role' => 'RESIDENT', 'login' => 'fora.dela', 'password' => 'segredo1'], $admin)[0] === 422);
+check('admin não edita cadastro de outra administradora', call('POST', '/users', ['id' => 'u30', 'condoId' => 'c1', 'name' => 'Juliana Matos', 'role' => 'RESIDENT', 'login' => 'juliana.matos'], $admin)[0] === 404);
+check('admin não exclui cadastro de outra administradora', call('DELETE', '/users/u30', null, $admin)[0] === 404);
+check('admin não mexe no administrador da outra', call('DELETE', '/users/u98', null, $admin)[0] === 404);
+check('admin não mexe na plataforma', call('POST', '/users', ['id' => 'u100', 'name' => 'X', 'role' => 'ADMIN', 'login' => 'plataforma'], $admin)[0] === 404);
+[$s, $people] = call('GET', '/users?condoId=c1', null, $admin);
+$ids = array_column($people, 'id');
+check('lista mostra só os administradores da mesma administradora', in_array('u99', $ids, true) && !in_array('u98', $ids, true) && !in_array('u100', $ids, true), $ids);
+check('admin não cria condomínio', call('POST', '/condos', ['name' => 'Novo', 'towers' => []], $admin)[0] === 403);
+$c3 = ['id' => 'c3', 'name' => 'Tomado', 'towers' => []];
+check('admin não salva condomínio de outra administradora', call('POST', '/condos', $c3, $admin)[0] === 404);
+check('admin não lista administradoras', call('GET', '/companies', null, $admin)[0] === 403);
+$marcia = login('marcia.teles', 'condo123');
+check('a outra administradora vê só o dela', array_column(call('GET', '/condos', null, $marcia)[1], 'id') === ['c3']);
+
+$platform = login('plataforma');
+[$s, $companies] = call('GET', '/companies', null, $platform);
+check('plataforma lista administradoras', $s === 200 && count($companies) >= 2, $companies);
+check('plataforma vê todos os condomínios', count(call('GET', '/condos', null, $platform)[1]) >= 3);
+check('plataforma lê avisos de qualquer condomínio', call('GET', '/notices?condoId=c3', null, $platform)[0] === 200);
+check('cor inválida recusada', call('POST', '/companies', ['name' => 'X', 'brandColor' => 'azul'], $platform)[0] === 422);
+[$s, $co] = call('POST', '/companies', ['name' => 'Teste Adm', 'cnpj' => '11.111.111/0001-11', 'brandColor' => '#aa3300'], $platform);
+check('plataforma cria administradora', $s === 201 && $co['brandColor'] === '#AA3300' && $co['active'] === true, $co);
+check('logo pequena recusada', call('POST', "/companies/{$co['id']}/logo", null, $platform, ['file' => solid_png(40, 40)])[0] === 422);
+check('PDF não vale como logo', call('POST', "/companies/{$co['id']}/logo", null, $platform, ['file' => $pdf])[0] === 415);
+check('admin não sobe logo', call('POST', "/companies/{$co['id']}/logo", null, $admin, ['file' => solid_png(256, 128)])[0] === 403);
+[$s, $co] = call('POST', "/companies/{$co['id']}/logo", null, $platform, ['file' => solid_png(256, 128)]);
+check('plataforma sobe a logo', $s === 200 && is_string($co['logoUrl']), $co);
+$logoPath = substr($co['logoUrl'] ?? '', strpos($co['logoUrl'] ?? '', '/companies/'));
+[$s, $logo] = call('GET', $logoPath);
+check('logo pública, sem login', $s === 200 && str_starts_with((string) $logo, "\x89PNG"), $s);
+[$s, $condo] = call('POST', '/condos', ['name' => 'Condomínio Teste', 'companyId' => $co['id'], 'towers' => [['name' => 'Bloco Único', 'floors' => 2, 'unitsPerFloor' => 2]]], $platform);
+check('plataforma cria condomínio já alocado', $s === 200 && $condo['companyId'] === $co['id'], $condo);
+check('administrador novo precisa de administradora', call('POST', '/users', ['name' => 'X', 'role' => 'ADMIN', 'login' => 'adm.sem', 'password' => 'segredo1'], $platform)[0] === 422);
+[$s, $newAdmin] = call('POST', '/users', ['name' => 'Admin Teste', 'role' => 'ADMIN', 'companyId' => $co['id'], 'login' => 'admin.teste', 'password' => 'segredo1'], $platform);
+check('plataforma cria administrador da administradora', $s === 200 && $newAdmin['companyId'] === $co['id'], $newAdmin);
+$tAdmin = login('admin.teste', 'segredo1');
+[$s, $tMe] = call('GET', '/me', null, $tAdmin);
+check('administrador novo vê a marca com logo', ($tMe['brand']['name'] ?? '') === 'Teste Adm' && is_string($tMe['brand']['logoUrl']), $tMe);
+check('administrador novo vê só o condomínio alocado', array_column(call('GET', '/condos', null, $tAdmin)[1], 'id') === [$condo['id']]);
+[$s, $moved] = call('PUT', "/condos/{$condo['id']}/company", ['companyId' => ''], $platform);
+check('plataforma desaloca o condomínio', $s === 200 && $moved['companyId'] === '', $moved);
+check('desalocado some da administradora', call('GET', '/condos', null, $tAdmin)[1] === []);
+call('PUT', "/condos/{$condo['id']}/company", ['companyId' => $co['id']], $platform);
+check('administradora com condomínio não é excluída', call('DELETE', "/companies/{$co['id']}", null, $platform)[0] === 409);
+call('POST', '/companies', ['id' => $co['id'], 'name' => 'Teste Adm', 'active' => false], $platform);
+check('administradora suspensa: sessão recusada', call('GET', '/me', null, $tAdmin)[0] === 403);
+check('administradora suspensa: login recusado', call('POST', '/auth/login', ['login' => 'admin.teste', 'password' => 'segredo1'])[0] === 403);
+call('PUT', "/condos/{$condo['id']}/company", ['companyId' => ''], $platform);
+check('plataforma exclui administradora sem condomínios', call('DELETE', "/companies/{$co['id']}", null, $platform)[0] === 200);
+check('administrador dela sai junto', call('POST', '/auth/login', ['login' => 'admin.teste', 'password' => 'segredo1'])[0] === 401);
+check('logo apagada junto', call('GET', $logoPath)[0] === 404);
 
 // Com 'push' => ['log_file' => ...] no config.php, as notificações vão para o arquivo
 // passado como segundo argumento em vez do Firebase.

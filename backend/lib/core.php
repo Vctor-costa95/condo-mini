@@ -297,6 +297,7 @@ function current_user(): array
     if ($found === null) {
         throw new ApiError(401, 'Faça login novamente.');
     }
+    require_company_active($found);
     exec_sql('UPDATE sessions SET last_used_at = ? WHERE token_hash = ?', [now_sql(), $hash]);
     $user = $found;
     // Quem fez a ação não recebe a própria notificação (ver notify()).
@@ -310,13 +311,60 @@ function current_token_hash(): ?string
     return preg_match('/^Bearer\s+(\S+)$/', $header, $m) ? hash('sha256', $m[1]) : null;
 }
 
+/** Administradora do cadastro: a do administrador, ou a dona do condomínio dos demais. */
+function user_company_id(array $user): ?string
+{
+    if ($user['role'] === 'ADMIN') {
+        return $user['company_id'];
+    }
+    if ($user['condo_id'] === null) {
+        return null;
+    }
+    return row('SELECT company_id FROM condominiums WHERE id = ?', [$user['condo_id']])['company_id'] ?? null;
+}
+
+/** Administradora suspensa pela plataforma: ninguém dela entra. */
+function require_company_active(array $user): void
+{
+    $companyId = user_company_id($user);
+    if ($companyId !== null && (int) (row('SELECT active FROM companies WHERE id = ?', [$companyId])['active'] ?? 1) === 0) {
+        throw new ApiError(403, 'Acesso suspenso. Fale com a administração do seu condomínio.');
+    }
+}
+
+/** A plataforma (nós) pode tudo o que o administrador pode, em qualquer administradora. */
 function require_role(string ...$roles): array
 {
     $user = current_user();
-    if (!in_array($user['role'], $roles, true)) {
+    $allowed = in_array($user['role'], $roles, true)
+        || ($user['role'] === 'PLATFORM' && in_array('ADMIN', $roles, true));
+    if (!$allowed) {
         throw new ApiError(403, 'Seu perfil não tem acesso a esta ação.');
     }
     return $user;
+}
+
+/** Administrador ou plataforma: perfis que atendem vários condomínios. */
+function is_admin_role(array $user): bool
+{
+    return $user['role'] === 'ADMIN' || $user['role'] === 'PLATFORM';
+}
+
+/**
+ * O condomínio está ao alcance de quem pede? A plataforma vê todos; o administrador,
+ * só os da administradora dele; os demais, só o próprio.
+ */
+function can_access_condo(array $user, ?string $condoId): bool
+{
+    if ($condoId === null || $condoId === '') {
+        return false;
+    }
+    return match ($user['role']) {
+        'PLATFORM' => true,
+        'ADMIN' => $user['company_id'] !== null
+            && row('SELECT id FROM condominiums WHERE id = ? AND company_id = ?', [$condoId, $user['company_id']]) !== null,
+        default => $condoId === $user['condo_id'],
+    };
 }
 
 /**
@@ -327,8 +375,10 @@ function condo_id(?string $requested = null): string
 {
     $user = current_user();
     $requested ??= query('condoId') ?? (string) input('condoId', '');
-    if ($user['role'] === 'ADMIN') {
-        if ($requested === '' || row('SELECT id FROM condominiums WHERE id = ?', [$requested]) === null) {
+    if (is_admin_role($user)) {
+        // Condomínio de outra administradora responde igual a um que não existe.
+        if ($requested === '' || !can_access_condo($user, $requested)
+            || row('SELECT id FROM condominiums WHERE id = ?', [$requested]) === null) {
             throw new ApiError(422, 'Escolha um condomínio.');
         }
         return $requested;
@@ -345,8 +395,7 @@ function require_same_condo(?array $record, string $notFound = 'Registro não en
     if ($record === null) {
         throw new ApiError(404, $notFound);
     }
-    $user = current_user();
-    if ($user['role'] !== 'ADMIN' && $record['condo_id'] !== $user['condo_id']) {
+    if (!can_access_condo(current_user(), $record['condo_id'])) {
         throw new ApiError(404, $notFound);
     }
     return $record;
@@ -374,7 +423,7 @@ function author_label(array $user): string
     return match ($user['role']) {
         'MANAGER' => 'Síndico - ' . $user['name'],
         'DOORMAN' => 'Porteiro ' . explode(' ', trim($user['name']))[0],
-        'ADMIN' => 'Administração',
+        'ADMIN', 'PLATFORM' => 'Administração',
         default => $user['name'],
     };
 }

@@ -126,7 +126,9 @@ O banco ainda tem **dados de demonstração**: três condomínios fictícios (Re
 | `morador` | Ana Ribeiro, com dois apartamentos no Bloco A |
 | `sindico` | Carlos Andrade, síndico do Residencial Jardins |
 | `porteiro` | José Silva, portaria do Residencial Jardins |
-| `admin` | Renata Prime, administradora |
+| `admin` | Renata Prime, da Prime Administradora (Jardins e Vista Mar) |
+| `marcia.teles` | Márcia Teles, da Horizonte Gestão (Parque das Águas), senha `condo123` só no banco local |
+| `plataforma` | Equipe Condo-mini: cadastra administradoras e aloca condomínios (só no banco local; na produção, crie com `scripts/platform-user.php`) |
 | `nome.sobrenome` | Os outros moradores fictícios (ex.: `paulo.mendes`) |
 
 **Senhas:** na API de produção, as quatro primeiras contas têm senha, guardada só no seu PC em `C:\Users\jvict\condomini-assinatura\contas-de-teste.txt`, fora do git. Este repositório é público: nunca escreva senhas aqui.
