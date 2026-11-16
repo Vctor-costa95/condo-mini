@@ -6,7 +6,7 @@ Plataforma (PLATFORM, nós) → Administradora → Condomínios → síndico / p
 
 A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios. O administrador (`ADMIN`) só vê os condomínios da administradora dele, e a logo da empresa aparece no app e no painel no lugar da nossa.
 
-**Onde está:** a fase 1 está no `main` desde 15/11/2026, junto com o painel web e o cadastro pelo app. Ainda **não foi publicada na Hostinger** (ver "Antes de publicar", no fim).
+**Onde está:** a fase 1 está no `main` e **publicada na Hostinger** desde 15/11/2026 (migração 004 rodada pelo phpMyAdmin). Enquanto a fase 2 não sai, o administrador não consegue criar condomínio: o botão do app e do painel dá 403.
 
 **Decisões tomadas** (dá para mudar):
 - só a plataforma cria condomínios;
@@ -80,7 +80,7 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 
 - ✅ **Merge com o cadastro pelo app e o painel** (feito em 15/11): o aviso de pedido de cadastro vai só para os administradores da administradora do prédio, e aceitar ou recusar um pedido só vale nos prédios dela. O teste de fumaça cobre os dois.
 - ⚠️ **O painel atual tem o botão "criar condomínio"**, que dá 403 para o administrador depois desta fase. Fazer o item 3 da fase 2 antes de publicar, ou junto.
-- **Na produção:**
+- ✅ **Na produção** (passos 1 e 2 feitos em 15/11; 3 e 4 esperam a fase 2):
   1. enviar `lib/`, `sql/`, `index.php` e `scripts/`;
   2. rodar `scripts/install.php` (aplica a 004, e a 003 se o cadastro pelo app ainda não tiver sido publicado);
   3. criar o nosso cadastro com `scripts/platform-user.php`;
