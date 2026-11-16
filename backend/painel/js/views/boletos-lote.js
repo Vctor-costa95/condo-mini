@@ -2,7 +2,7 @@
 // descobre o apartamento, o valor e o vencimento de cada boleto. Só as exceções pedem atenção.
 
 import { api } from '../api.js';
-import { analyzeFiles, itemPdf, parseBoletoLine } from '../boletos.js';
+import { analyzeFiles, itemPdf, parseBoletoLine, renderPages } from '../boletos.js';
 import { condoUnits } from '../units.js';
 import {
     busy, button, confirmDialog, drawer, formatBrl, formError, h, icon, input, monthLabel, monthRef, mount, select, toast
@@ -162,11 +162,19 @@ export function openBulkUpload({ condo, month, documents, onDone }) {
         });
         const source = item.wholeFile ? item.fileName : `${item.fileName} · pág. ${item.pages.map((p) => p + 1).join(', ')}`;
         const tone = item.skip ? 'skipped' : problems.length ? 'danger' : item.confidence === 'low' ? 'warning' : 'ok';
+        // O que precisou de atenção continua com o "Ver boleto" depois de resolvido, para conferir.
+        if (tone === 'danger' || tone === 'warning') item.flagged = true;
         return h('div', { class: `list-row bulk-row ${tone}` },
             h('span', { class: 'bulk-state' }, icon(tone === 'ok' ? 'check' : tone === 'skipped' ? 'close' : 'alert', 16)),
             h('div', { class: 'grow' },
                 h('div', { class: 'bulk-main' },
                     unitSelect,
+                    item.flagged
+                        ? button(item.previewOpen ? 'Fechar boleto' : 'Ver boleto', {
+                            variant: 'secondary', small: true, iconName: item.previewOpen ? 'close' : 'file',
+                            onclick: () => { item.previewOpen = !item.previewOpen; drawReview(); }
+                        })
+                        : null,
                     item.line
                         ? h('span', { class: 'bulk-money' },
                             item.line.amount > 0 ? formatBrl(item.line.amount) : amountInput(item),
@@ -177,7 +185,8 @@ export function openBulkUpload({ condo, month, documents, onDone }) {
                 h('small', {}, source,
                     existing(item.unit) && !item.skip ? ' · substitui o PDF já enviado' : '',
                     item.confidence === 'low' && !problems.length && !item.skip ? ' · apartamento achado só por um número no texto: confira' : ''),
-                problems.length ? h('p', { class: 'bulk-problem' }, problems.join(' ')) : null
+                problems.length ? h('p', { class: 'bulk-problem' }, problems.join(' ')) : null,
+                item.previewOpen ? previewOf(item) : null
             ),
             h('button', {
                 type: 'button', class: 'icon-btn', title: item.skip ? 'Incluir de novo' : 'Deixar de fora',
@@ -185,6 +194,20 @@ export function openBulkUpload({ condo, month, documents, onDone }) {
                 onclick: () => { item.skip = !item.skip; drawReview(); }
             }, icon(item.skip ? 'plus' : 'close', 16))
         );
+    }
+
+    /**
+     * As páginas deste boleto desenhadas logo abaixo da linha, para ler o apartamento no
+     * próprio PDF. Desenha uma vez e guarda: a lista é redesenhada a cada escolha.
+     */
+    function previewOf(item) {
+        if (!item.previewEl) {
+            item.previewEl = h('div', { class: 'bulk-preview' }, h('span', { class: 'spinner' }));
+            renderPages(item.bytes, item.pages, 560)
+                .then((canvases) => mount(item.previewEl, canvases))
+                .catch((error) => mount(item.previewEl, formError(`Não deu para mostrar o boleto: ${error.message}`)));
+        }
+        return item.previewEl;
     }
 
     function lineInput(item) {
