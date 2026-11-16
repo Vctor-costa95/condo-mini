@@ -1,6 +1,6 @@
 # condo.mini
 
-Aplicativo Android de gestão de condomínio. Morador, síndico, portaria e administradora usam o mesmo app; cada um vê as próprias abas, conforme o cadastro feito pela administradora.
+Aplicativo Android de gestão de condomínio. Morador, síndico, portaria e administradora usam o mesmo app; cada um vê as próprias abas, conforme o próprio cadastro. A administradora também tem um **painel web** para usar no computador.
 
 Este README explica **como o app funciona e o que você usa para mantê-lo de pé**. A parte técnica fica no fim, e a da API em [`backend/README.md`](backend/README.md).
 
@@ -23,6 +23,7 @@ O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na H
 |---|---|---|
 | **App Android** | O que as pessoas instalam. Código Kotlin neste repositório. | Pasta `app/` |
 | **API** | O "cérebro": confere login e permissões, grava e lê o banco, guarda fotos e PDFs e manda as notificações. | Hostinger, em `https://api-condomini.tcpneus-logistica.com/api-condomini` · código na pasta `backend/` |
+| **Painel web** | Site da administradora para o computador, com as mesmas funções do perfil administrador no app e a aprovação dos pedidos de cadastro. Só o perfil administrador entra. | Mesma pasta da API, em `.../api-condomini/painel/` · código em `backend/painel/` |
 | **Banco de dados** | Onde ficam condomínios, pessoas, avisos, reservas, boletos, encomendas... | Hostinger, MySQL `u248494375_condomini` |
 | **Firebase** | Serviço gratuito do Google que entrega as notificações push. | Projeto `app-condo-mini` em console.firebase.google.com |
 | **GitHub** | Guarda o código e o histórico de mudanças. | github.com/Vctor-costa95/condo-mini |
@@ -32,13 +33,18 @@ O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na H
 
 ## 2. Quem usa o quê
 
-O login é **usuário e senha**, criados pela administradora no cadastro da pessoa. O perfil e os apartamentos vêm desse cadastro. Depois de entrar, o celular **continua logado** até a pessoa tocar em "Sair da conta".
+O login é **usuário e senha**. A conta nasce de dois jeitos:
+
+- **A administradora cadastra** a pessoa (no app ou no painel), com usuário, senha, perfil e apartamentos.
+- **O morador cria a própria conta** em "Criar conta", na tela de login: escolhe o prédio, o apartamento, e informa os dados com o usuário e a senha que quer usar. O pedido fica **aguardando** até a administradora aceitar no painel (ela pode trocar o apartamento) ou recusar com um motivo. Enquanto isso, quem tenta entrar vê a situação do pedido.
+
+O perfil e os apartamentos vêm do cadastro. Depois de entrar, o celular **continua logado** até a pessoa tocar em "Sair da conta". Em **Perfil → Preferências → Tema**, cada um escolhe tema do sistema, claro ou escuro.
 
 ### Morador
 | Aba | O que faz |
 |---|---|
 | **Avisos** | Comunicados do síndico, com os fixados em destaque. |
-| **Reservas** | Reserva salão, churrasqueira e outros espaços por período (manhã, tarde, noite). Espaços com taxa esperam a aprovação do síndico. Também pede **mudança** ou **reparo** (internet, elétrica, hidráulica). |
+| **Reservas** | Reserva salão, churrasqueira e outros espaços. Conforme o espaço, a reserva é **por turno** (manhã, tarde, noite), **por hora** (hora de início e duração, dentro do horário de funcionamento) ou do **dia inteiro**. Horários ocupados, inclusive por pedidos ainda pendentes, aparecem bloqueados. Espaços com taxa esperam a aprovação do síndico. Também pede **mudança** ou **reparo** (internet, elétrica, hidráulica). Cada pedido fica na lista até o dia do evento; depois vai para o **Histórico** (atalho no topo da aba), que também mostra o que foi recusado ou cancelado pelo síndico, com o motivo. |
 | **Boletos** | Cobranças do mês (em aberto, vencido, pago), código de barras e o PDF do boleto. |
 | **Encomendas** | O que chegou na portaria, com foto e o **código de retirada** que ele mostra ao porteiro. |
 | **Ocorrências** | Registra problemas com até 3 fotos, acompanha pelo protocolo (OC-1045) e conversa com o síndico. |
@@ -50,7 +56,7 @@ Quem tem mais de um apartamento escolhe qual ver ao entrar e troca depois, tocan
 | Aba | O que faz |
 |---|---|
 | **Avisos** | Publica avisos (com categoria e opção de fixar) e exclui. |
-| **Reservas** | Aprova ou recusa reservas, mudanças e reparos. Para recusar, informa o motivo. |
+| **Reservas** | Aprova ou recusa reservas, mudanças e reparos pendentes, e **cancela** os já confirmados. Para recusar ou cancelar, informa o motivo, que vai para o morador. O **Histórico** mostra todos os pedidos do condomínio, mês a mês, com filtro por apartamento e por situação. |
 | **Ocorrências** | Responde, pede mais detalhes ou marca como resolvida, com fotos. |
 | **Documentos** | Publica PDFs para todos os moradores e substitui o regimento ou a convenção vigente. |
 
@@ -69,7 +75,9 @@ Atende vários condomínios e escolhe qual está gerenciando no topo da tela.
 |---|---|
 | **Unidades** | Cria o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês. |
 | **Cadastros** | Cria pessoas com usuário, senha, perfil e apartamentos. |
-| **Espaços** | Cria espaços reserváveis (capacidade, taxa, regras) e interdita para manutenção. |
+| **Espaços** | Cria espaços reserváveis (capacidade, taxa, regras, e se a reserva é por turno, por hora ou do dia inteiro) e interdita para manutenção. |
+
+No **painel web** ela faz tudo isso no computador e ainda aceita ou recusa os **pedidos de cadastro** feitos pelo app (seção "Pedidos de cadastro" em Cadastros, com a contagem na barra lateral).
 
 ---
 
@@ -94,7 +102,8 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 | Aviso ou documento publicado | Todo o condomínio |
 | PDF do boleto enviado | Moradores do apartamento |
 | Pedido de reserva com taxa, mudança ou reparo | Síndico |
-| Reserva, mudança ou reparo aprovado ou recusado | Moradores do apartamento |
+| Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | Moradores do apartamento |
+| Pedido de cadastro feito pelo app | Administradores |
 | Ocorrência nova ou resposta do morador | Síndico |
 | Resposta do síndico na ocorrência | Moradores do apartamento |
 
@@ -145,8 +154,10 @@ A Hostinger não recebe o código pelo GitHub automaticamente. Para publicar uma
 2. No **hPanel** → Sites → tcpneus-logistica.com → **Gerenciador de arquivos**, entre em `public_html/api-condomini/api-condomini`.
 3. Envie e extraia **na própria pasta**. **Não substitua o `config.php`** do servidor, que tem a senha do banco.
 
+Para o **painel web**, envie a pasta `backend/painel/` inteira para dentro dessa mesma pasta, inclusive o `painel/.htaccess` (alguns gerenciadores escondem arquivos que começam com ponto). Ele fica em `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
+
 ### Mudar a estrutura do banco
-Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
+Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro), e o `install.php` aplica as que faltam. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
 
 ### Testar a API
 `backend/scripts/smoke-test.php` faz login com cada perfil e passa por todas as telas, inclusive permissões e notificações. Rode só contra uma cópia local (ele cria registros). Veja [`backend/README.md`](backend/README.md#rodar-localmente).
@@ -203,6 +214,7 @@ app/src/main/java/com/example/condo_mini/
     ├── navigation/       # Login, escolha de apartamento e tela principal
     └── theme/            # Cores, fontes e formas
 backend/                  # API em PHP (ver backend/README.md)
+backend/painel/           # Painel web da administradora (HTML, CSS e JS, sem build)
 docs/design-system.md     # Cores, tipografia e componentes (referência para o iOS)
 ```
 
