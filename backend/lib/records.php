@@ -17,6 +17,102 @@ function bill_json(array $b): array
     ];
 }
 
+// ------------------------------------------------------------ linha digitável
+
+/** Dígito do módulo 10 (campos da linha digitável). */
+function mod10_digit(string $digits): int
+{
+    $sum = 0;
+    $weight = 2;
+    for ($i = strlen($digits) - 1; $i >= 0; $i--) {
+        $product = (int) $digits[$i] * $weight;
+        $sum += intdiv($product, 10) + $product % 10;
+        $weight = $weight === 2 ? 1 : 2;
+    }
+    return (10 - $sum % 10) % 10;
+}
+
+/** Dígito geral do código de barras (módulo 11, pesos 2 a 9). */
+function mod11_barcode_digit(string $digits): int
+{
+    $sum = 0;
+    $weight = 2;
+    for ($i = strlen($digits) - 1; $i >= 0; $i--) {
+        $sum += (int) $digits[$i] * $weight;
+        $weight = $weight === 9 ? 2 : $weight + 1;
+    }
+    $dv = 11 - $sum % 11;
+    return in_array($dv, [0, 10, 11], true) ? 1 : $dv;
+}
+
+/**
+ * Linha digitável de boleto bancário (47 dígitos): confere os dígitos e tira dela
+ * o valor e o vencimento. Devolve null quando não é uma linha válida.
+ * O fator de vencimento recomeçou em 1000 no dia 22/02/2025; vale o ciclo mais perto de hoje.
+ */
+function parse_boleto_line(string $text): ?array
+{
+    $d = preg_replace('/\D/', '', $text);
+    if (strlen($d) !== 47) {
+        return null;
+    }
+    if (mod10_digit(substr($d, 0, 9)) !== (int) $d[9]
+        || mod10_digit(substr($d, 10, 10)) !== (int) $d[20]
+        || mod10_digit(substr($d, 21, 10)) !== (int) $d[31]) {
+        return null;
+    }
+    $withoutDv = substr($d, 0, 4) . substr($d, 33, 14) . substr($d, 4, 5) . substr($d, 10, 10) . substr($d, 21, 10);
+    if (mod11_barcode_digit($withoutDv) !== (int) $d[32]) {
+        return null;
+    }
+    $factor = (int) substr($d, 33, 4);
+    $due = null;
+    if ($factor > 0) {
+        $today = new DateTimeImmutable('today');
+        $candidates = [(new DateTimeImmutable('1997-10-07'))->modify("+$factor days")];
+        if ($factor >= 1000) {
+            $candidates[] = (new DateTimeImmutable('2025-02-22'))->modify('+' . ($factor - 1000) . ' days');
+        }
+        usort($candidates, fn ($a, $b) => abs($a->getTimestamp() - $today->getTimestamp()) <=> abs($b->getTimestamp() - $today->getTimestamp()));
+        $due = $candidates[0]->format('Y-m-d');
+    }
+    return [
+        'barcode' => sprintf('%s.%s %s.%s %s.%s %s %s',
+            substr($d, 0, 5), substr($d, 5, 5), substr($d, 10, 5), substr($d, 15, 6),
+            substr($d, 21, 5), substr($d, 26, 6), $d[32], substr($d, 33, 14)),
+        'amount' => (int) substr($d, 37, 10) / 100,
+        'due_date' => $due,
+    ];
+}
+
+/**
+ * Dados do boleto no envio do PDF: só com a linha digitável. Valor e vencimento saem
+ * dela; quando ela não traz (boleto sem valor ou sem vencimento), vêm de amount e dueDate.
+ */
+function bill_fields_from_input(): ?array
+{
+    $line = optional_string('barcode', 80);
+    if ($line === '') {
+        return null;
+    }
+    $parsed = parse_boleto_line($line) ?? throw new ApiError(422, 'Linha digitável inválida: confira os 47 números.');
+    if ($parsed['amount'] <= 0) {
+        $amount = (float) str_replace(',', '.', (string) input('amount', '0'));
+        if ($amount <= 0 || $amount > 99999999) {
+            throw new ApiError(422, 'Este boleto não traz o valor: informe o valor.');
+        }
+        $parsed['amount'] = round($amount, 2);
+    }
+    if ($parsed['due_date'] === null) {
+        $due = optional_string('dueDate', 10);
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $due) || !checkdate((int) substr($due, 5, 2), (int) substr($due, 8, 2), (int) substr($due, 0, 4))) {
+            throw new ApiError(422, 'Este boleto não traz o vencimento: informe a data.');
+        }
+        $parsed['due_date'] = $due;
+    }
+    return $parsed;
+}
+
 function unit_document_json(array $d): array
 {
     return [
@@ -171,16 +267,22 @@ function register_record_routes(Router $r): void
         send_json(array_map('unit_document_json', $list));
     });
 
-    // Um PDF por unidade e mês: o novo substitui o anterior.
+    // Um PDF por unidade e mês: o novo substitui o anterior. Com a linha digitável
+    // (o painel lê do próprio PDF), também cria ou atualiza o boleto que o morador vê,
+    // com valor e vencimento; um boleto já pago continua pago.
     $r->add('POST', '/unit-documents', function () {
         require_role('ADMIN');
         $condoId = condo_id();
         $unit = required_string('unit', 80);
+        if (!in_array($unit, condo_unit_labels($condoId), true)) {
+            throw new ApiError(422, 'Apartamento não existe neste condomínio.');
+        }
         $reference = require_month(required_string('reference', 7));
+        $bill = bill_fields_from_input();
         $file = store_upload($condoId, PDF_TYPES);
         $previous = row('SELECT * FROM unit_documents WHERE condo_id = ? AND unit = ? AND reference = ?', [$condoId, $unit, $reference]);
         $id = uuid();
-        transaction(function () use ($id, $condoId, $unit, $reference, $file, $previous) {
+        transaction(function () use ($id, $condoId, $unit, $reference, $file, $previous, $bill) {
             if ($previous !== null) {
                 exec_sql('DELETE FROM unit_documents WHERE id = ?', [$previous['id']]);
             }
@@ -188,12 +290,22 @@ function register_record_routes(Router $r): void
                 'INSERT INTO unit_documents (id, condo_id, unit, reference, file_id, uploaded_at) VALUES (?, ?, ?, ?, ?, ?)',
                 [$id, $condoId, $unit, $reference, $file['id'], now_sql()]
             );
+            if ($bill !== null) {
+                exec_sql(
+                    'INSERT INTO bills (id, condo_id, unit, reference, amount, due_date, status, barcode)
+                     VALUES (?, ?, ?, ?, ?, ?, \'OPEN\', ?)
+                     ON DUPLICATE KEY UPDATE amount = VALUES(amount), due_date = VALUES(due_date), barcode = VALUES(barcode)',
+                    [uuid(), $condoId, $unit, $reference, $bill['amount'], $bill['due_date'], $bill['barcode']]
+                );
+            }
         });
         delete_file($previous['file_id'] ?? null);
         notify(
             users_of_unit($condoId, $unit),
             'Boleto disponível',
-            'O boleto de ' . month_label($reference) . ' já está no app.',
+            $bill !== null
+                ? 'Boleto de ' . month_label($reference) . ': R$ ' . number_format($bill['amount'], 2, ',', '.') . ', vence em ' . date('d/m', strtotime($bill['due_date'])) . '.'
+                : 'O boleto de ' . month_label($reference) . ' já está no app.',
             ['tab' => 'bills']
         );
         send_json(unit_document_json(row(UNIT_DOCUMENT_SELECT . ' WHERE d.id = ?', [$id])), 201);

@@ -746,3 +746,51 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
     .sidebar .picker-wrap { order: 3; }
     .sidebar .nav:not(.nav-platform) { order: 4; }
 }
+
+/* ------------------------------------------------------------ boletos em lote */
+
+.dropzone-big { padding: 40px 28px; gap: 10px; }
+.dropzone-big > .muted { max-width: 46em; text-align: center; }
+.bulk-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bulk-step { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: var(--radius); background: var(--surface-2); }
+.bulk-step strong { display: block; font-weight: 600; font-size: 14px; }
+.bulk-step small { color: var(--text-2); font-size: 13px; }
+.bulk-step-n {
+    width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center;
+    font-family: var(--serif); font-size: 15px; background: var(--accent-container); color: var(--on-accent-container);
+}
+
+.bulk-reading { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 28px 12px; }
+.bulk-reading .progress { width: 100%; max-width: 420px; background: var(--surface-3); margin-top: 4px; }
+.bulk-reading .progress span { background: var(--accent); transition: width 0.2s; }
+
+.bulk-summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.bulk-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+.bulk-chip strong { font-weight: 700; }
+.bulk-chip.tone-success { background: var(--success-container); color: var(--success); }
+.bulk-chip.tone-danger { background: var(--danger-container); color: var(--danger); }
+.bulk-chip.tone-warning { background: var(--warning-container); color: var(--warning); }
+.bulk-chip.tone-neutral { background: var(--surface-2); color: var(--text-2); }
+
+/* A lista não encolhe para caber no painel: quem rola é o painel. */
+.bulk-list { min-height: max-content; }
+.bulk-row { align-items: flex-start; }
+.bulk-row .grow small { display: block; margin-top: 4px; }
+.bulk-state { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--text-3); margin-top: 3px; }
+.bulk-row.ok .bulk-state { background: var(--success-container); color: var(--success); }
+.bulk-row.warning .bulk-state { background: var(--warning-container); color: var(--warning); }
+.bulk-row.danger .bulk-state { background: var(--danger-container); color: var(--danger); }
+.bulk-row.skipped { opacity: 0.55; }
+.bulk-row.skipped .bulk-main { text-decoration: line-through; }
+.bulk-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.bulk-main .select-compact { min-width: 190px; }
+.bulk-money { font-variant-numeric: tabular-nums; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bulk-problem { margin: 6px 0 0; color: var(--danger); font-size: 13px; }
+.input-compact { height: 36px; font-size: 13.5px; }
+.line-input { min-width: min(100%, 360px); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.money-input { width: 110px; }
+.spinner-s { width: 14px; height: 14px; border-width: 2px; }
+
+@media (max-width: 860px) {
+    .bulk-how { grid-template-columns: 1fr; }
+}

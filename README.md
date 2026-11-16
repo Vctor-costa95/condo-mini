@@ -73,11 +73,21 @@ Atende vários condomínios e escolhe qual está gerenciando no topo da tela.
 
 | Aba | O que faz |
 |---|---|
-| **Unidades** | Edita o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês. |
+| **Unidades** | Edita o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês (no painel, todos de uma vez: veja abaixo). |
 | **Cadastros** | Cria pessoas com usuário, senha, perfil e apartamentos. |
 | **Espaços** | Cria espaços reserváveis (capacidade, taxa, regras, e se a reserva é por turno, por hora ou do dia inteiro) e interdita para manutenção. |
 
 No **painel web** ela faz tudo isso no computador e ainda aceita ou recusa os **pedidos de cadastro** feitos pelo app (seção "Pedidos de cadastro" em Cadastros, com a contagem na barra lateral).
+
+#### Boletos do mês de uma vez (painel)
+Em **Unidades → Enviar boletos do mês**, a administradora solta o PDF que o sistema de cobrança gera, com todos os boletos (um por página), ou vários PDFs, um por apartamento. O painel faz o resto, no próprio navegador:
+
+1. Lê a **linha digitável** de cada boleto e tira dela o **valor** e o **vencimento** (os 47 números trazem os dois, em qualquer banco).
+2. Descobre o **apartamento** pelo texto ("Unidade 101 - Bloco B", "Apto 101 Bl. B", "B-101") ou pelo nome do arquivo ("101.pdf", "Bloco A - 1004.pdf"). Páginas sem linha digitável (verso, instruções) vão junto com o boleto de antes.
+3. Mostra a conferência com **só as exceções** em destaque: apartamento não achado, número que existe em mais de um bloco, boleto sem linha digitável, dois boletos para o mesmo apartamento. Dá para escolher o apartamento ou deixar o boleto de fora.
+4. Separa um PDF por apartamento e envia tudo. Cada morador recebe o aviso com valor e vencimento, e o boleto aparece no app.
+
+Enviar o PDF de um apartamento só (no detalhe da unidade) também lê a linha digitável; se não achar, pede para digitar.
 
 ### Plataforma (nós)
 Cada administrador pertence a uma **administradora** e só vê os condomínios dela. Quem cadastra as administradoras, sobe a logo delas, cria os condomínios e aloca cada um a uma administradora é a **plataforma**, o perfil da equipe condo.mini. Uma administradora suspensa não entra, nem quem mora nos prédios dela.
@@ -197,7 +207,8 @@ O token de login fica no celular **cifrado** com uma chave do próprio aparelho 
 
 ## 7. O que ainda não existe
 
-- **Criar cobranças pelo app.** A lista de boletos (valor, vencimento, pago ou não) vem do banco; hoje só existe a dos dados de demonstração. A administradora consegue enviar o **PDF** de cada mês, mas falta uma tela para lançar ou importar os valores.
+- **Baixa de pagamento.** O boleto nasce do PDF enviado (valor, vencimento e linha digitável), mas ainda não vira "pago" sozinho: falta ler o retorno do banco ou ligar no sistema de cobrança da administradora (Superlógica e outros têm API). Hoje ele aparece em aberto e depois vencido.
+- **Envio de boletos pelo app Android** com a leitura da linha digitável: no app, o PDF ainda entra sem valor e vencimento, e o morador só o vê se o boleto já existir. Use o painel.
 - **Pagamento pelo app** (Pix, cartão).
 - **Marca da administradora no app Android**, e esconder dele o "criar condomínio" do administrador (que agora só a plataforma faz, pelo painel). Ver o plano das administradoras.
 - **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
