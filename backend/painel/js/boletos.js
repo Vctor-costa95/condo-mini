@@ -191,6 +191,18 @@ export async function extractPages(bytes, pageIndexes) {
 }
 
 /**
+ * Página sem linha digitável: é o verso do boleto anterior, a não ser que diga com todas
+ * as letras outro apartamento ("Unidade 906"). Aí é um boleto à parte, que veio sem linha,
+ * e não pode ir de carona para o apartamento do anterior.
+ */
+function startsOwnBoleto(text, previous, units) {
+    const own = matchUnit(text, units);
+    if (own.confidence !== 'high' || !own.unit) return false;
+    const before = matchUnit(previous.text, units);
+    return !before.unit || before.unit.label !== own.unit.label;
+}
+
+/**
  * Lê os arquivos e devolve um item por boleto:
  * { id, file, fileName, pages, line, unit, confidence, candidates, problem }.
  * Num PDF com vários boletos, cada página com linha digitável começa um boleto novo e as
@@ -214,7 +226,7 @@ export async function analyzeFiles(files, units, onProgress) {
             const lines = findBoletoLines(text);
             if (lines.length > 1) {
                 groups.push({ pages: [index], text, lines, problem: `A página ${index + 1} tem ${lines.length} boletos. Gere o PDF com um boleto por página.` });
-            } else if (lines.length === 1 || !groups.length) {
+            } else if (lines.length === 1 || !groups.length || startsOwnBoleto(text, groups[groups.length - 1], units)) {
                 groups.push({ pages: [index], text, lines });
             } else {
                 const last = groups[groups.length - 1];
