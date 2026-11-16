@@ -65,7 +65,10 @@ const ICONS = {
     alert: 'M12 9v4 M12 17h.01 M10.3 4.2L2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z',
     userMinus: 'M15 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 3 17.5V19 M9 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M16 11h6',
     userPlus: 'M15 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 3 17.5V19 M9 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M19 8v6 M16 11h6',
-    contrast: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 3v18'
+    contrast: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 3v18',
+    briefcase: 'M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z M9 8V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3 M4 13h16',
+    image: 'M4 5h16v14H4z M4 16l5-5 4 4 2-2 5 5 M15 9.5a1.5 1.5 0 1 0 0-.01',
+    move: 'M5 12h14 M15 8l4 4-4 4 M9 16l-4-4 4-4'
 };
 
 export function icon(name, size = 20) {
@@ -104,6 +107,29 @@ export function brandMark(size = 40) {
     group.append(bars, accent);
     svg.append(group);
     return svg;
+}
+
+/**
+ * Placa com a marca da administradora: a logo, ou as iniciais do nome sobre a cor
+ * dela. Sem administradora (a plataforma), a marca do condo.mini.
+ */
+export function brandTile(brand, size = 44) {
+    const tile = h('span', { class: 'brand-tile', style: { width: `${size}px`, height: `${size}px` } });
+    if (brand?.logoUrl) {
+        tile.classList.add('has-logo');
+        const img = h('img', { src: brand.logoUrl, alt: brand.name || '', width: size, height: size });
+        // Logo que não carrega (removida, sem internet) volta para as iniciais.
+        img.addEventListener('error', () => mount(tile, initials(brand.name)));
+        tile.append(img);
+    } else if (brand?.companyId) {
+        tile.classList.add('initials');
+        if (brand.color) tile.style.setProperty('--brand', brand.color);
+        tile.style.fontSize = `${Math.round(size * 0.36)}px`;
+        tile.append(initials(brand.name));
+    } else {
+        tile.append(brandMark(Math.round(size * 0.6)));
+    }
+    return tile;
 }
 
 export function button(label, { variant = 'primary', iconName, onclick, type = 'button', disabled, title, small } = {}) {

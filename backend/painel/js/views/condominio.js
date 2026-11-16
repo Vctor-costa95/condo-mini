@@ -5,7 +5,7 @@ import { loadCondos, state } from '../state.js';
 import {
     allFloors, defaultUnitsOn, floorLabel, GROUND_FLOOR, MAX_FLOORS, MAX_UNITS_PER_FLOOR, totalUnits, towerUnits, unitsOn
 } from '../units.js';
-import { busy, button, confirmDialog, field, formError, h, icon, input, mount, toast } from '../ui.js';
+import { busy, button, confirmDialog, field, formError, h, icon, input, mount, select, toast } from '../ui.js';
 
 function newTower(towers) {
     // Próxima letra livre: depois de remover o "Bloco B", o novo volta a ser B.
@@ -45,6 +45,18 @@ export function renderCondoEditor(container, { editId, navigate }) {
 
     const name = input({ value: draft.name, maxlength: 48, placeholder: 'Ex.: Residencial Jardim das Flores' });
     const address = input({ value: draft.address, maxlength: 90, placeholder: 'Rua, número e bairro' });
+    // Condomínio novo (só a plataforma cria): já nasce na administradora escolhida.
+    const company = isNew ? select([['', 'Carregando administradoras...']], '') : null;
+    if (company) {
+        company.addEventListener('change', () => (dirty = true));
+        const wanted = new URLSearchParams(window.location.hash.split('?')[1] || '').get('administradora') || '';
+        api.get('companies')
+            .then((list) => mount(company,
+                h('option', { value: '' }, 'Sem administradora (só a plataforma vê)'),
+                list.map((item) => h('option', { value: item.id, selected: item.id === wanted }, item.active ? item.name : `${item.name} (suspensa)`))
+            ))
+            .catch((err) => mount(errorBox, formError(err.message)));
+    }
     name.addEventListener('input', () => { draft.name = name.value; dirty = true; drawSummary(); });
     address.addEventListener('input', () => { draft.address = address.value; dirty = true; });
 
@@ -172,6 +184,7 @@ export function renderCondoEditor(container, { editId, navigate }) {
             try {
                 const saved = await api.post('condos', {
                     id: original?.id || '',
+                    companyId: company?.value || '',
                     name: draft.name.trim(),
                     address: draft.address.trim(),
                     towers: draft.towers.map((tower) => ({
@@ -206,7 +219,10 @@ export function renderCondoEditor(container, { editId, navigate }) {
                     errorBox,
                     h('section', { class: 'card card-pad form-grid' },
                         h('div', { class: 'span-2' }, field('Nome do condomínio', name)),
-                        h('div', { class: 'span-2' }, field('Endereço', address))
+                        h('div', { class: 'span-2' }, field('Endereço', address)),
+                        company
+                            ? h('div', { class: 'span-2' }, field('Administradora', company, { hint: 'Os administradores dela passam a ver este condomínio. Dá para mover depois, em Condomínios.' }))
+                            : null
                     ),
                     towersBox
                 ),

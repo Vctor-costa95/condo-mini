@@ -37,7 +37,7 @@ Plataforma (PLATFORM, a equipe Condo-mini) → Administradora → Condomínios �
 - A **plataforma** (`PLATFORM`) passa em toda rota de administrador, em qualquer condomínio, e é a única que cadastra administradoras, sobe a logo, cria condomínios e os aloca.
 - Administradora com `active = false` fica suspensa: ninguém dela entra (nem administradores nem quem é dos condomínios dela).
 - `GET /me` e o login trazem `brand: {companyId, name, logoUrl, color}`, a marca da administradora de quem entrou, para o app e o painel mostrarem no lugar da nossa. Sem administradora, ou sem logo, `logoUrl` vem `null`.
-- Cadastro da plataforma na produção: `php scripts/platform-user.php <usuário> "<Nome>"` (pede a senha; rodar de novo troca a senha). Na demonstração, a conta de teste `plataforma` entra sem senha.
+- Cadastro da plataforma na produção: `php scripts/platform-user.php <usuário> "<Nome>" --sql` no seu computador pede a senha e imprime o `INSERT` (só com o hash) para colar no phpMyAdmin. Sem `--sql`, conecta no banco do `config.php` e cria ou troca a senha. Use usuário sem acento. Na demonstração, a conta de teste `plataforma` entra sem senha.
 
 Contas de teste sem senha (`morador`, `sindico`, `porteiro`, `admin`, `plataforma`) só entram com `allow_passwordless_logins => true` e só num banco recém-semeado: na produção elas já têm senha (ver o README principal). Os demais cadastros de demonstração usam `nome.sobrenome` / `condo123`. **Desligue a opção e troque as senhas antes de cadastrar moradores de verdade.**
 
@@ -53,7 +53,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /companies`, `POST /companies`, `DELETE /companies/{id}` (só sem condomínios) | plataforma |
 | `POST /companies/{id}/logo` (multipart: PNG, WebP ou JPEG, até 1 MB, mínimo 128 px), `DELETE /companies/{id}/logo` | plataforma |
 | `GET /companies/{id}/logo` | pública (a URL vem em `brand.logoUrl`, com `?v=` que muda a cada troca) |
-| `GET /users`, `POST /users`, `DELETE /users/{id}` | admin, síndico e portaria leem / admin salva (administrador novo fica na administradora de quem cria; a plataforma informa `companyId`) |
+| `GET /users`, `POST /users`, `DELETE /users/{id}` | admin, síndico e portaria leem (a plataforma, com `?companyId=`, lista os administradores daquela administradora) / admin salva (administrador novo fica na administradora de quem cria; a plataforma informa `companyId`) |
 | `POST /users/{id}/units`, `DELETE /users/{id}/units?unit=` | admin |
 | `GET /logins/available?login=&exceptUserId=` | admin (considera também pedidos de cadastro pendentes) |
 | `GET /public/condos` | sem login: prédios e blocos para quem vai criar a conta (sem moradores) |
@@ -110,7 +110,10 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
 
 ## Painel web da administradora
 
-`painel/` é o painel para o administrador usar no computador, com as mesmas funções do perfil administrador no app: condomínios (criar, editar blocos e andares, trocar), unidades (boletos em PDF do mês, alocar e desalocar moradores), cadastros e espaços. Só o perfil `ADMIN` entra; os outros são mandados para o app.
+`painel/` é o painel para usar no computador. Entram dois perfis; os outros são mandados para o app.
+
+- **Administrador (`ADMIN`):** as mesmas funções do perfil no app: condomínios da administradora (editar blocos e andares, trocar), unidades (boletos em PDF do mês, alocar e desalocar moradores), cadastros, pedidos de cadastro e espaços. A barra lateral mostra a marca da administradora (`me.brand`): logo, ou iniciais sobre a cor dela. Não cria condomínio.
+- **Plataforma (`PLATFORM`):** telas Administradoras (`js/views/administradoras.js`) e Condomínios (`js/views/condominios.js`), além das telas acima em qualquer condomínio. Usa `GET /users?companyId=` para listar os administradores de cada administradora.
 
 - São só arquivos estáticos (HTML, CSS e JavaScript em módulos, sem framework e sem build), na mesma pasta da API: sem CORS, e o painel chama as mesmas rotas do app.
 - Endereço: `<endereço da API>/painel/`. Localmente, `http://127.0.0.1:8080/painel/` (o `index.php` deixa o `php -S` entregar os arquivos do painel).

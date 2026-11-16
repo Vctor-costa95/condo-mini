@@ -303,6 +303,11 @@ function register_directory_routes(Router $r): void
     // (e a plataforma) também vê os administradores da administradora do condomínio.
     $r->add('GET', '/users', function () {
         $me = require_role('ADMIN', 'MANAGER', 'DOORMAN');
+        // Plataforma com ?companyId=: os administradores daquela administradora.
+        if ($me['role'] === 'PLATFORM' && query('companyId') !== null) {
+            $companyId = require_company((string) query('companyId'));
+            send_json(array_map('user_json', rows("SELECT * FROM users WHERE role = 'ADMIN' AND company_id = ? ORDER BY name", [$companyId])));
+        }
         $condoId = condo_id();
         $list = is_admin_role($me)
             ? rows(

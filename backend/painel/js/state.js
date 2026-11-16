@@ -19,6 +19,11 @@ function notify() {
     listeners.forEach((listener) => listener(state));
 }
 
+/** A equipe condo.mini: cadastra administradoras e vê todos os condomínios. */
+export function isPlatform() {
+    return state.user?.role === 'PLATFORM';
+}
+
 export function currentCondo() {
     return state.condos.find((condo) => condo.id === state.condoId) || null;
 }

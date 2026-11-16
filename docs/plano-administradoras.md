@@ -6,7 +6,7 @@ Plataforma (PLATFORM, nós) → Administradora → Condomínios → síndico / p
 
 A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios. O administrador (`ADMIN`) só vê os condomínios da administradora dele, e a logo da empresa aparece no app e no painel no lugar da nossa.
 
-**Onde está:** a fase 1 está no `main` e **publicada na Hostinger** desde 15/11/2026 (migração 004 rodada pelo phpMyAdmin). Enquanto a fase 2 não sai, o administrador não consegue criar condomínio: o botão do app e do painel dá 403.
+**Onde está:** a fase 1 está **publicada na Hostinger** desde 15/11/2026 (migração 004 rodada pelo phpMyAdmin). A fase 2 (painel) está no `main`, falta publicar. No app Android, o botão de criar condomínio do administrador ainda aparece e dá 403 até a fase 3.
 
 **Decisões tomadas** (dá para mudar):
 - só a plataforma cria condomínios;
@@ -50,21 +50,22 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 
 ---
 
-## ⏭️ Fase 2: painel web (`backend/painel/`)
+## ✅ Fase 2: painel web (feita em 15/11/2026, ainda não publicada)
 
-1. **Login:** hoje só entra `ADMIN` (`js/main.js`, linhas 38 e 61). Deixar entrar também `PLATFORM`, com outro menu.
-2. **Marca do admin:** ler `me.brand`. Na barra lateral e na tela de carregamento, mostrar a logo e o nome da administradora no lugar do condo.mini (`brandMark`, em `js/ui.js`). Sem logo, a placa mostra as iniciais do nome. Pequeno, no rodapé: "Desenvolvido por condo.mini".
-3. **Esconder "criar condomínio" para o ADMIN** (`js/views/condominio.js`). Hoje o botão dá 403.
-4. **Console da plataforma** (telas novas):
-   - **Administradoras:** lista com quantos condomínios e admins cada uma tem; criar e editar nome, CNPJ, cor e ativa/suspensa; enviar e remover a logo, com prévia no tema claro e no escuro; excluir só quando estiver sem condomínios.
-   - **Condomínios:** todos, com filtro por administradora (`GET /condos?companyId=`, vazio = sem administradora); criar já alocado (`POST /condos` com `companyId`); mover ou desalocar (`PUT /condos/{id}/company`).
-   - **Admins de cada administradora:** criar com `POST /users` (`role: ADMIN`, `companyId`).
-   - A plataforma também pode entrar nas telas atuais (unidades, cadastros, espaços) de qualquer condomínio, para dar suporte.
-5. **CSP:** a logo vem do mesmo domínio (`/companies/{id}/logo`). Conferir se o `img-src` do `painel/.htaccess` permite.
-6. Visual premium, igual ao painel atual ([[premium-feel-every-role]]). Testar no navegador com `admin`, `marcia.teles` e `plataforma`.
+- **Login:** entram `ADMIN` e `PLATFORM` (`js/main.js`). A plataforma abre em Administradoras, com o menu dela em cima e, embaixo, o condomínio aberto com Unidades, Cadastros e Espaços, para dar suporte em qualquer condomínio.
+- **Marca do admin:** a barra lateral mostra a logo e o nome da administradora (`brandTile`, em `js/ui.js`); sem logo, as iniciais sobre a cor dela. Rodapé com "Desenvolvido por condo.mini". A tela de carregamento usa a última marca guardada no navegador.
+- **"Criar condomínio" só para a plataforma:** some do seletor e da tela vazia do ADMIN, e `#/condominio/novo` volta para Unidades. Ao criar, a plataforma escolhe a administradora (já vem marcada quando ela filtrou uma em Condomínios).
+- **Administradoras** (`js/views/administradoras.js`): cartões com logo, CNPJ, situação e contagens; painel lateral para nome, CNPJ, cor, ativa/suspensa (pede confirmação), logo com prévia no tema claro e no escuro, administradores (listar, criar, excluir) e excluir a administradora quando ela não tem condomínios.
+- **Condomínios** (`js/views/condominios.js`): todos, com busca, filtro por administradora e troca de administradora na própria linha (com confirmação). Clicar na linha abre o condomínio nas telas de sempre.
+- **API:** `GET /users?companyId=` (só a plataforma) lista os administradores de uma administradora. Em Cadastros, administrador criado pela plataforma vai para a administradora do condomínio aberto.
+- A logo vem do mesmo domínio, então o `img-src 'self'` do `painel/.htaccess` já permite.
+- Testado no navegador com `plataforma` e `admin` (desktop e celular). Teste de fumaça: 178 verificações.
+
+**Para publicar:** enviar a pasta `painel/` inteira e o `lib/directory.php` (a rota nova). Não tem migração.
 
 ## ⏭️ Fase 3: app Android
 
+0. **Esconder "criar condomínio" do administrador** na aba Unidades do app (hoje dá 403).
 1. **Não quebrar com `PLATFORM`:** hoje `UserRole.valueOf` em `data/remote/JsonMappers.kt` derruba o app. Adicionar `PLATFORM` ao enum (`domain/model/User.kt`) ou mostrar "use o painel".
 2. **Modelo:** criar `Brand(companyId, name, logoUrl, color)` em `User` ou na sessão, lido de `brand` no login e no `/me`. Guardar no cache da sessão para abrir sem internet.
 3. **Logo:** carregar e guardar no aparelho (ver se o Coil já está no projeto; senão, baixar com o OkHttp do `ApiClient` para o `ApiCache`). A URL tem `?v=`, então dá para guardar sem prazo.
@@ -83,6 +84,6 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 - ✅ **Na produção** (passos 1 e 2 feitos em 15/11; 3 e 4 esperam a fase 2):
   1. enviar `lib/`, `sql/`, `index.php` e `scripts/`;
   2. rodar `scripts/install.php` (aplica a 004, e a 003 se o cadastro pelo app ainda não tiver sido publicado);
-  3. criar o nosso cadastro com `scripts/platform-user.php`;
+  3. criar o nosso cadastro: `php scripts/platform-user.php <usuário> "<Nome>" --sql` no seu computador e colar o `INSERT` no phpMyAdmin;
   4. criar as administradoras de verdade, subir as logos e mover os condomínios para elas.
 - Atualizar o site na Lovable ([[landing-site-lovable]]) para falar da marca própria da administradora (opcional).
