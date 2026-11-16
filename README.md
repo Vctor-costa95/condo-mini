@@ -185,6 +185,8 @@ Para o **painel web**, envie a pasta `backend/painel/` inteira para dentro dessa
 Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras), e o `install.php` aplica as que faltam. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
 
 ### Testar a API
+Para testar o envio de boletos em lote, `php scripts/gerar-boletos-teste.php` cria em `backend/dist/boletos-teste/` boletos fictícios do prédio "Testadores" (um PDF com o prédio todo, com duas exceções de propósito, e seis PDFs soltos com o apartamento no nome).
+
 `backend/scripts/smoke-test.php` faz login com cada perfil e passa por todas as telas, inclusive permissões e notificações. Rode só contra uma cópia local (ele cria registros). Veja [`backend/README.md`](backend/README.md#rodar-localmente).
 
 ---
