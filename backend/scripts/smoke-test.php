@@ -191,6 +191,41 @@ check('morador baixa o PDF', $s === 200);
 check('morador de outro apto não baixa o arquivo', call('GET', '/files/' . basename($doc['url'] ?? 'x'), null, $paulo)[0] === 404);
 check('admin exclui PDF', call('DELETE', "/unit-documents/{$doc['id']}", null, $admin)[0] === 200);
 
+// Linha digitável de teste com os dígitos certos: banco, fator de vencimento, valor em centavos e campo livre.
+$boletoLine = function (int $factor, int $cents, string $free = '1790010104351004791020150'): string {
+    $mod10 = function (string $s): int {
+        $sum = 0; $w = 2;
+        for ($i = strlen($s) - 1; $i >= 0; $i--) { $p = (int) $s[$i] * $w; $sum += intdiv($p, 10) + $p % 10; $w = $w === 2 ? 1 : 2; }
+        return (10 - $sum % 10) % 10;
+    };
+    $tail = sprintf('%04d%010d', $factor, $cents);
+    $body = '3419' . $tail . $free;
+    $sum = 0; $w = 2;
+    for ($i = strlen($body) - 1; $i >= 0; $i--) { $sum += (int) $body[$i] * $w; $w = $w === 9 ? 2 : $w + 1; }
+    $dv = 11 - $sum % 11;
+    $dv = in_array($dv, [0, 10, 11], true) ? 1 : $dv;
+    $f1 = '3419' . substr($free, 0, 5);
+    $f2 = substr($free, 5, 10);
+    $f3 = substr($free, 15, 10);
+    return $f1 . $mod10($f1) . $f2 . $mod10($f2) . $f3 . $mod10($f3) . $dv . $tail;
+};
+$due = new DateTimeImmutable('+20 days');
+$factor = 1000 + (int) (new DateTimeImmutable('2025-02-22'))->diff($due)->days;
+$line = $boletoLine($factor, 68540);
+$billUnit = ['condoId' => 'c1', 'unit' => 'Apto 1301 - Bloco A', 'reference' => '2031-03', 'file' => $pdf];
+check('linha com dígito errado recusada', call('POST', '/unit-documents', null, $admin, $billUnit + ['barcode' => substr($line, 0, 46) . (((int) $line[46] + 1) % 10)])[0] === 422);
+check('apartamento que não existe recusado', call('POST', '/unit-documents', null, $admin, ['unit' => 'Apto 9999 - Bloco Z'] + $billUnit)[0] === 422);
+[$s] = call('POST', '/unit-documents', null, $admin, $billUnit + ['barcode' => $line]);
+check('PDF com linha digitável cria o boleto', $s === 201);
+$billsOf = fn () => array_values(array_filter(call('GET', '/bills?condoId=c1&unit=' . rawurlencode('Apto 1301 - Bloco A'), null, $admin)[1], fn ($b) => $b['reference'] === '2031-03'));
+$made = $billsOf()[0] ?? [];
+check('valor e vencimento lidos da linha', ($made['amount'] ?? 0) === 685.4 && ($made['dueDate'] ?? '') === $due->format('Y-m-d')
+    && preg_match('/^\d{5}\.\d{5} \d{5}\.\d{6} \d{5}\.\d{6} \d \d{14}$/', $made['barcode'] ?? ''), $made);
+check('boleto sem valor pede o valor', call('POST', '/unit-documents', null, $admin, $billUnit + ['barcode' => $boletoLine($factor, 0)])[0] === 422);
+[$s] = call('POST', '/unit-documents', null, $admin, $billUnit + ['barcode' => $boletoLine($factor, 0), 'amount' => '712,30']);
+$made = $billsOf();
+check('reenvio atualiza o mesmo boleto, com o valor informado', $s === 201 && count($made) === 1 && $made[0]['amount'] === 712.3, $made);
+
 echo "Encomendas\n";
 $png = ['name' => 'foto.png', 'type' => 'image/png', 'data' => base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')];
 [$s, $photo] = call('POST', '/files', null, $doorman, ['file' => $png]);

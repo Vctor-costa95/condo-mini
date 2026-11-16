@@ -3,6 +3,8 @@
 import { api } from '../api.js';
 import { refreshSidebarBadge } from '../main.js';
 import { allFloors, floorLabel, towerUnits, unitsOn } from '../units.js';
+import { findBoletoLines, parseBoletoLine, readPdfText } from '../boletos.js';
+import { openBulkUpload } from './boletos-lote.js';
 import {
     busy, button, confirmDialog, drawer, emptyState, formatBytes, formatDateTime, formError, h, icon,
     loading, monthLabel, monthRef, mount, select, shortMonthLabel, toast
@@ -35,7 +37,16 @@ export function renderUnits(container, { condo }) {
             h('div', {},
                 h('p', { class: 'eyebrow' }, condo.name),
                 h('h1', {}, 'Unidades'),
-                h('p', {}, 'Envie o boleto em PDF de cada apartamento e cuide de quem mora em cada um. Clique num apartamento para abrir o detalhe.')
+                h('p', {}, 'Envie os boletos do mês de uma vez e cuide de quem mora em cada apartamento. Clique num apartamento para abrir o detalhe.')
+            ),
+            h('div', { class: 'page-actions' },
+                button('Enviar boletos do mês', {
+                    iconName: 'upload',
+                    onclick: () => openBulkUpload({
+                        condo, month: view.month, documents: view.documents,
+                        onDone: () => load().then(render).catch((error) => toast(error.message, 'danger'))
+                    })
+                })
             )
         );
     }
@@ -319,10 +330,30 @@ export function renderUnits(container, { condo }) {
                     });
                     if (!ok) return;
                 }
+                // O morador só vê o boleto com valor e vencimento: eles saem da linha digitável do PDF.
+                let line = null;
+                try {
+                    const lines = findBoletoLines((await readPdfText(new Uint8Array(await file.arrayBuffer()))).join('\n'));
+                    if (lines.length === 1) line = lines[0];
+                } catch {
+                    // PDF que não dá para ler aqui: pede a linha abaixo.
+                }
+                if (!line) {
+                    const typed = await confirmDialog({
+                        title: 'Linha digitável',
+                        message: 'Não encontrei a linha digitável neste PDF. Digite os 47 números para o morador ver o valor e o vencimento no app.',
+                        confirmLabel: 'Enviar',
+                        reason: { label: 'Linha digitável', placeholder: '00000.00000 00000.000000 00000.000000 0 00000000000000', maxLength: 80 }
+                    });
+                    if (!typed) return;
+                    line = parseBoletoLine(typed);
+                    if (!line) return mount(errorBox, formError('Linha digitável inválida: confira os 47 números.'));
+                }
                 const form = new FormData();
                 form.append('condoId', condo.id);
                 form.append('unit', unit.label);
                 form.append('reference', view.month);
+                form.append('barcode', line.line);
                 form.append('file', file, file.name);
                 zone.classList.add('over');
                 mount(zone, h('span', { class: 'spinner' }), h('strong', {}, `Enviando ${file.name}...`));

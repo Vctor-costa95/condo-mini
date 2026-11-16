@@ -68,7 +68,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /service-bookings[?unit=]`, `GET /service-bookings/taken-moves?date=`, `POST /service-bookings` | idem |
 | `POST /service-bookings/{id}/cancel\|approve\|reject` | idem |
 | `GET /bills?unit=`, `GET /bills/{id}`, `GET /bills/{id}/pdf` | morador do apartamento |
-| `GET /unit-documents`, `POST /unit-documents` (multipart), `DELETE /unit-documents/{id}` | admin |
+| `GET /unit-documents`, `POST /unit-documents` (multipart: `unit`, `reference`, `file` e, opcional, `barcode`), `DELETE /unit-documents/{id}` | admin. Com `barcode` (a linha digitável, 47 dígitos), a API confere os dígitos verificadores, tira valor e vencimento da própria linha e cria ou atualiza o boleto do mês (`bills`); `amount` e `dueDate` só entram quando a linha não traz. Boleto já pago continua pago. |
 | `GET /parcels[?unit=]`, `POST /parcels`, `POST /parcels/{id}/deliver` | morador lê / portaria registra e entrega |
 | `GET /occurrences[?unit=]`, `POST /occurrences` | morador registra / síndico vê todas |
 | `POST /occurrences/{id}/respond\|request-details` | síndico |
@@ -119,6 +119,7 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
 - Endereço: `<endereço da API>/painel/`. Localmente, `http://127.0.0.1:8080/painel/` (o `index.php` deixa o `php -S` entregar os arquivos do painel).
 - O `.htaccess` da API deixa `painel/` passar direto, e o `painel/.htaccess` liga os cabeçalhos de segurança (CSP só com arquivos próprios, sem embutir em outros sites).
 - O token fica no navegador (`localStorage` com "Manter conectado", senão `sessionStorage`). PDFs são baixados com o token e abertos numa aba nova.
+- Boletos em lote (`js/boletos.js` e `js/views/boletos-lote.js`): o PDF é lido e separado no navegador, com pdf.js e pdf-lib copiados em `painel/js/vendor/` (a CSP não deixa carregar scripts de fora; versões e licenças no README de lá). Para atualizar, troque os arquivos e confira com a CSP ligada.
 - A numeração dos apartamentos (`painel/js/units.js`) é a mesma do app (`CondoUnit.kt`) e da API (`tower_unit_labels`): mude as três juntas.
 
 ## Hostinger
