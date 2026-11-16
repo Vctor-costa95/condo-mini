@@ -2,6 +2,7 @@ package com.example.condo_mini.data.fake
 
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.Condominium
+import com.example.condo_mini.domain.model.SignupRequest
 import com.example.condo_mini.domain.model.Tower
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.text.Normalizer
+import java.time.LocalDateTime
 import java.util.UUID
 
 /** Três condomínios de formatos bem diferentes; o primeiro é o dos dados das outras telas. */
@@ -156,6 +158,50 @@ class FakeDirectoryRepository : DirectoryRepository {
 
     private fun String.normalized(): String =
         Normalizer.normalize(trim().lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
+
+    // ------------------------------------------------------------ pedidos de cadastro
+
+    /** Pedidos com a senha escolhida, que vira a do cadastro ao aceitar. */
+    private val requests = MutableStateFlow(
+        listOf(
+            SignupRequest(
+                "sr1", DEFAULT_CONDO_ID, "Lucas Ferreira", "lucas.ferreira@email.com", "(11) 98888-1203",
+                "lucas.ferreira", "Apto 1203 - Bloco A", LocalDateTime.now().minusHours(3)
+            ) to DEMO_PASSWORD
+        )
+    )
+
+    /** Pedido feito na tela "Criar conta" do modo demonstração. */
+    fun addSignupRequest(request: SignupRequest, password: String) {
+        requests.update { it + (request to password) }
+    }
+
+    fun hasSignupRequest(login: String): Boolean = requests.value.any { it.first.login.normalized() == login.normalized() }
+
+    override fun observeSignupRequests(): Flow<List<SignupRequest>> =
+        combine(requests, _selectedCondoId) { list, id -> list.map { it.first }.filter { it.condoId == id }.sortedBy { it.createdAt } }
+
+    override suspend fun approveSignup(requestId: String, unit: String): Result<User> {
+        delay(300)
+        val (request, password) = requests.value.firstOrNull { it.first.id == requestId }
+            ?: return Result.failure(IllegalStateException("Este pedido já foi aceito ou recusado."))
+        if (!isLoginAvailable(request.login, "")) {
+            return Result.failure(IllegalStateException("O usuário ${request.login} já foi usado em outro cadastro. Recuse este pedido e peça para a pessoa escolher outro."))
+        }
+        val user = User(
+            id = UUID.randomUUID().toString(), name = request.name, unit = unit, role = UserRole.RESIDENT,
+            email = request.email, phone = request.phone, condoId = request.condoId, login = request.login, password = password
+        )
+        users.update { it + user }
+        requests.update { list -> list.filterNot { it.first.id == requestId } }
+        return Result.success(user)
+    }
+
+    override suspend fun rejectSignup(requestId: String, reason: String): Result<Unit> {
+        delay(300)
+        requests.update { list -> list.filterNot { it.first.id == requestId } }
+        return Result.success(Unit)
+    }
 
     /**
      * Um cadastro de cada perfil vira conta de teste, sem senha, com o nome do perfil

@@ -58,6 +58,18 @@ private fun JSONObject.dateTime(key: String): LocalDateTime = getString(key).toD
 
 private fun JSONObject.dateTimeOrNull(key: String): LocalDateTime? = str(key)?.toDeviceTime()
 
+internal fun JSONObject.toSignupRequest(): com.example.condo_mini.domain.model.SignupRequest =
+    com.example.condo_mini.domain.model.SignupRequest(
+        id = getString("id"),
+        condoId = getString("condoId"),
+        name = getString("name"),
+        email = text("email"),
+        phone = text("phone"),
+        login = getString("login"),
+        unit = getString("unit"),
+        createdAt = dateTime("createdAt")
+    )
+
 internal fun JSONObject.toUser(): User {
     val units = getJSONArray("units").strings()
     return User(

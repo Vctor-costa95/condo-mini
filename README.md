@@ -36,7 +36,7 @@ O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na H
 O login é **usuário e senha**. A conta nasce de dois jeitos:
 
 - **A administradora cadastra** a pessoa (no app ou no painel), com usuário, senha, perfil e apartamentos.
-- **O morador cria a própria conta** em "Criar conta", na tela de login: escolhe o prédio, o apartamento, e informa os dados com o usuário e a senha que quer usar. O pedido fica **aguardando** até a administradora aceitar no painel (ela pode trocar o apartamento) ou recusar com um motivo. Enquanto isso, quem tenta entrar vê a situação do pedido.
+- **O morador cria a própria conta** em "Criar conta", na tela de login: escolhe o prédio, o apartamento, e informa os dados com o usuário e a senha que quer usar. O pedido fica **aguardando** até a administradora aceitar, no app ou no painel (ela pode trocar o apartamento), ou recusar com um motivo. Enquanto isso, quem tenta entrar vê a situação do pedido.
 
 O perfil e os apartamentos vêm do cadastro. Depois de entrar, o celular **continua logado** até a pessoa tocar em "Sair da conta". Em **Perfil → Preferências → Tema**, cada um escolhe tema do sistema, claro ou escuro.
 
@@ -74,10 +74,10 @@ Atende vários condomínios e escolhe qual está gerenciando no topo da tela.
 | Aba | O que faz |
 |---|---|
 | **Unidades** | Edita o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês (no painel, todos de uma vez: veja abaixo). |
-| **Cadastros** | Cria pessoas com usuário, senha, perfil e apartamentos. |
+| **Cadastros** | Cria pessoas com usuário, senha, perfil e apartamentos. No topo ficam os **pedidos de cadastro** feitos pelo app: aceitar (conferindo ou trocando o apartamento) ou recusar com motivo. A aba mostra quantos esperam, e tocar na notificação de pedido novo abre esta tela já no prédio do pedido. |
 | **Espaços** | Cria espaços reserváveis (capacidade, taxa, regras, e se a reserva é por turno, por hora ou do dia inteiro) e interdita para manutenção. |
 
-No **painel web** ela faz tudo isso no computador e ainda aceita ou recusa os **pedidos de cadastro** feitos pelo app (seção "Pedidos de cadastro" em Cadastros, com a contagem na barra lateral).
+No **painel web** ela faz tudo isso no computador, inclusive os **pedidos de cadastro** (seção "Pedidos de cadastro" em Cadastros, com a contagem na barra lateral).
 
 #### Boletos do mês de uma vez (painel)
 Em **Unidades → Enviar boletos do mês**, a administradora solta o PDF que o sistema de cobrança gera, com todos os boletos (um por página), ou vários PDFs, um por apartamento. O painel faz o resto, no próprio navegador:
@@ -96,7 +96,7 @@ Tudo isso se faz no **painel web**, entrando com a conta da plataforma:
 
 | Tela | O que faz |
 |---|---|
-| **Administradoras** | Cria e edita (nome, CNPJ, cor), sobe a logo com prévia no tema claro e no escuro, suspende ou reativa, e cadastra os administradores de cada uma. |
+| **Administradoras** | Cria e edita (nome, CNPJ, cor), sobe a logo com prévia no tema claro e no escuro, suspende ou reativa, e cadastra os administradores de cada uma. Administradora com prédios e **sem administrador** ganha um alerta, porque os pedidos de cadastro dela não chegam a ninguém; com pedido parado, o aviso sobe para o topo da lista. |
 | **Condomínios** | Todos os condomínios, com filtro por administradora. Cria condomínio já na administradora certa e move de uma para outra. |
 | **Unidades, Cadastros, Espaços** | As mesmas telas da administradora, em qualquer condomínio, para dar suporte. |
 
@@ -168,7 +168,7 @@ Num banco **local** criado com `php scripts/install.php --seed`, essas quatro co
 1. Abra a pasta do projeto no **Android Studio** e espere o Gradle terminar.
 2. Ligue o emulador (ou conecte o celular com depuração USB) e aperte **▶ Run**.
 
-O app já vem apontado para a API da Hostinger. Para rodar só com dados fictícios em memória, sem internet, compile com `-Pcondomini.apiUrl=` (vazio).
+O app já vem apontado para a API da Hostinger. Para rodar só com dados fictícios em memória, sem internet, compile com `-Pcondomini.apiUrl=` (vazio). Compilado para outra API (a local, `-Pcondomini.apiUrl=http://127.0.0.1:8080`), o app mostra uma **faixa âmbar "API de teste"** no topo de todas as telas, para um teste no emulador não se confundir com a produção. O app publicado nunca mostra a faixa.
 
 ### Mudar algo no app
 Altere, rode no emulador, teste e só então faça commit e push. O app no celular das pessoas só muda quando você gera uma versão nova e instala (ou publica na Play Store).

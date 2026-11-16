@@ -713,6 +713,13 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .company-card-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding-top: 14px; border-top: 1px solid var(--hairline); font-size: 13.5px; color: var(--text-2); }
 .company-stat strong { color: var(--ink); font-weight: 650; }
 .company-card-stats .warn-tag { margin-left: auto; }
+/* Administradora com prédios e sem administrador: os pedidos de cadastro não chegam a ninguém. */
+.company-alert {
+    display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-top: -6px; border-radius: 10px;
+    background: var(--warning-container); color: var(--warning); font-size: 13px; line-height: 1.45;
+}
+.company-alert svg { flex: none; margin-top: 2px; }
+.notice-warning { background: var(--warning-container); color: var(--warning); margin-bottom: 20px; }
 
 .logo-previews { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .logo-preview { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: var(--radius); border: 1px solid; }

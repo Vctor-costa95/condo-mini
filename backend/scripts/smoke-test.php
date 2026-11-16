@@ -379,6 +379,7 @@ call('POST', "/signup-requests/{$otherReq['id']}/reject", ['reason' => 'Teste au
 $platform = login('plataforma');
 [$s, $companies] = call('GET', '/companies', null, $platform);
 check('plataforma lista administradoras', $s === 200 && count($companies) >= 2, $companies);
+check('administradora diz quantos pedidos de cadastro esperam', array_key_exists('pendingSignups', $companies[0] ?? []), $companies);
 check('plataforma vê todos os condomínios', count(call('GET', '/condos', null, $platform)[1]) >= 3);
 check('plataforma lê avisos de qualquer condomínio', call('GET', '/notices?condoId=c3', null, $platform)[0] === 200);
 check('cor inválida recusada', call('POST', '/companies', ['name' => 'X', 'brandColor' => 'azul'], $platform)[0] === 422);
@@ -433,6 +434,13 @@ if ($pushLog !== null) {
     check('aparelho do morador registrado', call('POST', '/devices', ['token' => 'test-ana-device', 'platform' => 'android'], $resident)[0] === 200);
     check('aparelho do síndico registrado', call('POST', '/devices', ['token' => 'test-carlos-device'], $manager)[0] === 200);
     check('token inválido recusado', call('POST', '/devices', ['token' => 'bad token!'], $resident)[0] === 422);
+
+    call('POST', '/devices', ['token' => 'test-renata-device'], $admin);
+    [, $pushReq] = $signup("pp.$suffix");
+    $sent = $pushed();
+    check('pedido de cadastro avisa o administrador, com o prédio', count($sent) === 1 && $sent[0]['token'] === 'test-renata-device'
+        && $sent[0]['data']['tab'] === 'signup_requests' && $sent[0]['data']['condoId'] === 'c1', $sent);
+    call('POST', "/signup-requests/{$pushReq['id']}/reject", ['reason' => 'Teste automático'], $admin);
 
     call('POST', '/parcels', ['unit' => 'Apto 101 - Bloco A', 'description' => 'Caixa pequena'], $doorman);
     $sent = $pushed();

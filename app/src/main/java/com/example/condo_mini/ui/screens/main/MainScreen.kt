@@ -214,9 +214,15 @@ fun MainScreen(
     LaunchedEffect(pendingTab, backStackEntry != null) {
         val key = pendingTab ?: return@LaunchedEffect
         if (backStackEntry == null) return@LaunchedEffect
+        val condoId = PushNotifications.pendingCondoId
         PushNotifications.consumePendingTab()
         when {
             key == DOCUMENTS_ROUTE -> navController.navigate(DOCUMENTS_ROUTE) { launchSingleTop = true }
+            // Pedido de cadastro novo: os pedidos ficam no topo de Cadastros, no prédio do pedido.
+            key == "signup_requests" -> tabs.firstOrNull { it == AppTab.ADMIN_USERS }?.let { tab ->
+                condoId?.let(AppContainer.directoryRepository::selectCondo)
+                navController.navigateToTab(tab)
+            }
             else -> tabs.firstOrNull { it.route == key || it.route.endsWith("_$key") }?.let(navController::navigateToTab)
         }
     }

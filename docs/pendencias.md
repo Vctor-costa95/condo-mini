@@ -4,18 +4,17 @@ O que ficou para depois, em ordem de prioridade. Ao terminar um item, apague daq
 
 ## Publicar
 
-- [ ] **Lista de convidados na Hostinger.** O `main` já tem a função (app + API), mas a produção ainda não.
-  1. Gerar de novo e enviar o pacote completo da API (`backend/dist/api-condomini-completa.zip`; o que está lá é anterior à função): mudaram `lib/community.php`, `lib/setup.php`, `sql/schema.sql` e entrou `sql/migrations/005-convidados-da-reserva.sql`.
+- [ ] **API e painel na Hostinger.** O `main` tem duas levas que a produção ainda não tem:
+  - lista de convidados da reserva (migração `005-convidados-da-reserva.sql`);
+  - pedidos de cadastro no app: a notificação leva o prédio (`lib/directory.php`), a plataforma vê administradora sem administrador (`lib/companies.php`, `painel/js/views/administradoras.js`, `painel/css/painel.css`).
+
+  Passos:
+  1. Enviar o pacote completo `backend/dist/api-condomini-completa.zip` (gerado em 16/11, já com as duas levas) e descompactar por cima da pasta `api-condomini`.
   2. Liberar o IP em hPanel → MySQL remoto, rodar `php scripts/install.php` apontando para a produção (cria a coluna `reservations.guests`) e remover a liberação.
-  3. Conferir no app: reservar com convidados como morador e ver a lista na Agenda do porteiro.
+  3. Conferir com login: reservar com convidados como morador e ver a lista na Agenda do porteiro; no painel da plataforma, abrir Administradoras.
+- [ ] **Versão nova do app** para quem usa: a tela de pedidos no app do administrador, a lista de convidados e a faixa de teste só chegam aos celulares com um APK novo (ou pela Play Store, quando publicar).
 
 ## Pedidos de cadastro
 
-Do teste de 15/11: o pedido do `jaojao` "sumiu" porque o app do emulador estava ligado à API local de teste, não à produção. A produção estava certa (Testadores na "Administradora testes", Ceci administradora dela).
-
-- [ ] **Refazer o teste na produção.** Reinstalar no emulador o app normal (sem `-Pcondomini.apiUrl`), pedir uma conta no Testadores e conferir que aparece para a Ceci em Cadastros → Pedidos de cadastro e que a notificação chega para ela.
-- [ ] **Deixar claro quando o app está ligado a uma API que não é a de produção.** Hoje o app de teste é idêntico ao de verdade, e foi isso que confundiu. Ideia: uma faixa discreta "API local" no login e no topo, só quando o endereço da API não for o de produção (nunca aparece no app publicado).
-- [ ] **Aprovar pedidos de cadastro pelo app.** Hoje só o painel web mostra os pedidos; o administrador não consegue aceitar pelo celular. Criar a tela (lista, aceitar trocando o apartamento se precisar, recusar com motivo), como no painel.
-- [ ] **Notificação de pedido novo abrir a tela certa.** A API manda `tab = signup_requests`, mas o app não tem essa aba; tocar na notificação não leva a lugar nenhum. Resolve junto com o item acima.
-- [ ] **Pedido sem ninguém para aprovar.** Se a administradora do prédio não tem nenhum administrador, o pedido fica parado sem aviso. Avisar a plataforma nesse caso, ou mostrar o alerta na tela de Administradoras do painel da plataforma.
+- [ ] **Refazer o teste na produção** depois de publicar: instalar no emulador o app normal (sem `-Pcondomini.apiUrl`; sem a faixa âmbar no topo), pedir uma conta no Testadores e conferir que aparece para a Ceci, no app e no painel, e que a notificação chega para ela.
 - [ ] **Decidir se o síndico também aprova** pedidos do próprio prédio. Hoje só a administradora (e a plataforma) aprovam.

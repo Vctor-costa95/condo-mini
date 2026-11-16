@@ -27,7 +27,8 @@ class CondoMessagingService : FirebaseMessagingService() {
             context = this,
             title = notification.title.orEmpty(),
             body = notification.body.orEmpty(),
-            tab = message.data["tab"]
+            tab = message.data["tab"],
+            condoId = message.data["condoId"]
         )
     }
 }

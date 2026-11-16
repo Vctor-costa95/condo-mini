@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.condo_mini.push.PushNotifications
+import com.example.condo_mini.ui.components.TestApiFrame
 import com.example.condo_mini.ui.navigation.AppNavigation
 import com.example.condo_mini.ui.theme.CondominiTheme
 import com.example.condo_mini.ui.theme.ThemeMode
@@ -40,7 +41,11 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             CondominiTheme(darkTheme = darkTheme) {
-                AppNavigation()
+                if (BuildConfig.USES_TEST_API) {
+                    TestApiFrame { AppNavigation() }
+                } else {
+                    AppNavigation()
+                }
             }
         }
     }

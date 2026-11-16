@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
 import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.domain.model.CondoUnit
+import com.example.condo_mini.domain.model.SignupRequest
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.domain.repository.DirectoryRepository
@@ -41,8 +42,27 @@ data class UserForm(
     fun toggleUnit(label: String): UserForm = copy(units = if (label in units) units - label else units + label)
 }
 
+/** Aceitar um pedido: confere os dados e o apartamento (dá para trocar) antes de criar o cadastro. */
+data class SignupReview(
+    val request: SignupRequest,
+    val unit: String = request.unit,
+    val isSaving: Boolean = false,
+    val error: String? = null
+)
+
+/** Recusar um pedido: o motivo aparece para a pessoa quando ela tenta entrar. */
+data class SignupRejection(
+    val request: SignupRequest,
+    val reason: String = "",
+    val isSaving: Boolean = false,
+    val error: String? = null
+)
+
 data class AdminUsersUiState(
     val isLoading: Boolean = true,
+    val requests: List<SignupRequest> = emptyList(),
+    val review: SignupReview? = null,
+    val rejection: SignupRejection? = null,
     val role: UserRole? = null,
     val query: String = "",
     val counts: Map<UserRole?, Int> = emptyMap(),
@@ -63,17 +83,24 @@ class AdminUsersViewModel(
     private val query = MutableStateFlow("")
     private val form = MutableStateFlow<UserForm?>(null)
     private val userMessage = MutableStateFlow<String?>(null)
+    private val review = MutableStateFlow<SignupReview?>(null)
+    private val rejection = MutableStateFlow<SignupRejection?>(null)
+
+    private val signups = combine(directoryRepository.observeSignupRequests(), review, rejection, ::Triple)
 
     val uiState: StateFlow<AdminUsersUiState> = combine(
-        directoryRepository.observeUsers(),
-        directoryRepository.observeUnits(),
+        combine(directoryRepository.observeUsers(), directoryRepository.observeUnits(), ::Pair),
+        signups,
         combine(role, query, ::Pair),
         form,
         userMessage
-    ) { users, units, (role, query), form, message ->
+    ) { (users, units), (requests, review, rejection), (role, query), form, message ->
         val needle = query.normalized()
         AdminUsersUiState(
             isLoading = false,
+            requests = requests,
+            review = review,
+            rejection = rejection,
             role = role,
             query = query,
             counts = mapOf<UserRole?, Int>(null to users.size) + UserRole.entries.associateWith { r -> users.count { it.role == r } },
@@ -169,6 +196,62 @@ class AdminUsersViewModel(
             directoryRepository.deleteUser(current.id)
             form.value = null
             userMessage.value = "Cadastro de ${current.name} excluído."
+        }
+    }
+
+    // ------------------------------------------------------------ pedidos de cadastro
+
+    fun onReviewRequest(request: SignupRequest) {
+        review.value = SignupReview(request)
+    }
+
+    fun onReviewUnitSelected(unit: String) {
+        review.update { it?.copy(unit = unit, error = null) }
+    }
+
+    fun onDismissReview() {
+        review.value = null
+    }
+
+    fun onApproveRequest() {
+        val current = review.value ?: return
+        review.update { it?.copy(isSaving = true, error = null) }
+        viewModelScope.launch {
+            directoryRepository.approveSignup(current.request.id, current.unit)
+                .onSuccess { user ->
+                    review.value = null
+                    userMessage.value = "${user.name} já pode entrar no app (${current.unit})."
+                }
+                .onFailure { e -> review.update { it?.copy(isSaving = false, error = e.userMessage()) } }
+        }
+    }
+
+    fun onRejectRequest(request: SignupRequest) {
+        rejection.value = SignupRejection(request)
+    }
+
+    fun onRejectionReasonChanged(reason: String) {
+        rejection.update { it?.copy(reason = reason.take(255), error = null) }
+    }
+
+    fun onDismissRejection() {
+        rejection.value = null
+    }
+
+    fun onConfirmRejection() {
+        val current = rejection.value ?: return
+        if (current.reason.isBlank()) {
+            rejection.update { it?.copy(error = "Diga o motivo: a pessoa vê ao tentar entrar.") }
+            return
+        }
+        rejection.update { it?.copy(isSaving = true, error = null) }
+        viewModelScope.launch {
+            directoryRepository.rejectSignup(current.request.id, current.reason)
+                .onSuccess {
+                    rejection.value = null
+                    userMessage.value = "Pedido de ${current.request.name} recusado."
+                }
+                .onFailure { e -> rejection.update { it?.copy(isSaving = false, error = e.userMessage()) } }
         }
     }
 
