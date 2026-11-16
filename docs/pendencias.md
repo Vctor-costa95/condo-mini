@@ -5,7 +5,7 @@ O que ficou para depois, em ordem de prioridade. Ao terminar um item, apague daq
 ## Publicar
 
 - [ ] **Lista de convidados na Hostinger.** O `main` já tem a função (app + API), mas a produção ainda não.
-  1. Enviar o pacote completo da API (`backend/dist/api-condomini-completa.zip`): mudaram `lib/community.php`, `lib/setup.php`, `sql/schema.sql` e entrou `sql/migrations/005-convidados-da-reserva.sql`.
+  1. Gerar de novo e enviar o pacote completo da API (`backend/dist/api-condomini-completa.zip`; o que está lá é anterior à função): mudaram `lib/community.php`, `lib/setup.php`, `sql/schema.sql` e entrou `sql/migrations/005-convidados-da-reserva.sql`.
   2. Liberar o IP em hPanel → MySQL remoto, rodar `php scripts/install.php` apontando para a produção (cria a coluna `reservations.guests`) e remover a liberação.
   3. Conferir no app: reservar com convidados como morador e ver a lista na Agenda do porteiro.
 
