@@ -37,6 +37,8 @@ data class BookingState(
     val bookedHours: Set<Int> = emptySet(),
     val startHour: Int? = null,
     val duration: Int = 1,
+    /** Nomes para a portaria; o morador pode deixar vazio e preencher depois. */
+    val guests: List<String> = emptyList(),
     val isSubmitting: Boolean = false,
     val error: String? = null
 ) {
@@ -81,11 +83,20 @@ data class ServiceRequestState(
     val error: String? = null
 )
 
+/** Ficha de convidados de uma reserva já feita. */
+data class GuestsEditState(
+    val reservation: Reservation,
+    val guests: List<String> = reservation.guests,
+    val isSaving: Boolean = false,
+    val error: String? = null
+)
+
 data class ReservationsUiState(
     val isLoading: Boolean = true,
     val areas: List<CommonArea> = emptyList(),
     val myReservations: List<Reservation> = emptyList(),
     val booking: BookingState? = null,
+    val guestsEdit: GuestsEditState? = null,
     val myServices: List<ServiceBooking> = emptyList(),
     val serviceRequest: ServiceRequestState? = null,
     val userMessage: String? = null
@@ -110,7 +121,9 @@ class ReservationsViewModel(
         serviceBookingRepository.observeBookings(user?.condoId.orEmpty(), user?.unit.orEmpty())
     }
 
-    private val sheets = combine(booking, serviceRequest) { booking, service -> booking to service }
+    private val guestsEdit = MutableStateFlow<GuestsEditState?>(null)
+
+    private val sheets = combine(booking, serviceRequest, guestsEdit) { booking, service, guests -> Triple(booking, service, guests) }
 
     val uiState: StateFlow<ReservationsUiState> = combine(
         sessionRepository.currentUser.flatMapLatest { user ->
@@ -120,7 +133,7 @@ class ReservationsViewModel(
         myServices,
         sheets,
         userMessage
-    ) { areas, reservations, services, (booking, service), message ->
+    ) { areas, reservations, services, (booking, service, guests), message ->
         // Cada item fica até o dia do evento; no dia seguinte só aparece no Histórico.
         val today = LocalDate.now()
         ReservationsUiState(
@@ -128,6 +141,7 @@ class ReservationsViewModel(
             areas = areas,
             myReservations = reservations.filter { !it.date.isBefore(today) },
             booking = booking,
+            guestsEdit = guests,
             myServices = services.filter { !it.date.isBefore(today) },
             serviceRequest = service,
             userMessage = message
@@ -191,19 +205,56 @@ class ReservationsViewModel(
                 date = current.date,
                 slot = slot,
                 unit = user?.unit.orEmpty(),
-                residentName = user?.name.orEmpty()
+                residentName = user?.name.orEmpty(),
+                guests = current.guests
             )
                 .onSuccess { reservation ->
                     booking.value = null
+                    val list = if (reservation.guests.isEmpty()) "" else " A lista de convidados já está na portaria."
                     userMessage.value = if (reservation.status == ReservationStatus.PENDING) {
                         "Reserva enviada! Aguarde a aprovação do síndico."
                     } else {
-                        "Reserva confirmada!"
+                        "Reserva confirmada!$list"
                     }
                 }
                 .onFailure { error ->
                     booking.update { it?.copy(isSubmitting = false, error = error.message) }
                     refreshAvailability()
+                }
+        }
+    }
+
+    fun onBookingGuestsChanged(guests: List<String>) {
+        booking.update { it?.copy(guests = guests, error = null) }
+    }
+
+    fun onEditGuests(reservation: Reservation) {
+        guestsEdit.value = GuestsEditState(reservation)
+    }
+
+    fun onGuestsChanged(guests: List<String>) {
+        guestsEdit.update { it?.copy(guests = guests, error = null) }
+    }
+
+    fun onDismissGuests() {
+        guestsEdit.value = null
+    }
+
+    fun onSaveGuests() {
+        val current = guestsEdit.value ?: return
+        guestsEdit.update { it?.copy(isSaving = true, error = null) }
+        viewModelScope.launch {
+            reservationRepository.updateGuests(current.reservation.id, current.guests)
+                .onSuccess { saved ->
+                    guestsEdit.value = null
+                    userMessage.value = if (saved.guests.isEmpty()) {
+                        "Lista de convidados apagada."
+                    } else {
+                        "Lista enviada à portaria · ${guestCountLabel(saved.guests.size)}."
+                    }
+                }
+                .onFailure { error ->
+                    guestsEdit.update { it?.copy(isSaving = false, error = error.message) }
                 }
         }
     }

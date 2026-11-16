@@ -83,13 +83,15 @@ class ApiReservationRepository(private val api: ApiClient, private val condoId: 
         date: LocalDate,
         slot: ReservationSlot,
         unit: String,
-        residentName: String
+        residentName: String,
+        guests: List<String>
     ): Result<Reservation> = runCatching {
         val body = JSONObject()
             .put("condoId", condoId())
             .put("areaId", areaId)
             .put("date", date.toString())
             .put("unit", unit)
+            .put("guests", JSONArray(guests))
         when (slot) {
             is ReservationSlot.Period -> body.put("period", slot.period.name)
             is ReservationSlot.Hours -> body.put("startHour", slot.startHour).put("endHour", slot.endHour)
@@ -97,6 +99,11 @@ class ApiReservationRepository(private val api: ApiClient, private val condoId: 
             ReservationSlot.FullDay -> Unit
         }
         api.send("POST", "reservations", body).obj { it.toReservation() }
+    }
+
+    override suspend fun updateGuests(reservationId: String, guests: List<String>): Result<Reservation> = runCatching {
+        api.send("PUT", "reservations/$reservationId/guests", JSONObject().put("guests", JSONArray(guests)))
+            .obj { it.toReservation() }
     }
 
     override suspend fun cancel(reservationId: String) = api.quietly {

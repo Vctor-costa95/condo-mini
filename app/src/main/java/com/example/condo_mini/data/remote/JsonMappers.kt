@@ -168,7 +168,8 @@ internal fun JSONObject.toReservation(): Reservation {
         residentName = text("residentName"),
         rejectionReason = str("rejectionReason"),
         startHour = optInt("startHour", period?.startHour ?: 0),
-        endHour = optInt("endHour", period?.endHour ?: 0)
+        endHour = optInt("endHour", period?.endHour ?: 0),
+        guests = optJSONArray("guests")?.strings().orEmpty()
     )
 }
 

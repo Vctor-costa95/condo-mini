@@ -12,6 +12,9 @@ const PERIOD_HOURS = ['MORNING' => [8, 12], 'AFTERNOON' => [13, 17], 'NIGHT' => 
 const HOLDS_SLOT = "status IN ('CONFIRMED', 'PENDING')";
 // O morador não vê o que ele mesmo cancelou, mas vê o que o síndico cancelou: esse sempre tem motivo.
 const VISIBLE_TO_UNIT = "(status <> 'CANCELED' OR rejection_reason IS NOT NULL)";
+// Lista de convidados da reserva: teto para quando o espaço não diz a capacidade.
+const MAX_GUESTS = 200;
+const MAX_GUEST_NAME = 80;
 
 function notice_json(array $n): array
 {
@@ -58,8 +61,40 @@ function reservation_json(array $r): array
         'unit' => $r['unit'],
         'status' => $r['status'],
         'residentName' => $r['resident_name'],
+        'guests' => decode_guests($r['guests'] ?? null),
         'rejectionReason' => $r['rejection_reason'],
     ];
+}
+
+/** Convidados guardados na reserva (JSON), como lista de nomes. */
+function decode_guests(?string $json): array
+{
+    $list = $json === null ? [] : json_decode($json, true);
+    return is_array($list) ? array_values(array_filter($list, 'is_string')) : [];
+}
+
+/**
+ * A lista de convidados do corpo do pedido, limpa: nomes aparados, sem vazios nem repetidos,
+ * até a capacidade do espaço. Devolve o JSON para gravar, ou null quando não há ninguém.
+ */
+function requested_guests(array $area): ?string
+{
+    $raw = input('guests', []);
+    if (!is_array($raw)) {
+        throw new ApiError(422, 'Envie os convidados como uma lista de nomes.');
+    }
+    $names = [];
+    foreach ($raw as $name) {
+        $name = mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $name)), 0, MAX_GUEST_NAME);
+        if ($name !== '' && !in_array(mb_strtolower($name), array_map('mb_strtolower', $names), true)) {
+            $names[] = $name;
+        }
+    }
+    $limit = (int) $area['capacity'] > 0 ? min((int) $area['capacity'], MAX_GUESTS) : MAX_GUESTS;
+    if (count($names) > $limit) {
+        throw new ApiError(422, "O espaço comporta até $limit convidados.");
+    }
+    return $names === [] ? null : json_encode($names, JSON_UNESCAPED_UNICODE);
 }
 
 function booking_json(array $b): array
@@ -404,7 +439,8 @@ function register_community_routes(Router $r): void
             throw new ApiError(422, 'Escolha uma data a partir de hoje.');
         }
         [$period, $start, $end] = requested_slot($area, $date);
-        $reservation = transaction(function () use ($area, $date, $period, $start, $end, $unit, $me) {
+        $guests = requested_guests($area);
+        $reservation = transaction(function () use ($area, $date, $period, $start, $end, $unit, $me, $guests) {
             // Trava o espaço: dois pedidos que colidem (pendentes contam) são conferidos um de
             // cada vez, mesmo quando o dia ainda não tem nenhuma reserva para travar.
             row('SELECT id FROM common_areas WHERE id = ? FOR UPDATE', [$area['id']]);
@@ -432,12 +468,13 @@ function register_community_routes(Router $r): void
                 // Áreas com taxa dependem de aprovação do síndico.
                 'status' => (float) $area['fee'] > 0 ? 'PENDING' : 'CONFIRMED',
                 'resident_name' => $me['name'],
+                'guests' => $guests,
                 'rejection_reason' => null,
                 'created_at' => now_sql(),
             ];
             exec_sql(
-                'INSERT INTO reservations (id, condo_id, area_id, date, period, start_hour, end_hour, unit, status, resident_name, rejection_reason, created_at)
-                 VALUES (:id, :condo_id, :area_id, :date, :period, :start_hour, :end_hour, :unit, :status, :resident_name, :rejection_reason, :created_at)',
+                'INSERT INTO reservations (id, condo_id, area_id, date, period, start_hour, end_hour, unit, status, resident_name, guests, rejection_reason, created_at)
+                 VALUES (:id, :condo_id, :area_id, :date, :period, :start_hour, :end_hour, :unit, :status, :resident_name, :guests, :rejection_reason, :created_at)',
                 $reservation
             );
             return $reservation;
@@ -469,6 +506,20 @@ function register_community_routes(Router $r): void
             );
             notify_reservation($reservation, 'Reserva cancelada pelo síndico', $reason);
         }
+        send_json(reservation_json(row('SELECT * FROM reservations WHERE id = ?', [$id])));
+    });
+
+    // O morador troca a lista de convidados (a lista inteira, já com quem entrou ou saiu) até o
+    // dia da reserva, enquanto ela segura o horário. A portaria vê a lista nova na Agenda.
+    $r->add('PUT', '/reservations/{id}/guests', function (string $id) {
+        require_role('RESIDENT', 'MANAGER', 'ADMIN');
+        $reservation = find_reservation($id);
+        require_holds_slot($reservation['status'], 'Esta reserva já foi recusada ou cancelada.');
+        if ($reservation['date'] < today()) {
+            throw new ApiError(409, 'Esta reserva já passou.');
+        }
+        $area = row('SELECT * FROM common_areas WHERE id = ?', [$reservation['area_id']]);
+        exec_sql('UPDATE reservations SET guests = ? WHERE id = ?', [requested_guests($area), $id]);
         send_json(reservation_json(row('SELECT * FROM reservations WHERE id = ?', [$id])));
     });
 

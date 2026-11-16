@@ -44,7 +44,7 @@ O perfil e os apartamentos vêm do cadastro. Depois de entrar, o celular **conti
 | Aba | O que faz |
 |---|---|
 | **Avisos** | Comunicados do síndico, com os fixados em destaque. |
-| **Reservas** | Reserva salão, churrasqueira e outros espaços. Conforme o espaço, a reserva é **por turno** (manhã, tarde, noite), **por hora** (hora de início e duração, dentro do horário de funcionamento) ou do **dia inteiro**. Horários ocupados, inclusive por pedidos ainda pendentes, aparecem bloqueados. Espaços com taxa esperam a aprovação do síndico. Também pede **mudança** ou **reparo** (internet, elétrica, hidráulica). Cada pedido fica na lista até o dia do evento; depois vai para o **Histórico** (atalho no topo da aba), que também mostra o que foi recusado ou cancelado pelo síndico, com o motivo. |
+| **Reservas** | Reserva salão, churrasqueira e outros espaços. Conforme o espaço, a reserva é **por turno** (manhã, tarde, noite), **por hora** (hora de início e duração, dentro do horário de funcionamento) ou do **dia inteiro**. Horários ocupados, inclusive por pedidos ainda pendentes, aparecem bloqueados. Espaços com taxa esperam a aprovação do síndico. Quem vai receber gente monta a **lista de convidados** (nome por nome, até a capacidade do espaço), na hora de reservar ou depois, pelo cartão da reserva, até o dia do evento; a portaria vê a lista na Agenda. Também pede **mudança** ou **reparo** (internet, elétrica, hidráulica). Cada pedido fica na lista até o dia do evento; depois vai para o **Histórico** (atalho no topo da aba), que também mostra o que foi recusado ou cancelado pelo síndico, com o motivo. |
 | **Boletos** | Cobranças do mês (em aberto, vencido, pago), código de barras e o PDF do boleto. |
 | **Encomendas** | O que chegou na portaria, com foto e o **código de retirada** que ele mostra ao porteiro. |
 | **Ocorrências** | Registra problemas com até 3 fotos, acompanha pelo protocolo (OC-1045) e conversa com o síndico. |
@@ -64,7 +64,7 @@ Quem tem mais de um apartamento escolhe qual ver ao entrar e troca depois, tocan
 | Aba | O que faz |
 |---|---|
 | **Encomendas** | Registra a chegada com foto. Na entrega, digita o código que o morador mostra; o porteiro **não vê o código**. |
-| **Agenda** | Mudanças e reparos aprovados para hoje e os próximos dias. |
+| **Agenda** | Mudanças e reparos aprovados e reservas confirmadas para hoje e as próximas duas semanas. Cada reserva traz a **lista de convidados** do morador; a lista completa abre em ordem alfabética, com busca por nome (sem precisar de acento). Reserva sem lista avisa para confirmar pelo interfone. |
 | **Moradores** | Quem mora em cada apartamento, com telefone. |
 | **Avisos** | O mesmo mural dos moradores. |
 
@@ -182,7 +182,7 @@ A Hostinger não recebe o código pelo GitHub automaticamente. Para publicar uma
 Para o **painel web**, envie a pasta `backend/painel/` inteira para dentro dessa mesma pasta, inclusive o `painel/.htaccess` (alguns gerenciadores escondem arquivos que começam com ponto). Ele fica em `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
 
 ### Mudar a estrutura do banco
-Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras), e o `install.php` aplica as que faltam. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
+Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras, 005 convidados da reserva), e o `install.php` aplica as que faltam. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
 
 ### Testar a API
 Para testar o envio de boletos em lote, `php scripts/gerar-boletos-teste.php` cria em `backend/dist/boletos-teste/` boletos fictícios do prédio "Testadores" (um PDF com o prédio todo, com duas exceções de propósito, e seis PDFs soltos com o apartamento no nome).
@@ -213,6 +213,7 @@ O token de login fica no celular **cifrado** com uma chave do próprio aparelho 
 - **Envio de boletos pelo app Android** com a leitura da linha digitável: no app, o PDF ainda entra sem valor e vencimento, e o morador só o vê se o boleto já existir. Use o painel.
 - **Pagamento pelo app** (Pix, cartão).
 - **Marca da administradora no app Android**, e esconder dele o "criar condomínio" do administrador (que agora só a plataforma faz, pelo painel). Ver o plano das administradoras.
+- **Marcar a chegada de convidados** na portaria (hoje a lista é só para consulta) e avisar o morador quando alguém da lista entra.
 - **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
 - **Fazer ações sem internet** (reservar, registrar ocorrência, entregar encomenda): sem conexão, o app avisa e a pessoa tenta de novo. Ver e consultar funciona offline (seção 3).
 - **Versão iOS**, prevista para o início de 2027.
