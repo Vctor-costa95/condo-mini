@@ -9,3 +9,5 @@ gradlew text eol=lf
 *.webp binary
 *.png binary
 *.jpg binary
+# Bibliotecas copiadas do npm: byte a byte como vieram.
+backend/painel/js/vendor/*.js -text
