@@ -26,7 +26,7 @@ export function renderCondoList(container, { navigate }) {
             h('div', {},
                 h('p', { class: 'eyebrow' }, 'Plataforma'),
                 h('h1', {}, 'Condomínios'),
-                h('p', {}, 'Todos os condomínios do condo.mini. Os administradores de uma administradora veem só os condomínios alocados nela.')
+                h('p', {}, 'Todos os condomínios do Mini Condo. Os administradores de uma administradora veem só os condomínios alocados nela.')
             ),
             h('div', { class: 'page-actions' },
                 button('Novo condomínio', {

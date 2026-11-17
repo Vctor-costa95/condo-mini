@@ -1,10 +1,10 @@
 // Entrada do painel: login, barra lateral, seletor de condomínio e navegação por hash.
 // Entram a administradora (ADMIN), que vê só os condomínios dela com a marca dela, e
-// a plataforma (PLATFORM, a equipe condo.mini), que cadastra administradoras e aloca condomínios.
+// a plataforma (PLATFORM, a equipe Mini Condo), que cadastra administradoras e aloca condomínios.
 
 import { api, hasToken, saveToken, setUnauthorizedHandler } from './api.js';
 import { applyTheme } from './theme.js';
-import { brandMark, brandTile, closeDrawer, h, icon, initials, mount, toast } from './ui.js';
+import { brandMark, brandName, brandTile, closeDrawer, h, icon, initials, mount, toast } from './ui.js';
 import { currentCondo, isPlatform, loadCondos, selectCondo, setUser, state, subscribe } from './state.js';
 import { renderLogin } from './views/login.js';
 import { renderUnits } from './views/unidades.js';
@@ -57,7 +57,7 @@ function rememberBrand(brand) {
         if (brand) window.localStorage.setItem(BRAND_KEY, JSON.stringify(brand));
         else window.localStorage.removeItem(BRAND_KEY);
     } catch {
-        // Sem armazenamento: a tela de carregamento mostra a marca do condo.mini.
+        // Sem armazenamento: a tela de carregamento mostra a marca do Mini Condo.
     }
 }
 
@@ -69,7 +69,7 @@ async function boot() {
         const me = await api.get('me');
         if (!PANEL_ROLES.includes(me.role)) {
             await logout();
-            return showLogin(null, 'Este painel é da administradora. Use o app condo.mini.');
+            return showLogin(null, 'Este painel é da administradora. Use o app Mini Condo.');
         }
         await enter(me);
     } catch (error) {
@@ -100,7 +100,7 @@ function showLogin(message, error) {
                 saveToken(token, false);
                 await api.post('auth/logout').catch(() => {});
                 saveToken(null);
-                throw new Error('Este painel é da administradora. Moradores, síndicos e portaria usam o app condo.mini.');
+                throw new Error('Este painel é da administradora. Moradores, síndicos e portaria usam o app Mini Condo.');
             }
             saveToken(token, remember);
             await enter(user);
@@ -193,7 +193,7 @@ function noCondos() {
     return h('div', { class: 'empty' },
         h('div', { class: 'empty-icon' }, icon('building', 28)),
         h('h3', {}, 'Nenhum condomínio liberado ainda'),
-        h('p', {}, 'Os condomínios da sua administradora aparecem aqui assim que a equipe condo.mini liberar. Fale com a gente para cadastrar um novo.')
+        h('p', {}, 'Os condomínios da sua administradora aparecem aqui assim que a equipe Mini Condo liberar. Fale com a gente para cadastrar um novo.')
     );
 }
 
@@ -221,8 +221,8 @@ function sidebarBrand() {
     const brand = state.user?.brand;
     if (isPlatform() || !brand?.companyId) {
         return h('div', { class: 'sidebar-brand' },
-            h('span', { class: 'brand-tile' }, brandMark(26)),
-            h('span', { class: 'brand-name' }, 'condo', h('span', { class: 'brand-dot' }, '.'), 'mini'),
+            h('span', { class: 'brand-tile' }, brandMark(30)),
+            brandName(),
             h('span', { class: 'brand-tag' }, isPlatform() ? 'Plataforma' : 'Administradora')
         );
     }
@@ -250,11 +250,11 @@ function renderSidebar() {
                 h('span', { class: 'avatar' }, initials(state.user?.name)),
                 h('span', { class: 'profile-text' },
                     h('strong', {}, state.user?.name || ''),
-                    h('small', {}, platform ? 'Equipe condo.mini' : 'Meu perfil')
+                    h('small', {}, platform ? 'Equipe Mini Condo' : 'Meu perfil')
                 )
             ),
             !platform && state.user?.brand?.companyId
-                ? h('p', { class: 'powered' }, 'Desenvolvido por ', h('span', {}, 'condo', h('span', { class: 'brand-dot' }, '.'), 'mini'))
+                ? h('p', { class: 'powered' }, 'Desenvolvido por ', h('span', {}, 'Mini Condo'))
                 : null
         )
     );

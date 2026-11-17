@@ -1,5 +1,5 @@
 <?php
-// Administradoras: a plataforma (perfil PLATFORM, a equipe Condo-mini) cadastra,
+// Administradoras: a plataforma (perfil PLATFORM, a equipe Mini Condo) cadastra,
 // aloca condomínios e sobe a logo, que o app e o painel mostram no lugar da nossa.
 
 declare(strict_types=1);
@@ -25,13 +25,13 @@ function logo_url(array $company): ?string
 
 /**
  * Marca que o app e o painel mostram. Sem administradora (plataforma) ou sem logo,
- * logoUrl vem null e cada um mostra a marca do Condo-mini.
+ * logoUrl vem null e cada um mostra a marca do Mini Condo.
  */
 function brand_json(?string $companyId): array
 {
     $company = $companyId === null ? null : row('SELECT * FROM companies WHERE id = ?', [$companyId]);
     if ($company === null) {
-        return ['companyId' => null, 'name' => 'Condo-mini', 'logoUrl' => null, 'color' => null];
+        return ['companyId' => null, 'name' => 'Mini Condo', 'logoUrl' => null, 'color' => null];
     }
     return [
         'companyId' => $company['id'],

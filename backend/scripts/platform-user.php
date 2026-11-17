@@ -1,6 +1,6 @@
 <?php
 // Uso: php scripts/platform-user.php <usuário> "<Nome>" [--sql]
-// Cria (ou troca a senha de) um cadastro da plataforma: a equipe Condo-mini, que
+// Cria (ou troca a senha de) um cadastro da plataforma: a equipe Mini Condo, que
 // cadastra administradoras e aloca condomínios. A senha é pedida no terminal.
 //
 // Com --sql, não conecta no banco: só imprime o comando para colar no phpMyAdmin
@@ -22,7 +22,7 @@ if ($login === '' || preg_match('/\s/', $login)) {
     fwrite(STDERR, "Uso: php scripts/platform-user.php <usuário> \"<Nome>\" [--sql]\n");
     exit(1);
 }
-$name = $name !== '' ? $name : 'Equipe Condo-mini';
+$name = $name !== '' ? $name : 'Equipe Mini Condo';
 echo 'Senha (mínimo 10 caracteres): ';
 $password = trim((string) fgets(STDIN));
 if (mb_strlen($password) < 10) {
@@ -33,7 +33,7 @@ $hash = password_hash($password, PASSWORD_DEFAULT);
 
 if ($sqlOnly) {
     $q = fn (string $value) => "'" . str_replace(['\\', "'"], ['\\\\', "''"], $value) . "'";
-    echo "\n-- Cole no phpMyAdmin (aba SQL) do banco do condo.mini. Se o usuário já existir, dá erro e nada muda.\n";
+    echo "\n-- Cole no phpMyAdmin (aba SQL) do banco do Mini Condo. Se o usuário já existir, dá erro e nada muda.\n";
     echo 'INSERT INTO users (id, condo_id, company_id, name, role, login, login_key, password_hash) VALUES ('
         . implode(', ', [$q(uuid()), 'NULL', 'NULL', $q($name), "'PLATFORM'", $q($login), $q(login_key($login)), $q($hash)])
         . ");\n";

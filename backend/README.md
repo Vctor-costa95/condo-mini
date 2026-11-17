@@ -1,4 +1,4 @@
-# API do Condo-mini
+# API do Mini Condo
 
 API REST em PHP 8 + MySQL, sem dependências externas, feita para a hospedagem compartilhada da Hostinger (plano Premium). O app Android conversa só com ela; a senha do banco nunca sai do servidor.
 
@@ -30,7 +30,7 @@ Cada perfil só vê o próprio condomínio; o administrador escolhe com `?condoI
 ### Administradoras e plataforma
 
 ```
-Plataforma (PLATFORM, a equipe Condo-mini) → Administradora → Condomínios → síndico, portaria, moradores
+Plataforma (PLATFORM, a equipe Mini Condo) → Administradora → Condomínios → síndico, portaria, moradores
 ```
 
 - O **administrador** (`ADMIN`) é de uma administradora (`users.company_id`) e só vê os condomínios dela (`condominiums.company_id`): `condo_id()`, `require_same_condo()` e `editable_user()` passam por `can_access_condo()`. Um condomínio de outra administradora responde como se não existisse. Ele edita nome, endereço e blocos, mas não cria condomínio.

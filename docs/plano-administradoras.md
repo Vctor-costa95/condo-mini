@@ -12,7 +12,7 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 - só a plataforma cria condomínios;
 - a cor da administradora entra só em detalhes;
 - o login continua com a nossa marca;
-- fica o "Desenvolvido por condo.mini".
+- fica o "Desenvolvido por Mini Condo".
 
 ---
 
@@ -53,7 +53,7 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 ## ✅ Fase 2: painel web (feita em 15/11/2026, ainda não publicada)
 
 - **Login:** entram `ADMIN` e `PLATFORM` (`js/main.js`). A plataforma abre em Administradoras, com o menu dela em cima e, embaixo, o condomínio aberto com Unidades, Cadastros e Espaços, para dar suporte em qualquer condomínio.
-- **Marca do admin:** a barra lateral mostra a logo e o nome da administradora (`brandTile`, em `js/ui.js`); sem logo, as iniciais sobre a cor dela. Rodapé com "Desenvolvido por condo.mini". A tela de carregamento usa a última marca guardada no navegador.
+- **Marca do admin:** a barra lateral mostra a logo e o nome da administradora (`brandTile`, em `js/ui.js`); sem logo, as iniciais sobre a cor dela. Rodapé com "Desenvolvido por Mini Condo". A tela de carregamento usa a última marca guardada no navegador.
 - **"Criar condomínio" só para a plataforma:** some do seletor e da tela vazia do ADMIN, e `#/condominio/novo` volta para Unidades. Ao criar, a plataforma escolhe a administradora (já vem marcada quando ela filtrou uma em Condomínios).
 - **Administradoras** (`js/views/administradoras.js`): cartões com logo, CNPJ, situação e contagens; painel lateral para nome, CNPJ, cor, ativa/suspensa (pede confirmação), logo com prévia no tema claro e no escuro, administradores (listar, criar, excluir) e excluir a administradora quando ela não tem condomínios.
 - **Condomínios** (`js/views/condominios.js`): todos, com busca, filtro por administradora e troca de administradora na própria linha (com confirmação). Clicar na linha abre o condomínio nas telas de sempre.
@@ -70,11 +70,11 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 2. **Modelo:** criar `Brand(companyId, name, logoUrl, color)` em `User` ou na sessão, lido de `brand` no login e no `/me`. Guardar no cache da sessão para abrir sem internet.
 3. **Logo:** carregar e guardar no aparelho (ver se o Coil já está no projeto; senão, baixar com o OkHttp do `ApiClient` para o `ApiCache`). A URL tem `?v=`, então dá para guardar sem prazo.
 4. **Onde mostrar:**
-   - cabeçalho da Home (hoje está fixo "Condo-mini" em `ui/screens/home/HomeScreen.kt:64`);
+   - cabeçalho da Home (hoje está fixo "Mini Condo" em `ui/screens/home/HomeScreen.kt:64`);
    - Perfil;
    - topo dos PDFs (`data/pdf/BillPdfGenerator.kt` e `DocumentPdfGenerator.kt`);
    - tela de abertura com a última logo guardada.
-5. **Login:** continua com a nossa marca e o "Desenvolvido por condo.mini".
+5. **Login:** continua com a nossa marca e o "Desenvolvido por Mini Condo".
 6. **Repositórios Fake:** atualizar para as duas administradoras da demonstração.
 
 ## ⏭️ Antes de publicar na Hostinger

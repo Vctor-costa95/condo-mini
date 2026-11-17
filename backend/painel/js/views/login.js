@@ -1,7 +1,7 @@
 // Entrada do painel. Só a administradora passa; os outros perfis são mandados para o app.
 
 import { api } from '../api.js';
-import { brandMark, busy, button, field, formError, h, icon, input, mount } from '../ui.js';
+import { brandMark, brandName, busy, button, field, formError, h, icon, input, mount } from '../ui.js';
 
 export function renderLogin(root, { message, error, onLoggedIn }) {
     const login = input({ name: 'login', autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', required: true });
@@ -52,8 +52,8 @@ export function renderLogin(root, { message, error, onLoggedIn }) {
                 'section',
                 { class: 'login-hero' },
                 h('div', { class: 'sidebar-brand' },
-                    h('span', { class: 'brand-tile' }, brandMark(26)),
-                    h('span', { class: 'brand-name' }, 'condo', h('span', { class: 'brand-dot' }, '.'), 'mini'),
+                    h('span', { class: 'brand-tile' }, brandMark(30)),
+                    brandName(),
                     h('span', { class: 'brand-tag on-hero-muted' }, 'Administradora')
                 ),
                 h(
@@ -68,7 +68,7 @@ export function renderLogin(root, { message, error, onLoggedIn }) {
                         h('li', {}, icon('sofa', 18), 'Espaços, regras e interdições')
                     )
                 ),
-                h('p', { class: 'small on-hero-muted' }, 'condo.mini')
+                h('p', { class: 'small on-hero-muted brand-motto' }, 'Mini Condo · Gestão de condomínios')
             ),
             h(
                 'section',
@@ -77,7 +77,7 @@ export function renderLogin(root, { message, error, onLoggedIn }) {
                     h('h2', {}, 'Entrar'),
                     h('p', {}, 'Use o usuário e a senha de administrador.'),
                     form,
-                    h('p', { class: 'login-note' }, 'Moradores, síndicos e portaria usam o app condo.mini no celular.')
+                    h('p', { class: 'login-note' }, 'Moradores, síndicos e portaria usam o app Mini Condo no celular.')
                 )
             )
         )

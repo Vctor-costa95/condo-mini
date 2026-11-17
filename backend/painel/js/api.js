@@ -1,4 +1,4 @@
-// Conversa com a API do condo.mini, que fica na pasta acima do painel (mesmo domínio: sem CORS).
+// Conversa com a API do Mini Condo, que fica na pasta acima do painel (mesmo domínio: sem CORS).
 
 const API_BASE = new URL('../', window.location.href).href.replace(/\/$/, '');
 const TOKEN_KEY = 'condomini.painel.token';

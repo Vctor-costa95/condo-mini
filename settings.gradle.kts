@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Condo-mini"
+rootProject.name = "Mini Condo"
 include(":app")

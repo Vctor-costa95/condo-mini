@@ -1,4 +1,4 @@
-# condo.mini
+# Mini Condo
 
 Aplicativo Android de gestão de condomínio. Morador, síndico, portaria e administradora usam o mesmo app; cada um vê as próprias abas, conforme o próprio cadastro. A administradora também tem um **painel web** para usar no computador.
 
@@ -11,7 +11,7 @@ Este README explica **como o app funciona e o que você usa para mantê-lo de p�
 O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na Hostinger:
 
 ```
- Celular (app condo.mini)
+ Celular (app Mini Condo)
         │  HTTPS, com o token de login
         ▼
  API em PHP  ──────────►  Banco MySQL          (os dois na Hostinger)
@@ -28,6 +28,8 @@ O app nunca fala direto com o banco de dados. Tudo passa pela API, que fica na H
 | **Firebase** | Serviço gratuito do Google que entrega as notificações push. | Projeto `app-condo-mini` em console.firebase.google.com |
 | **GitHub** | Guarda o código e o histórico de mudanças. | github.com/Vctor-costa95/condo-mini |
 | **Site** | Página de apresentação para administradoras. | appcondomini.lovable.app (Lovable) |
+
+O nome do produto é **Mini Condo** (nome registrado). Endereços, pacote do app e nomes do banco continuam com "condomini": são técnicos e não mudam. A marca, as cores e onde fica cada versão do ícone estão em [`docs/design-system.md`](docs/design-system.md#marca).
 
 ---
 
@@ -90,7 +92,7 @@ Em **Unidades → Enviar boletos do mês**, a administradora solta o PDF que o s
 Enviar o PDF de um apartamento só (no detalhe da unidade) também lê a linha digitável; se não achar, pede para digitar.
 
 ### Plataforma (nós)
-Cada administrador pertence a uma **administradora** e só vê os condomínios dela. Quem cadastra as administradoras, sobe a logo delas, cria os condomínios e aloca cada um a uma administradora é a **plataforma**, o perfil da equipe condo.mini. Uma administradora suspensa não entra, nem quem mora nos prédios dela.
+Cada administrador pertence a uma **administradora** e só vê os condomínios dela. Quem cadastra as administradoras, sobe a logo delas, cria os condomínios e aloca cada um a uma administradora é a **plataforma**, o perfil da equipe Mini Condo. Uma administradora suspensa não entra, nem quem mora nos prédios dela.
 
 Tudo isso se faz no **painel web**, entrando com a conta da plataforma:
 
@@ -100,7 +102,7 @@ Tudo isso se faz no **painel web**, entrando com a conta da plataforma:
 | **Condomínios** | Todos os condomínios, com filtro por administradora. Cria condomínio já na administradora certa e move de uma para outra. |
 | **Unidades, Cadastros, Espaços** | As mesmas telas da administradora, em qualquer condomínio, para dar suporte. |
 
-A administradora vê a logo e o nome dela na barra do painel, com "Desenvolvido por condo.mini" no rodapé. No app Android a marca dela ainda não aparece: é a fase 3 de [`docs/plano-administradoras.md`](docs/plano-administradoras.md).
+A administradora vê a logo e o nome dela na barra do painel, com "Desenvolvido por Mini Condo" no rodapé. No app Android a marca dela ainda não aparece: é a fase 3 de [`docs/plano-administradoras.md`](docs/plano-administradoras.md).
 
 ---
 
@@ -151,7 +153,7 @@ O banco ainda tem **dados de demonstração**: três condomínios fictícios (Re
 | `porteiro` | José Silva, portaria do Residencial Jardins |
 | `admin` | Renata Prime, da Prime Administradora (Jardins e Vista Mar) |
 | `marcia.teles` | Márcia Teles, da Horizonte Gestão (Parque das Águas), senha `condo123` só no banco local |
-| `plataforma` | Equipe Condo-mini: cadastra administradoras e aloca condomínios (só no banco local; na produção, crie com `scripts/platform-user.php`) |
+| `plataforma` | Equipe Mini Condo: cadastra administradoras e aloca condomínios (só no banco local; na produção, crie com `scripts/platform-user.php`) |
 | `nome.sobrenome` | Os outros moradores fictícios (ex.: `paulo.mendes`) |
 
 **Senhas:** na API de produção, as quatro primeiras contas têm senha, guardada só no seu PC em `C:\Users\jvict\condomini-assinatura\contas-de-teste.txt`, fora do git. Este repositório é público: nunca escreva senhas aqui.

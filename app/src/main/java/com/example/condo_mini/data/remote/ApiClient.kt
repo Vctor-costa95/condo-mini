@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit
 class ApiException(message: String, val status: Int) : IOException(message)
 
 /**
- * Cliente HTTP da API do Condo-mini. Guarda o token da sessão, avisa as listas
+ * Cliente HTTP da API do Mini Condo. Guarda o token da sessão, avisa as listas
  * abertas quando algo muda ([changes]) e publica falhas de ações sem retorno em [errors].
  */
 class ApiClient(baseUrl: String, private val context: Context) {
