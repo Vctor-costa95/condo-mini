@@ -129,6 +129,18 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
 - Banco: `u248494375_condomini` (o `config.php` do servidor usa `127.0.0.1:3306`).
 - Arquivos enviados: `/home/u248494375/condomini-storage`, fora do `public_html`.
 - Chave do Firebase: `domains/tcpneus-logistica.com/condomini-firebase.json`, fora do `public_html` (configurada em `push.service_account_file`).
-- Para atualizar: envie `index.php`, `.htaccess`, `lib/` e `sql/` pelo Gerenciador de Arquivos, sem sobrescrever o `config.php` do servidor.
-- Painel: envie a pasta `painel/` inteira (inclusive o `painel/.htaccess`, que fica oculto em alguns gerenciadores) para dentro da pasta da API. Endereço: `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
-- Mudanças no esquema: libere seu IP em hPanel → Bancos de dados → MySQL remoto, rode `scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e remova a liberação depois.
+- Para atualizar: envie `dist/api-condomini-sem-instalador.zip` (`.htaccess`, `index.php`, `lib/` e `painel/`) pelo Gerenciador de Arquivos e extraia por cima, sem apagar nem sobrescrever o `config.php` do servidor. Painel: `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
+- `config.php` do servidor (não está no git; se precisar refazer):
+  ```php
+  return [
+      'db' => ['host' => '127.0.0.1', 'port' => 3306, 'name' => 'u248494375_condomini',
+               'user' => 'u248494375_condomini', 'pass' => '<senha do banco>'],
+      'storage_dir' => '/home/u248494375/condomini-storage',
+      'allow_passwordless_logins' => false,
+      'timezone' => 'America/Sao_Paulo',
+      'max_upload_bytes' => 15 * 1024 * 1024,
+      'push' => ['service_account_file' => '/home/u248494375/domains/tcpneus-logistica.com/condomini-firebase.json'],
+  ];
+  ```
+  `srv880.hstgr.io` no host derruba a API inteira (500 em todas as rotas): ele só serve para conexão de fora. Com `__DIR__ . '/storage'` no lugar de `condomini-storage`, as fotos e PDFs já enviados somem do app.
+- Mudanças no esquema: rode o SQL da migração no phpMyAdmin e registre em `schema_migrations` (ver o README principal), ou libere seu IP em hPanel → Bancos de dados → MySQL remoto, rode `scripts/install.php` do seu PC com um `config.php` apontando para `srv880.hstgr.io` e remova a liberação depois. Esse `config.php` do PC nunca vai para o servidor.

@@ -175,14 +175,24 @@ Altere, rode no emulador, teste e só então faça commit e push. O app no celul
 
 ### Atualizar a API no servidor
 A Hostinger não recebe o código pelo GitHub automaticamente. Para publicar uma mudança em `backend/`:
-1. Gere o zip com os arquivos alterados (`index.php`, `.htaccess`, `lib/`, `sql/`).
+1. Gere o zip com **tudo** o que a API usa para rodar: `.htaccess`, `index.php`, `lib/` e `painel/` (`backend/dist/api-condomini-sem-instalador.zip`). Mandar só os arquivos alterados já deixou um `lib/` velho no servidor e derrubou os logins.
 2. No **hPanel** → Sites → tcpneus-logistica.com → **Gerenciador de arquivos**, entre em `public_html/api-condomini/api-condomini`.
-3. Envie e extraia **na própria pasta**. **Não substitua o `config.php`** do servidor, que tem a senha do banco.
+3. Envie e extraia **na própria pasta**, por cima. **Não apague nem substitua o `config.php`** do servidor, que tem a senha do banco.
+4. Confira com login: `https://api-condomini.tcpneus-logistica.com/api-condomini/health` responde `{"ok":true}` e alguém consegue entrar no app.
 
-Para o **painel web**, envie a pasta `backend/painel/` inteira para dentro dessa mesma pasta, inclusive o `painel/.htaccess` (alguns gerenciadores escondem arquivos que começam com ponto). Ele fica em `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
+O **painel web** vai junto no zip (`painel/`, com o `painel/.htaccess`) e fica em `https://api-condomini.tcpneus-logistica.com/api-condomini/painel/`.
+
+**O `config.php` do servidor** usa `'host' => '127.0.0.1'` para o banco. O endereço `srv880.hstgr.io` é só para conexão de fora (do seu PC) e, vindo do próprio servidor, o banco recusa: a API inteira cai com erro 500 *"Erro no servidor"*. Foi o que aconteceu em 16/11, quando o `config.php` feito para rodar o instalador do PC (`backend/dist/instalar-producao/`) foi parar no servidor. Esse erro 500 em todas as rotas, inclusive `/health`, quase sempre é a conexão com o banco: confira host, usuário e senha do `config.php`.
 
 ### Mudar a estrutura do banco
-Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras, 005 convidados da reserva), e o `install.php` aplica as que faltam. Como o banco só aceita conexões do próprio servidor, libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois.
+Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras, 005 convidados da reserva), Há dois jeitos de aplicar uma migração nova:
+
+- **À mão, no phpMyAdmin** (o jeito usado hoje): hPanel → Bancos de dados → phpMyAdmin, aba SQL. Rode o conteúdo do arquivo da migração e depois registre que ela foi feita, para o instalador não tentar de novo:
+  ```sql
+  INSERT INTO schema_migrations (name, applied_at) VALUES ('005-convidados-da-reserva.sql', NOW());
+  ```
+  (troque pelo nome do arquivo da migração). Até a 005, todas estão aplicadas e registradas.
+- **Pelo `install.php`**, que aplica sozinho as que faltam: libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` no seu PC com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois. Esse `config.php` é só do seu PC: **nunca suba ele para o servidor**.
 
 ### Testar a API
 Para testar o envio de boletos em lote, `php scripts/gerar-boletos-teste.php` cria em `backend/dist/boletos-teste/` boletos fictícios do prédio "Testadores" (um PDF com o prédio todo, com duas exceções de propósito, e seis PDFs soltos com o apartamento no nome).
