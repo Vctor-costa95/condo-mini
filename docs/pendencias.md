@@ -4,7 +4,7 @@ O que ficou para depois, em ordem de prioridade. Ao terminar um item, apague daq
 
 ## Publicar
 
-- [ ] **Registrar a migração 005 no banco.** A coluna `reservations.guests` foi criada à mão (a API foi publicada em 16/11 sem o instalador). Rode no phpMyAdmin `INSERT INTO schema_migrations (name, applied_at) VALUES ('005-convidados-da-reserva.sql', NOW());`, senão um `install.php` futuro tenta criar a coluna de novo e para.
+- [ ] **Completar o `config.php` do servidor.** Desde 16/11 ele usa `'storage_dir' => __DIR__ . '/storage'` e pode estar sem a chave `push`. Troque para `'storage_dir' => '/home/u248494375/condomini-storage'` (senão fotos de encomendas, PDFs e boletos já enviados somem do app) e confira o `'push'` apontando para o JSON do Firebase. O modelo completo está no `backend/README.md`, seção Hostinger.
 - [ ] **Versão nova do app** para quem usa: a tela de pedidos no app do administrador, a lista de convidados e a faixa de teste só chegam aos celulares com um APK novo (ou pela Play Store, quando publicar).
 
 ## Pedidos de cadastro
