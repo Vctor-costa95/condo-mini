@@ -1,5 +1,6 @@
 package com.example.condo_mini.ui.screens.profile
 
+import com.example.condo_mini.BuildConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -198,7 +199,7 @@ fun ProfileScreen(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)
             )
             RowDivider()
-            ProfileRow(Icons.Outlined.Info, "Sobre", "Mini Condo · versão 1.0")
+            ProfileRow(Icons.Outlined.Info, "Sobre", "Mini Condo · versão ${BuildConfig.VERSION_NAME}")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
