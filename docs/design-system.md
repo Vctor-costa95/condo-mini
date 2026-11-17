@@ -1,4 +1,4 @@
-# Condo-mini — Design System
+# Mini Condo — Design System
 
 Referência única para Android (Compose) e iOS (SwiftUI). Ao mudar um token aqui,
 mude nos dois lados. Fonte no Android: `app/src/main/java/com/example/condo_mini/ui/theme/`.
@@ -6,6 +6,24 @@ mude nos dois lados. Fonte no Android: `app/src/main/java/com/example/condo_mini
 **Direção:** "quiet luxury" — fundo marfim, tinta azul-noite, acento champanhe,
 títulos em serifa, bordas finas em vez de blocos coloridos, muito respiro.
 Sem cor dinâmica (Material You) — a marca é a mesma em todas as plataformas.
+
+## Marca
+
+Nome registrado: **Mini Condo**. A logo original está em `docs/brand/mini-condo-logo.png`: arco dourado sobre três prédios em traço (a casa baixa e a de duas águas em dourado, os dois prédios em azul-noite), o nome **MINI** (tinta) **CONDO** (dourado) em serifa caixa-alta, um filete em degradê e o lema **GESTÃO DE CONDOMÍNIOS**.
+
+O símbolo foi redesenhado em vetor a partir da logo (coordenadas da imagem original, traço de 35). Ele vem em duas versões, e cada lugar usa a do seu tema:
+
+| Versão | Fundo | Prédios | Dourado |
+|---|---|---|---|
+| Clara | marfim `#F7F5F0` | azul-noite `#0F1720` | `#C9962F` → `#8E5E16` |
+| Escura | azul-noite `#151B26` | marfim `#ECE7DD` | `#DDB15C` → `#A9782A` |
+
+- **Ícone do Android:** `drawable/ic_launcher_*` (claro) e `drawable-night/ic_launcher_*` (escuro): o celular troca sozinho com o tema do sistema. `ic_launcher_monochrome` para ícones temáticos e `ic_notification` (branco, traços mais grossos) para a barra de notificações. PNGs `mipmap-*` só para Android 7.
+- **Dentro do app:** `ic_brand_mark_light` / `ic_brand_mark_dark`, escolhidos pelo tema do app (a placa do login segue o tema).
+- **Painel:** `brandMark()` e `brandName()` em `js/ui.js`; cores pelos tokens `--mark-*` do CSS (claro e escuro). Favicon `img/icone.svg` troca com o tema do navegador.
+- **Arquivos:** `docs/brand/mini-condo-simbolo-claro.svg`, `mini-condo-simbolo-escuro.svg`, `mini-condo-icone-claro-512.png`, `mini-condo-icone-escuro-512.png` e `icon-play-store-512.png` (Play Store, versão clara).
+
+Identificadores técnicos continuam com o nome antigo e **não devem mudar**: `applicationId com.appcondomini` (mudar quebra a atualização do app e o Firebase), pacote `com.example.condo_mini`, endereço `api-condomini`, banco `u248494375_condomini`, canal de notificação `condomini`, chaves `condomini.painel.*` do navegador.
 
 ## Cores
 
