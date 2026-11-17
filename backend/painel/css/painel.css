@@ -1,7 +1,12 @@
-/* Painel da administradora · condo.mini
+/* Painel da administradora · Mini Condo
    Tokens de docs/design-system.md: marfim, tinta azul-noite, acento champanhe, títulos em serifa. */
 
 :root {
+    /* Marca (docs/brand): versão clara; os temas escuros trocam abaixo. */
+    --mark-bg: #F7F5F0;
+    --mark-ink: #0F1720;
+    --mark-gold: #B8862B;
+    --mark-border: #E4DED3;
     --bg: #F7F5F0;
     --surface: #FFFFFF;
     --surface-2: #F0ECE4;
@@ -41,6 +46,10 @@
 
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+        --mark-bg: #151B26;
+        --mark-ink: #ECE7DD;
+        --mark-gold: #DDB15C;
+        --mark-border: rgba(217, 190, 142, 0.3);
         --bg: #0E1117;
         --surface: #151922;
         --surface-2: #1B202A;
@@ -69,6 +78,10 @@
 }
 
 :root[data-theme="dark"] {
+    --mark-bg: #151B26;
+    --mark-ink: #ECE7DD;
+    --mark-gold: #DDB15C;
+    --mark-border: rgba(217, 190, 142, 0.3);
     --bg: #0E1117;
     --surface: #151922;
     --surface-2: #1B202A;
@@ -132,7 +145,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ------------------------------------------------------------ carregando */
 
 .boot { min-height: 100vh; display: grid; place-items: center; color: var(--text-3); animation: pulse 1.4s ease-in-out infinite; }
-.boot .brand-accent { fill: var(--accent); }
+.boot { color: var(--mark-ink); }
 
 @keyframes pulse { 50% { opacity: 0.45; } }
 
@@ -173,7 +186,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
     box-shadow: 0 0 0 60px rgba(217, 190, 142, 0.04), 0 0 0 120px rgba(217, 190, 142, 0.025);
 }
 
+.login-hero { --mark-ink: #ECE7DD; --mark-gold: #DDB15C; }
 .login-hero .brand-tile { background: rgba(255, 255, 255, 0.04); border-color: rgba(217, 190, 142, 0.35); }
+.brand-motto { letter-spacing: 0.08em; }
 .login-hero h1 { font-size: clamp(34px, 3.4vw, 46px); line-height: 1.1; max-width: 12em; }
 .login-hero .eyebrow { color: var(--hero-accent); margin-bottom: 16px; }
 .login-hero p.lead { color: var(--on-hero-muted); max-width: 30em; margin-top: 18px; font-size: 16px; }
@@ -209,12 +224,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sidebar-brand .brand-tile { grid-row: span 2; }
 .brand-tile {
     width: 44px; height: 44px; display: grid; place-items: center;
-    border-radius: 13px; background: #151B26; color: #ECE7DD;
-    border: 1px solid rgba(217, 190, 142, 0.3);
+    border-radius: 13px; background: var(--mark-bg); color: var(--mark-ink);
+    border: 1px solid var(--mark-border);
 }
-.brand-tile .brand-accent, .login-hero .brand-accent { fill: #D9BE8E; }
-.brand-name { font-family: var(--serif); font-size: 22px; line-height: 1.1; }
-.brand-dot { color: var(--accent); }
+/* Símbolo: prédios na cor do texto da placa, arco e casa em dourado (claro ou escuro, pelo tema). */
+.brand-mark { display: block; overflow: visible; }
+.brand-mark .mark-gold-fill { fill: var(--mark-gold); }
+.brand-mark .mark-gold-line { fill: none; stroke: var(--mark-gold); stroke-width: 35; stroke-linejoin: round; }
+.brand-mark .mark-line { fill: none; stroke: currentColor; stroke-width: 35; stroke-linejoin: round; }
+.brand-mark .mark-fill { fill: currentColor; }
+.brand-name { font-family: var(--serif); font-size: 19px; line-height: 1.1; letter-spacing: 0.06em; white-space: nowrap; }
+.brand-gold { color: var(--mark-gold); }
 .brand-tag { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); }
 
 .picker-wrap { position: relative; }

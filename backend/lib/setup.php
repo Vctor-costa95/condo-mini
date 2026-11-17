@@ -114,7 +114,7 @@ function seed_demo(): void
         ['u32', 'Camila Duarte', 'RESIDENT', 'c3', []],
         ['u98', 'Márcia Teles', 'ADMIN', null, [], 'marcia@horizontegestao.com.br', '(11) 96600-3344'],
         ['u99', 'Renata Prime', 'ADMIN', null, [], 'renata@primeadm.com.br', '(11) 97700-1122'],
-        ['u100', 'Equipe Condo-mini', 'PLATFORM', null, [], 'contato@condomini.app', '(11) 95500-0000'],
+        ['u100', 'Equipe Mini Condo', 'PLATFORM', null, [], 'contato@condomini.app', '(11) 95500-0000'],
     ];
     foreach ($people as $p) {
         [$id, $name, $role, $condoId, $units] = $p;

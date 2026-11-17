@@ -59,8 +59,8 @@ class DocumentPdfGenerator(private val context: Context) {
         canvas.drawRect(0f, 0f, PAGE_W, 104f, fill(ink))
         canvas.drawCircle(M + 26f, 52f, 26f, stroke(champagne, 1.2f))
         canvas.drawCircle(M + 26f, 52f, 22f, fill(0xFF232B3A.toInt()))
-        canvas.drawText("C", M + 26f, 60f, text(22f, champagneLight, serif = true, center = true))
-        canvas.drawText("Residencial Condo-mini", M + 66f, 48f, text(18f, ivory, serif = true))
+        canvas.drawText("M", M + 26f, 60f, text(22f, champagneLight, serif = true, center = true))
+        canvas.drawText("Residencial Mini Condo", M + 66f, 48f, text(18f, ivory, serif = true))
         canvas.drawText("Documentos do condomínio", M + 66f, 66f, text(8.5f, 0xFFB7BCC6.toInt()))
 
         var y = 150f
@@ -77,7 +77,7 @@ class DocumentPdfGenerator(private val context: Context) {
 
     private fun drawFooter(canvas: Canvas, pageNumber: Int) {
         canvas.drawLine(M, PAGE_H - 56f, PAGE_W - M, PAGE_H - 56f, stroke(hairline, 1f))
-        canvas.drawText("Documento de demonstração · Condo-mini", M, PAGE_H - 36f, text(8f, mist))
+        canvas.drawText("Documento de demonstração · Mini Condo", M, PAGE_H - 36f, text(8f, mist))
         canvas.drawText("Página $pageNumber", PAGE_W - M, PAGE_H - 36f, text(8f, slate, right = true))
     }
 

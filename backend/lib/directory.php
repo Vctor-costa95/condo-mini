@@ -248,7 +248,7 @@ function register_directory_routes(Router $r): void
             throw new ApiError(404, 'Condomínio não encontrado.');
         }
         if (!$exists && $me['role'] !== 'PLATFORM') {
-            throw new ApiError(403, 'Novos condomínios são liberados pela equipe Condo-mini.');
+            throw new ApiError(403, 'Novos condomínios são liberados pela equipe Mini Condo.');
         }
         $companyId = !$exists && optional_string('companyId', 36) !== '' ? require_company(optional_string('companyId', 36)) : null;
         $id = $id ?: uuid();

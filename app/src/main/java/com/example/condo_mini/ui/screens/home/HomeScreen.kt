@@ -61,7 +61,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Condo-mini",
+                            text = "Mini Condo",
                             fontWeight = FontWeight.Bold
                         )
                     }

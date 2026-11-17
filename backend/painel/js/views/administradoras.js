@@ -386,7 +386,7 @@ export function renderCompanies(container) {
         h('div', { class: 'form-grid' },
             h('div', { class: 'span-2' }, field('Nome', form.name)),
             field('CNPJ', form.cnpj),
-            field('Cor da marca', h('span', { class: 'color-field' }, form.colorPick, form.colorText), { hint: 'Entra só nos detalhes. Em branco, fica a cor do condo.mini.' }),
+            field('Cor da marca', h('span', { class: 'color-field' }, form.colorPick, form.colorText), { hint: 'Entra só nos detalhes. Em branco, fica a cor do Mini Condo.' }),
             h('label', { class: 'check span-2' }, form.active, h('span', {}, h('strong', {}, 'Ativa'), h('small', { class: 'muted' }, ' · desmarque para suspender o acesso de todos os cadastros dela')))
         ),
         h('section', { class: 'form-section' }, h('h3', {}, 'Como aparece'), preview)

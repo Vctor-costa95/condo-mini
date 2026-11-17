@@ -58,9 +58,9 @@ class BillPdfGenerator(private val context: Context) {
         canvas.drawRect(0f, 0f, PAGE_W.toFloat(), 104f, fill(ink))
         canvas.drawCircle(M + 26f, 52f, 26f, stroke(champagne, 1.2f))
         canvas.drawCircle(M + 26f, 52f, 22f, fill(0xFF232B3A.toInt()))
-        canvas.drawText("C", M + 26f, 60f, text(22f, champagneLight, serif = true, center = true))
-        canvas.drawText("Residencial Condo-mini", M + 66f, 48f, text(18f, ivory, serif = true))
-        canvas.drawText("CNPJ 12.345.678/0001-90 · Administração Condo-mini", M + 66f, 66f, text(8.5f, 0xFFB7BCC6.toInt()))
+        canvas.drawText("M", M + 26f, 60f, text(22f, champagneLight, serif = true, center = true))
+        canvas.drawText("Residencial Mini Condo", M + 66f, 48f, text(18f, ivory, serif = true))
+        canvas.drawText("CNPJ 12.345.678/0001-90 · Administração Mini Condo", M + 66f, 66f, text(8.5f, 0xFFB7BCC6.toInt()))
         canvas.drawText("BOLETO DE CONDOMÍNIO", PAGE_W - M, 44f, eyebrow(champagneLight, right = true))
         canvas.drawText(reference, PAGE_W - M, 66f, text(15f, ivory, serif = true, right = true))
 
@@ -77,7 +77,7 @@ class BillPdfGenerator(private val context: Context) {
 
         // Beneficiário e pagador
         val colW = (PAGE_W - 2 * M - 16f) / 2
-        party(canvas, M, y, "Beneficiário", "Condomínio Residencial Condo-mini", "Banco 341 · Ag. 0104 · C/C 35100-4")
+        party(canvas, M, y, "Beneficiário", "Condomínio Residencial Mini Condo", "Banco 341 · Ag. 0104 · C/C 35100-4")
         party(canvas, M + colW + 16f, y, "Pagador", payer.name.ifBlank { "Morador" }, payer.unit)
         y += 70f
 
@@ -131,7 +131,7 @@ class BillPdfGenerator(private val context: Context) {
         listOf(
             "Após o vencimento, multa de 2% e juros de 1% ao mês, conforme convenção.",
             "Pague pelo app do seu banco usando a linha digitável ou o código de barras.",
-            "Dúvidas: administração pelo app Condo-mini, aba Ocorrências."
+            "Dúvidas: administração pelo app Mini Condo, aba Ocorrências."
         ).forEach {
             y += 18f
             canvas.drawText("·  $it", M, y, text(9.5f, slate))
@@ -151,7 +151,7 @@ class BillPdfGenerator(private val context: Context) {
         // Rodapé
         canvas.drawLine(M, PAGE_H - 56f, PAGE_W - M, PAGE_H - 56f, stroke(hairline, 1f))
         canvas.drawText(
-            "Documento de demonstração gerado pelo app Condo-mini. Sem valor para pagamento.",
+            "Documento de demonstração gerado pelo app Mini Condo. Sem valor para pagamento.",
             M,
             PAGE_H - 36f,
             text(8.5f, mist)

@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -55,6 +56,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -72,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.example.condo_mini.R
 import com.example.condo_mini.ui.components.PrimaryButton
@@ -79,6 +82,7 @@ import com.example.condo_mini.ui.components.condoTextFieldColors
 import com.example.condo_mini.ui.theme.CondoTheme
 import com.example.condo_mini.ui.theme.CondominiTheme
 import com.example.condo_mini.ui.theme.Ink
+import com.example.condo_mini.ui.theme.Ivory
 
 @Composable
 fun LoginScreen(
@@ -269,16 +273,8 @@ private fun BrandHeader() {
     ) {
         AppIcon()
         Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            text = buildAnnotatedString {
-                append("condo")
-                withStyle(SpanStyle(color = condo.accent)) { append(".") }
-                append("mini")
-            },
-            style = MaterialTheme.typography.displaySmall,
-            color = condo.onHero
-        )
-        Spacer(modifier = Modifier.height(8.dp))
+        BrandWordmark()
+        Spacer(modifier = Modifier.height(14.dp))
         Text(
             // Sem quebra fixa: o Android equilibra as linhas conforme a largura e a fonte do aparelho.
             text = "Avisos, encomendas, reservas e boletos do seu prédio, tudo num lugar só.",
@@ -316,23 +312,61 @@ private fun FeatureTag(icon: ImageVector, label: String) {
     }
 }
 
-/** O ícone do app, igual ao da tela inicial do celular: "C" de andares sobre azul-noite. */
+/**
+ * O nome como na logo: "MINI" claro e "CONDO" dourado, em serifa e caixa-alta espaçada,
+ * um filete em degradê e o lema. O topo do login é escuro nos dois temas.
+ */
+@Composable
+private fun BrandWordmark() {
+    val condo = CondoTheme.colors
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(IntrinsicSize.Max)) {
+        Text(
+            text = buildAnnotatedString {
+                append("MINI ")
+                withStyle(SpanStyle(color = condo.accent)) { append("CONDO") }
+            },
+            style = MaterialTheme.typography.displaySmall.copy(letterSpacing = 2.sp),
+            color = condo.onHero,
+            maxLines = 1
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Brush.horizontalGradient(listOf(condo.accent, condo.onHeroMuted.copy(alpha = 0.5f))))
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "GESTÃO DE CONDOMÍNIOS",
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 3.sp),
+            color = condo.onHeroMuted,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * O ícone do app, igual ao da tela inicial do celular: placa marfim no tema claro e azul-noite
+ * no escuro, seguindo o tema escolhido no app.
+ */
 @Composable
 private fun AppIcon() {
     val shape = RoundedCornerShape(26.dp)
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Box(
         modifier = Modifier
             .size(96.dp)
             .shadow(16.dp, shape)
             .clip(shape)
-            .background(Ink)
+            .background(if (dark) Ink else Ivory)
             .border(1.dp, CondoTheme.colors.accent.copy(alpha = 0.3f), shape),
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(R.drawable.ic_brand_mark),
+            painter = painterResource(if (dark) R.drawable.ic_brand_mark_dark else R.drawable.ic_brand_mark_light),
             contentDescription = null,
-            modifier = Modifier.size(60.dp)
+            modifier = Modifier.size(72.dp)
         )
     }
 }

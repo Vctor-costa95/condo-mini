@@ -1,16 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Marca: um "C" feito de andares, com o andar do meio aceso em champanhe. -->
+<!-- Marca Mini Condo: arco dourado sobre os prédios. Versão para o tema claro do celular. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:translateX="2.25">
+    <group
+        android:scaleX="0.06854"
+        android:scaleY="0.06854"
+        android:translateX="12.771"
+        android:translateY="21.256">
+        <path android:pathData="M256,648 A381,381 0 1,1 984,663 L974,650 A367,367 0 1,0 267,637 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="300" android:startY="160" android:endX="560" android:endY="820"
+                    android:startColor="#C9962F" android:endColor="#8E5E16" />
+            </aapt:attr>
+        </path>
         <path
-            android:fillColor="#ECE7DD"
-            android:pathData="M44.65,30.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z M36.75,37.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M33.25,44.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M33.25,58.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M36.75,65.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M44.65,72.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z" />
+            android:pathData="M210,812 L210,727 L333,655 M333,812 L333,540 L490,448 L530,472"
+            android:strokeWidth="35"
+            android:strokeLineJoin="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient android:type="linear" android:startX="300" android:startY="160" android:endX="560" android:endY="820"
+                    android:startColor="#C9962F" android:endColor="#8E5E16" />
+            </aapt:attr>
+        </path>
         <path
-            android:fillColor="#D9BE8E"
-            android:pathData="M32.25,51.75h7.5a2.25,2.25 0 0,1 0,4.5h-7.5a2.25,2.25 0 0,1 0,-4.5z" />
+            android:pathData="M490,448 L617,527"
+            android:strokeWidth="35"
+            android:strokeLineJoin="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient android:type="linear" android:startX="505" android:startY="0" android:endX="565" android:endY="0"
+                    android:startColor="#8E5E16" android:endColor="#0F1720" />
+            </aapt:attr>
+        </path>
+        <path
+            android:pathData="M617,527 L617,740 M515,812 L515,368 L727,246 L727,812 M791,812 L791,428 L924,515 L924,812"
+            android:strokeColor="#0F1720"
+            android:strokeWidth="35"
+            android:strokeLineJoin="round" />
+        <path
+            android:fillColor="#0F1720"
+            android:pathData="M599.5,738 L634.5,738 L634.5,812 L631,812 Z" />
     </group>
 </vector>

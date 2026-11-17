@@ -1,4 +1,4 @@
--- Esquema do Condo-mini (MySQL 8 / MariaDB 10.6+).
+-- Esquema do Mini Condo (MySQL 8 / MariaDB 10.6+).
 -- Ids são UUIDs em texto, como no app; apartamentos são guardados pelo rótulo
 -- ("Apto 101 - Bloco A"), o mesmo texto de User.unit.
 
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS towers (
 
 -- password_hash NULL = conta de teste sem senha (só entra com allow_passwordless_logins).
 -- company_id: só do ADMIN (a administradora dele); os demais perfis seguem o condomínio.
--- PLATFORM: nós, donos do Condo-mini; sem condomínio nem administradora.
+-- PLATFORM: nós, donos do Mini Condo; sem condomínio nem administradora.
 CREATE TABLE IF NOT EXISTS users (
     id            VARCHAR(36)  NOT NULL PRIMARY KEY,
     condo_id      VARCHAR(36)  NULL,

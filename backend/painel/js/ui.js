@@ -89,29 +89,40 @@ export function icon(name, size = 20) {
     return svg;
 }
 
-/** A marca do condo.mini ("C" de andares), a mesma do ícone do app. */
+/**
+ * A marca do Mini Condo: arco e casa em dourado sobre os prédios em traço, o mesmo desenho do
+ * ícone do app. Os prédios usam currentColor; o dourado vem de --mark-gold (claro ou escuro).
+ */
 export function brandMark(size = 40) {
     const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 52 52');
+    svg.setAttribute('viewBox', '180 140 850 690');
     svg.setAttribute('width', size);
-    svg.setAttribute('height', size);
+    svg.setAttribute('height', Math.round(size * 690 / 850));
     svg.setAttribute('aria-hidden', 'true');
-    const group = document.createElementNS(SVG_NS, 'g');
-    group.setAttribute('transform', 'translate(-25.75 -28)');
-    const bars = document.createElementNS(SVG_NS, 'path');
-    bars.setAttribute('fill', 'currentColor');
-    bars.setAttribute('d', 'M44.65,30.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z M36.75,37.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M33.25,44.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M33.25,58.75h8.7a2.25,2.25 0 0,1 0,4.5h-8.7a2.25,2.25 0 0,1 0,-4.5z M36.75,65.75h34.5a2.25,2.25 0 0,1 0,4.5h-34.5a2.25,2.25 0 0,1 0,-4.5z M44.65,72.75h18.7a2.25,2.25 0 0,1 0,4.5h-18.7a2.25,2.25 0 0,1 0,-4.5z');
-    const accent = document.createElementNS(SVG_NS, 'path');
-    accent.setAttribute('class', 'brand-accent');
-    accent.setAttribute('d', 'M32.25,51.75h7.5a2.25,2.25 0 0,1 0,4.5h-7.5a2.25,2.25 0 0,1 0,-4.5z');
-    group.append(bars, accent);
-    svg.append(group);
+    svg.classList.add('brand-mark');
+    const part = (d, cls) => {
+        const path = document.createElementNS(SVG_NS, 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('class', cls);
+        return path;
+    };
+    svg.append(
+        part('M256,648 A381,381 0 1,1 984,663 L974,650 A367,367 0 1,0 267,637 Z', 'mark-gold-fill'),
+        part('M210,812 L210,727 L333,655 M333,812 L333,540 L490,448 L530,472 M490,448 L617,527', 'mark-gold-line'),
+        part('M617,527 L617,740 M515,812 L515,368 L727,246 L727,812 M791,812 L791,428 L924,515 L924,812', 'mark-line'),
+        part('M599.5,738 L634.5,738 L634.5,812 L631,812 Z', 'mark-fill')
+    );
     return svg;
+}
+
+/** O nome como na logo: "MINI" na cor do texto e "CONDO" em dourado, em serifa caixa-alta. */
+export function brandName() {
+    return h('span', { class: 'brand-name' }, 'MINI ', h('span', { class: 'brand-gold' }, 'CONDO'));
 }
 
 /**
  * Placa com a marca da administradora: a logo, ou as iniciais do nome sobre a cor
- * dela. Sem administradora (a plataforma), a marca do condo.mini.
+ * dela. Sem administradora (a plataforma), a marca do Mini Condo.
  */
 export function brandTile(brand, size = 44) {
     const tile = h('span', { class: 'brand-tile', style: { width: `${size}px`, height: `${size}px` } });

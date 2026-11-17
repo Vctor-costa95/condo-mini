@@ -198,7 +198,7 @@ fun ProfileScreen(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)
             )
             RowDivider()
-            ProfileRow(Icons.Outlined.Info, "Sobre", "condo.mini · versão 1.0")
+            ProfileRow(Icons.Outlined.Info, "Sobre", "Mini Condo · versão 1.0")
         }
 
         Spacer(modifier = Modifier.height(8.dp))

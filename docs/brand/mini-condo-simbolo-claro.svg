@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="180 140 850 690">
+  <defs>
+    <linearGradient id="mcclarog" gradientUnits="userSpaceOnUse" x1="300" y1="160" x2="560" y2="820"><stop offset="0" stop-color="#C9962F"/><stop offset="1" stop-color="#8E5E16"/></linearGradient>
+    <linearGradient id="mcclaror" gradientUnits="userSpaceOnUse" x1="505" y1="0" x2="565" y2="0"><stop offset="0" stop-color="#8E5E16"/><stop offset="1" stop-color="#0F1720"/></linearGradient>
+  </defs>
+  
+  <g>
+    <path fill="url(#mcclarog)" d="M256,648 A381,381 0 1,1 984,663 L974,650 A367,367 0 1,0 267,637 Z"/>
+    <path fill="none" stroke="url(#mcclarog)" stroke-width="35" stroke-linejoin="round" d="M210,812 L210,727 L333,655 M333,812 L333,540 L490,448 L530,472"/>
+    <path fill="none" stroke="url(#mcclaror)" stroke-width="35" stroke-linejoin="round" d="M490,448 L617,527"/>
+    <path fill="none" stroke="#0F1720" stroke-width="35" stroke-linejoin="round" d="M617,527 L617,740 M515,812 L515,368 L727,246 L727,812 M791,812 L791,428 L924,515 L924,812"/>
+    <path fill="#0F1720" d="M599.5,738 L634.5,738 L634.5,812 L631,812 Z"/>
+  </g>
+</svg>

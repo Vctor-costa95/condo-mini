@@ -1,5 +1,5 @@
 <?php
-// Ponto de entrada da API do Condo-mini: toda requisição passa por aqui (.htaccess).
+// Ponto de entrada da API do Mini Condo: toda requisição passa por aqui (.htaccess).
 
 declare(strict_types=1);
 
