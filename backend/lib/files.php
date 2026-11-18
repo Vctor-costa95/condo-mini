@@ -52,7 +52,8 @@ function store_upload(string $condoId, array $allowedTypes, string $field = 'fil
         $tooBig = in_array($upload['error'] ?? null, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
         throw new ApiError($tooBig ? 413 : 422, $tooBig ? 'Arquivo grande demais.' : 'Nenhum arquivo enviado.');
     }
-    if ($upload['size'] > config()['max_upload_bytes']) {
+    // Sem a linha no config.php, o limite era null e qualquer arquivo virava "grande demais".
+    if ($upload['size'] > (int) (config()['max_upload_bytes'] ?? 15 * 1024 * 1024)) {
         throw new ApiError(413, 'Arquivo grande demais.');
     }
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']) ?: '';
