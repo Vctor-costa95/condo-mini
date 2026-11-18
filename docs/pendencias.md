@@ -39,7 +39,14 @@ Avisos, reservas, boletos, encomendas, ocorrências e documentos já são o bás
 
 - [ ] **1. Marca da administradora no app Android (fase 3 de `docs/plano-administradoras.md`).** É a resposta direta ao "a administradora pode copiar": ela não precisa, já ganha o app com a marca dela (white-label), sem desenvolver nem manter.
 - [ ] **2. Lembrete de vencimento por push.** Quase de graça: o vencimento já sai da linha digitável e o Firebase já está ligado. Avisar 3 dias antes, no dia e depois de vencido (um cron na API). Transforma "reduz inadimplência" de promessa em funcionalidade.
-- [ ] **3. Painel com visão da carteira.** Tela inicial do painel com um semáforo por condomínio: boletos vencidos, ocorrências abertas e há quanto tempo, pedidos esperando o síndico, prédio sem síndico. Os dados já estão no banco. Depois, relatório mensal automático para síndico e conselho.
+- [ ] **3. Painel com visão da carteira e do dia a dia.** Hoje o painel só tem Unidades, Cadastros e Espaços: a administradora não vê avisos, ocorrências, reservas, encomendas nem pedidos parados com o síndico, e não sabe qual prédio está com problema sem ligar para ele.
+  - Tela inicial com um semáforo por condomínio, juntando todos os dela: boletos enviados/vencidos, ocorrências abertas e há quanto tempo, pedidos esperando o síndico, prédio sem síndico, apartamentos sem morador. O resumo do topo de Unidades ("0/37 boletos", "3 ocupados") é o ponto de partida.
+  - Ocorrências, avisos e reservas do condomínio visíveis no painel (pelo menos para consulta).
+  - Os dados já estão no banco. Depois, relatório mensal automático para síndico e conselho.
+- [ ] **3b. Pôr os moradores para dentro sem trabalho braçal.** No Vista Mar, 34 de 37 apartamentos estão sem morador: hoje a administradora cria um por um ou espera o pedido pelo app. Sem isso, cada condomínio novo dá trabalho e é onde a administradora desiste.
+  - **QR code / link de convite por prédio:** o painel gera um cartaz para o elevador; o morador escaneia e cai direto no "Criar conta" daquele prédio (o pedido segue o fluxo de aprovação que já existe).
+  - **Importar planilha** de moradores (nome, bloco, apartamento, telefone, e-mail), com conferência das exceções no mesmo estilo do envio de boletos.
+- [ ] **Cadastrar logo e CNPJ da "Administradora principal"** em produção, para a marca própria aparecer nas demonstrações.
 - [ ] **4. Fechar o ciclo da cobrança.**
   - Baixa automática do boleto (retorno CNAB do banco ou API da Superlógica e outros). Integração com o sistema de cobrança também é barreira contra cópia.
   - Pix com baixa automática.
