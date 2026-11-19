@@ -142,5 +142,7 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
       'push' => ['service_account_file' => '/home/u248494375/domains/tcpneus-logistica.com/condomini-firebase.json'],
   ];
   ```
+  **Tamanho dos arquivos:** a API aceita até o **menor** entre `max_upload_bytes` e os limites do PHP do servidor (`upload_max_filesize` e `post_max_size`, em hPanel → Avançado → Configuração do PHP), e o aviso "Arquivo grande demais. O limite é de X MB." já mostra esse número. Para PDFs grandes, suba os dois limites do PHP para 32M e ponha `'max_upload_bytes' => 30 * 1024 * 1024`. Quando o envio passa do `post_max_size`, o PHP descarta o corpo inteiro; a API reconhece isso (`reject_oversized_body`, em `lib/files.php`) em vez de responder "Escolha um condomínio". As fotos já chegam reduzidas pelo app.
+
   `srv880.hstgr.io` no host derruba a API inteira (500 em todas as rotas): ele só serve para conexão de fora. Com `__DIR__ . '/storage'` no lugar de `condomini-storage`, as fotos e PDFs já enviados somem do app.
 - Mudanças no esquema: rode o SQL da migração no phpMyAdmin e registre em `schema_migrations` (ver o README principal), ou libere seu IP em hPanel → Bancos de dados → MySQL remoto, rode `scripts/install.php` do seu PC com um `config.php` apontando para `srv880.hstgr.io` e remova a liberação depois. Esse `config.php` do PC nunca vai para o servidor.

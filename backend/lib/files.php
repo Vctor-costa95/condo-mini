@@ -44,16 +44,74 @@ function own_file_ids(array $urlsOrIds, string $condoId): array
     return array_slice($ids, 0, 3);
 }
 
+/** "32M", "1G", "512K" do php.ini em bytes; 0 quando vazio ou sem limite. */
+function ini_bytes(string|false $value): int
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return 0;
+    }
+    $bytes = (float) $value;
+    switch (strtolower(substr($value, -1))) {
+        case 'g':
+            $bytes *= 1024;
+            // continua
+        case 'm':
+            $bytes *= 1024;
+            // continua
+        case 'k':
+            $bytes *= 1024;
+    }
+    return (int) $bytes;
+}
+
+/**
+ * Maior arquivo aceito: o menor entre o max_upload_bytes do config.php e os
+ * limites do PHP do servidor (upload_max_filesize e post_max_size).
+ */
+function upload_limit_bytes(): int
+{
+    $configured = config()['max_upload_bytes'] ?? null;
+    $limits = array_filter([
+        is_numeric($configured) && $configured > 0 ? (int) $configured : 15 * 1024 * 1024,
+        ini_bytes(ini_get('upload_max_filesize')),
+        ini_bytes(ini_get('post_max_size')),
+    ], fn (int $limit) => $limit > 0);
+    return min($limits);
+}
+
+function file_too_big(): ApiError
+{
+    $mb = upload_limit_bytes() / (1024 * 1024);
+    $limit = $mb >= 1 ? rtrim(rtrim(number_format($mb, 1, ',', ''), '0'), ',') . ' MB' : '1 MB';
+    return new ApiError(413, "Arquivo grande demais. O limite é de $limit.");
+}
+
+/**
+ * Quando o envio passa do post_max_size, o PHP descarta o corpo inteiro (sem
+ * $_POST nem $_FILES) e a rota reclamaria de outro campo; aqui vira o aviso certo.
+ */
+function reject_oversized_body(): void
+{
+    $length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $postMax = ini_bytes(ini_get('post_max_size'));
+    if ($postMax > 0 && $length > $postMax && $_POST === [] && $_FILES === []) {
+        throw file_too_big();
+    }
+}
+
 /** Grava o upload do campo [field] e devolve a linha de files. */
 function store_upload(string $condoId, array $allowedTypes, string $field = 'file'): array
 {
     $upload = $_FILES[$field] ?? null;
     if (!is_array($upload) || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        $tooBig = in_array($upload['error'] ?? null, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
-        throw new ApiError($tooBig ? 413 : 422, $tooBig ? 'Arquivo grande demais.' : 'Nenhum arquivo enviado.');
+        if (in_array($upload['error'] ?? null, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            throw file_too_big();
+        }
+        throw new ApiError(422, 'Nenhum arquivo enviado.');
     }
-    if ($upload['size'] > config()['max_upload_bytes']) {
-        throw new ApiError(413, 'Arquivo grande demais.');
+    if ($upload['size'] > upload_limit_bytes()) {
+        throw file_too_big();
     }
     $mime = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']) ?: '';
     if (!isset($allowedTypes[$mime])) {

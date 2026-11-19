@@ -32,6 +32,7 @@ require __DIR__ . '/lib/push.php';
 try {
     date_default_timezone_set(config()['timezone'] ?? 'America/Sao_Paulo');
     db()->exec("SET time_zone = '" . date('P') . "'");
+    reject_oversized_body();
 
     $router = new Router();
     $router->add('GET', '/health', fn () => send_json(['ok' => true, 'time' => iso(now_sql())]));
