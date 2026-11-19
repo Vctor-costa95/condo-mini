@@ -145,7 +145,16 @@ fun AdminUnitsScreen(
         return
     }
     val condo = uiState.condo
-    if (condo == null || condo.towers.isEmpty()) {
+    if (condo == null) {
+        EmptyState(
+            icon = Icons.Outlined.Apartment,
+            title = "Nenhum condomínio",
+            message = "A Mini Condo ainda não incluiu condomínios na sua administradora.",
+            modifier = modifier
+        )
+        return
+    }
+    if (condo.towers.isEmpty()) {
         EmptyState(
             icon = Icons.Outlined.Apartment,
             title = "Sem unidades",

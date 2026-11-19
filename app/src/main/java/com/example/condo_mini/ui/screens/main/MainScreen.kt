@@ -100,6 +100,7 @@ import com.example.condo_mini.data.remote.ApiClient
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.push.PushNotifications
+import com.example.condo_mini.ui.components.BrandTile
 import com.example.condo_mini.ui.components.Eyebrow
 import com.example.condo_mini.ui.components.InitialsAvatar
 import com.example.condo_mini.ui.screens.admin.areas.AdminAreasRoute
@@ -374,10 +375,6 @@ fun MainScreen(
                 showCondoPicker = false
                 navController.navigate("condo_editor?$CONDO_ID_ARG=${condo.id}")
             },
-            onCreate = {
-                showCondoPicker = false
-                navController.navigate("condo_editor")
-            },
             onDismiss = { showCondoPicker = false }
         )
     }
@@ -472,6 +469,11 @@ private fun MainHeader(
             }
         }
         if (!isSubScreen && user != null) {
+            // Marca da administradora ao lado do avatar; sem administradora, nada (a marca é a nossa).
+            user.brand?.takeIf { it.isCompany }?.let { brand ->
+                BrandTile(brand = brand, size = 42.dp)
+                Spacer(modifier = Modifier.width(10.dp))
+            }
             IconButton(onClick = onProfileClick, modifier = Modifier.size(48.dp)) {
                 InitialsAvatar(name = user.name, size = 42.dp)
             }

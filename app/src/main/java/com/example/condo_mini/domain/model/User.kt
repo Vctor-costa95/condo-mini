@@ -25,7 +25,9 @@ data class User(
     /** Usuário de acesso, criado pela administração junto com o cadastro. */
     val login: String = "",
     /** Vazia só nas contas de teste. */
-    val password: String = ""
+    val password: String = "",
+    /** Administradora do condomínio (do próprio administrador, no caso dele); null sem marca própria. */
+    val brand: Brand? = null
 ) {
     val hasManyUnits: Boolean get() = units.size > 1
 }

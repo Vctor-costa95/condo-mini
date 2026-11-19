@@ -15,6 +15,8 @@ import com.example.condo_mini.data.fake.ParcelPhotoGenerator
 import com.example.condo_mini.data.pdf.BillPdfGenerator
 import com.example.condo_mini.data.pdf.CondoDocumentStore
 import com.example.condo_mini.data.pdf.DocumentPdfGenerator
+import com.example.condo_mini.data.pdf.PdfBrand
+import com.example.condo_mini.data.remote.cachedBrandLogo
 import com.example.condo_mini.data.pdf.UnitDocumentStore
 import com.example.condo_mini.data.remote.ApiBillRepository
 import com.example.condo_mini.data.remote.ApiClient
@@ -65,6 +67,13 @@ object AppContainer {
         if (user == null || user.role == UserRole.ADMIN) directoryRepository.selectedCondoId.value else user.condoId
     }
 
+    /** Marca dos PDFs de demonstração: a da administradora de quem está no app. */
+    private val pdfBrand: () -> PdfBrand = {
+        sessionRepository.currentUser.value?.brand?.takeIf { it.isCompany }
+            ?.let { PdfBrand(it.name, it.initials, apiClient?.cachedBrandLogo(it.logoUrl)) }
+            ?: PdfBrand.MiniCondo
+    }
+
     val sessionRepository: SessionRepository by lazy {
         apiClient?.let { api -> ApiSessionRepository(api, SessionStore(appContext)) { PushNotifications.registerDevice(api) } }
             ?: FakeSessionRepository(directoryRepository as FakeDirectoryRepository)
@@ -79,8 +88,8 @@ object AppContainer {
         apiClient?.let { ApiServiceBookingRepository(it) } ?: FakeServiceBookingRepository()
     }
     val billRepository: BillRepository by lazy {
-        apiClient?.let { ApiBillRepository(it, BillPdfGenerator(appContext), currentCondoId) }
-            ?: FakeBillRepository(BillPdfGenerator(appContext), UnitDocumentStore(appContext))
+        apiClient?.let { ApiBillRepository(it, BillPdfGenerator(appContext, pdfBrand), currentCondoId) }
+            ?: FakeBillRepository(BillPdfGenerator(appContext, pdfBrand), UnitDocumentStore(appContext))
     }
     val directoryRepository: DirectoryRepository by lazy {
         apiClient?.let { ApiDirectoryRepository(it) } ?: FakeDirectoryRepository()
@@ -95,7 +104,7 @@ object AppContainer {
         apiClient?.let { ApiOccurrenceRepository(it, currentCondoId) } ?: FakeOccurrenceRepository()
     }
     val documentRepository: DocumentRepository by lazy {
-        apiClient?.let { ApiDocumentRepository(it, DocumentPdfGenerator(appContext), currentCondoId) }
-            ?: FakeDocumentRepository(CondoDocumentStore(appContext), DocumentPdfGenerator(appContext))
+        apiClient?.let { ApiDocumentRepository(it, DocumentPdfGenerator(appContext, pdfBrand), currentCondoId) }
+            ?: FakeDocumentRepository(CondoDocumentStore(appContext), DocumentPdfGenerator(appContext, pdfBrand))
     }
 }

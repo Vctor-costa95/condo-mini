@@ -102,7 +102,7 @@ Tudo isso se faz no **painel web**, entrando com a conta da plataforma:
 | **Condomínios** | Todos os condomínios, com filtro por administradora. Cria condomínio já na administradora certa e move de uma para outra. |
 | **Unidades, Cadastros, Espaços** | As mesmas telas da administradora, em qualquer condomínio, para dar suporte. |
 
-A administradora vê a logo e o nome dela na barra do painel, com "Desenvolvido por Mini Condo" no rodapé. No app Android a marca dela ainda não aparece: é a fase 3 de [`docs/plano-administradoras.md`](docs/plano-administradoras.md).
+A administradora vê a logo e o nome dela na barra do painel, com "Desenvolvido por Mini Condo" no rodapé. No app Android, quem é da administradora (administrador, síndico, porteiro e moradores dos prédios dela) vê a logo ao lado do avatar no topo e um cartão "Administração" no Perfil; sem logo, aparecem as iniciais sobre a cor dela. A logo fica guardada no aparelho e aparece sem internet, e vai também no topo dos PDFs de demonstração. O login continua com a marca Mini Condo. A conta da plataforma não entra no app (o login avisa para usar o painel), e o administrador não cria condomínio pelo app: só a plataforma, pelo painel.
 
 ---
 
@@ -224,7 +224,6 @@ O token de login fica no celular **cifrado** com uma chave do próprio aparelho 
 - **Baixa de pagamento.** O boleto nasce do PDF enviado (valor, vencimento e linha digitável), mas ainda não vira "pago" sozinho: falta ler o retorno do banco ou ligar no sistema de cobrança da administradora (Superlógica e outros têm API). Hoje ele aparece em aberto e depois vencido.
 - **Envio de boletos pelo app Android** com a leitura da linha digitável: no app, o PDF ainda entra sem valor e vencimento, e o morador só o vê se o boleto já existir. Use o painel.
 - **Pagamento pelo app** (Pix, cartão).
-- **Marca da administradora no app Android**, e esconder dele o "criar condomínio" do administrador (que agora só a plataforma faz, pelo painel). Ver o plano das administradoras.
 - **Marcar a chegada de convidados** na portaria (hoje a lista é só para consulta) e avisar o morador quando alguém da lista entra.
 - **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
 - **Fazer ações sem internet** (reservar, registrar ocorrência, entregar encomenda): sem conexão, o app avisa e a pessoa tenta de novo. Ver e consultar funciona offline (seção 3).

@@ -2,6 +2,7 @@ package com.example.condo_mini.data.remote
 
 import com.example.condo_mini.domain.model.Bill
 import com.example.condo_mini.domain.model.BookingMode
+import com.example.condo_mini.domain.model.Brand
 import com.example.condo_mini.domain.model.BillStatus
 import com.example.condo_mini.domain.model.CommonArea
 import com.example.condo_mini.domain.model.CondoDocument
@@ -76,14 +77,39 @@ internal fun JSONObject.toUser(): User {
         id = getString("id"),
         name = getString("name"),
         unit = text("unit"),
-        role = UserRole.valueOf(getString("role")),
+        role = userRole(getString("role")),
         email = text("email"),
         phone = text("phone"),
         condoId = text("condoId"),
         units = units,
-        login = text("login")
+        login = text("login"),
+        brand = optJSONObject("brand")?.toBrand()
     )
 }
+
+/**
+ * A conta da plataforma (e qualquer perfil que esta versão não conheça) não usa o app;
+ * a mensagem aparece no login em vez de o app fechar.
+ */
+private fun userRole(name: String): UserRole =
+    UserRole.entries.firstOrNull { it.name == name } ?: throw ApiException(
+        if (name == "PLATFORM") "A conta da plataforma usa o painel web, não o app."
+        else "Este perfil ainda não funciona nesta versão do app. Atualize o app.",
+        422
+    )
+
+internal fun JSONObject.toBrand(): Brand = Brand(
+    companyId = str("companyId")?.takeIf { it.isNotBlank() },
+    name = text("name").ifBlank { "Mini Condo" },
+    logoUrl = str("logoUrl")?.takeIf { it.isNotBlank() },
+    color = str("color")?.takeIf { it.isNotBlank() }
+)
+
+internal fun Brand.toJson(): JSONObject = JSONObject()
+    .put("companyId", companyId ?: JSONObject.NULL)
+    .put("name", name)
+    .put("logoUrl", logoUrl ?: JSONObject.NULL)
+    .put("color", color ?: JSONObject.NULL)
 
 /** Mesmo formato que a API devolve, para guardar a sessão no aparelho. */
 internal fun User.toJson(): JSONObject = JSONObject()
@@ -96,6 +122,7 @@ internal fun User.toJson(): JSONObject = JSONObject()
     .put("phone", phone)
     .put("condoId", condoId)
     .put("login", login)
+    .put("brand", brand?.toJson() ?: JSONObject.NULL)
 
 internal fun JSONObject.toCondo(): Condominium = Condominium(
     id = getString("id"),

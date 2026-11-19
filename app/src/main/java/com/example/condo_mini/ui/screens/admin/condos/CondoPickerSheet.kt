@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -66,7 +64,6 @@ class CondoPickerViewModel(
 @Composable
 fun CondoPickerSheet(
     onEdit: (Condominium) -> Unit,
-    onCreate: () -> Unit,
     onDismiss: () -> Unit,
     viewModel: CondoPickerViewModel = viewModel()
 ) {
@@ -101,16 +98,14 @@ fun CondoPickerSheet(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
+            // Só a Mini Condo inclui condomínios na carteira da administradora (pelo painel).
             Spacer(modifier = Modifier.height(4.dp))
-            OutlinedButton(
-                onClick = onCreate,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Novo condomínio", style = MaterialTheme.typography.labelLarge)
-            }
+            Text(
+                "Para incluir um condomínio novo na carteira, fale com a Mini Condo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
         }
     }
 }
