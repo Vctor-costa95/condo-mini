@@ -235,6 +235,11 @@ class ApiClient(baseUrl: String, private val context: Context) {
             "webp" -> "image/webp"
             else -> "image/jpeg"
         }
+        if (mime.startsWith("image/")) {
+            PhotoShrinker.shrink(bytes)?.let { jpeg ->
+                return Triple(jpeg, name.substringBeforeLast('.') + ".jpg", "image/jpeg")
+            }
+        }
         return Triple(bytes, name, mime)
     }
 

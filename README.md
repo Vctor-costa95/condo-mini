@@ -111,7 +111,7 @@ A administradora vê a logo e o nome dela na barra do painel, com "Desenvolvido 
 Exemplo: chegou uma encomenda.
 
 1. O porteiro tira a foto e toca em **Registrar** no app.
-2. O app envia a foto para a API, que a guarda no servidor (fora da parte pública do site).
+2. O app reduz a foto (lado maior até 1920 px, JPEG; uma foto de 10 MB vira 1–2 MB) e envia para a API, que a guarda no servidor (fora da parte pública do site). PDFs vão como estão; o limite de tamanho é explicado no `backend/README.md` (seção Hostinger).
 3. A API grava a encomenda no banco e gera um código de 4 dígitos.
 4. Logo depois de responder ao porteiro, a API pede ao Firebase para notificar os celulares de quem mora no apartamento: *"Encomenda na portaria"*. O código não vai na notificação, porque ela aparece na tela bloqueada.
 5. O morador toca na notificação, o app abre na aba **Encomendas** e mostra o código.
