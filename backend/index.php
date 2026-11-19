@@ -28,6 +28,8 @@ require __DIR__ . '/lib/companies.php';
 require __DIR__ . '/lib/community.php';
 require __DIR__ . '/lib/records.php';
 require __DIR__ . '/lib/push.php';
+require __DIR__ . '/lib/recovery.php';
+require __DIR__ . '/lib/bank_return.php';
 
 try {
     date_default_timezone_set(config()['timezone'] ?? 'America/Sao_Paulo');
@@ -42,6 +44,7 @@ try {
     register_record_routes($router);
     register_file_routes($router);
     register_push_routes($router);
+    register_recovery_routes($router);
 
     // Caminho relativo à pasta da API, sem query string; aceita o prefixo /v1.
     $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');

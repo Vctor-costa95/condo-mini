@@ -21,4 +21,8 @@ return [
     // projeto → Contas de serviço → Gerar nova chave privada), FORA do public_html.
     // Para testar localmente sem Firebase, troque por 'log_file' => caminho de um .log.
     // 'push' => ['service_account_file' => '/home/u000000000/condomini-firebase.json'],
+    // "Esqueci a senha": o código vai por e-mail. 'from' precisa ser uma caixa de e-mail
+    // criada na Hostinger (hPanel → E-mails), no mesmo domínio. Sem esta chave, o app
+    // diz para falar com a administração. Localmente: 'mail' => ['log_file' => caminho de um .log].
+    // 'mail' => ['from' => 'nao-responda@seudominio.com.br', 'from_name' => 'Mini Condo'],
 ];

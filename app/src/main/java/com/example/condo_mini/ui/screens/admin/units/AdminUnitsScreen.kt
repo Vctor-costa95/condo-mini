@@ -1,5 +1,12 @@
 package com.example.condo_mini.ui.screens.admin.units
 
+import androidx.compose.material3.AlertDialog
+import com.example.condo_mini.ui.util.formatDate
+import com.example.condo_mini.ui.util.toBrl
+import com.example.condo_mini.ui.screens.bills.tone
+import com.example.condo_mini.ui.components.StatusChip
+import com.example.condo_mini.domain.model.BillStatus
+import com.example.condo_mini.domain.model.Bill
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -125,6 +132,7 @@ fun AdminUnitsRoute(
             uploading = detail.unit.id in uiState.uploading,
             onUploadPdf = { onUploadPdf(detail.unit) },
             onDeleteDocument = viewModel::onDeleteDocument,
+            onSetPaid = viewModel::onSetPaid,
             onAssign = { viewModel.onAssign(it, detail.unit) },
             onUnassign = { viewModel.onUnassign(it, detail.unit) },
             onDismiss = viewModel::onCloseUnit
@@ -425,6 +433,7 @@ private fun UnitDetailSheet(
     uploading: Boolean,
     onUploadPdf: () -> Unit,
     onDeleteDocument: (UnitDocument) -> Unit,
+    onSetPaid: (Bill, Boolean) -> Unit,
     onAssign: (User) -> Unit,
     onUnassign: (User) -> Unit,
     onDismiss: () -> Unit
@@ -537,6 +546,15 @@ private fun UnitDetailSheet(
                 }
             }
 
+            if (detail.bills.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SectionHeader("Pagamentos", trailing = "${detail.bills.count { it.status != BillStatus.PAID }} em aberto")
+                detail.bills.take(6).forEachIndexed { index, bill ->
+                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    BillPaymentRow(bill, onSetPaid = { paid -> onSetPaid(bill, paid) })
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             SectionHeader("Boletos em PDF", trailing = "${detail.documents.size}")
             if (detail.documents.isEmpty()) {
@@ -580,6 +598,62 @@ private fun UnitDetailSheet(
                 }
             }
         }
+    }
+}
+
+/**
+ * Um boleto do apartamento: mês, valor e situação. Em aberto, "Marcar como pago"
+ * (pagou por Pix, em dinheiro); pago, quem deu a baixa e "Desfazer" (pede confirmação).
+ */
+@Composable
+private fun BillPaymentRow(bill: Bill, onSetPaid: (Boolean) -> Unit) {
+    var confirmingUndo by rememberSaveable(bill.id) { mutableStateOf(false) }
+    val paid = bill.status == BillStatus.PAID
+    Row(modifier = Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(bill.reference.formatMonth(), style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(4.dp))
+            StatusChip(bill.status.label, bill.status.tone())
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                if (paid) {
+                    listOfNotNull(
+                        bill.amount.toBrl(),
+                        bill.paidAt?.let { "pago em ${it.formatDate()}" },
+                        bill.paidVia?.label
+                    ).joinToString(" · ")
+                } else {
+                    "${bill.amount.toBrl()} · vence em ${bill.dueDate.formatDate()}"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (paid) {
+            TextButton(onClick = { confirmingUndo = true }) {
+                Text("Desfazer", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            OutlinedButton(onClick = { onSetPaid(true) }, shape = MaterialTheme.shapes.medium) {
+                Text("Marcar como pago")
+            }
+        }
+    }
+    if (confirmingUndo) {
+        AlertDialog(
+            onDismissRequest = { confirmingUndo = false },
+            title = { Text("Desfazer a baixa?") },
+            text = {
+                Text("O boleto de ${bill.reference.formatMonth()} volta a aparecer em aberto para o morador.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingUndo = false
+                    onSetPaid(false)
+                }) { Text("Desfazer baixa") }
+            },
+            dismissButton = { TextButton(onClick = { confirmingUndo = false }) { Text("Manter pago") } }
+        )
     }
 }
 

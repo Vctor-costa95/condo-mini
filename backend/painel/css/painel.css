@@ -825,3 +825,9 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 /* Boleto desenhado dentro da lista, para ler o apartamento sem sair do painel. */
 .bulk-preview { margin-top: 12px; display: grid; gap: 10px; justify-items: start; overflow-x: auto; }
 .bulk-preview canvas { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--hairline); background: #FFFFFF; box-shadow: var(--shadow); }
+
+/* Situação do boleto no mapa de unidades. */
+.unit-pay { justify-self: start; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 8px; }
+.unit-pay.paid { background: var(--success-container); color: var(--success); }
+.unit-pay.open { background: var(--warning-container); color: var(--warning); }
+.unit-pay.overdue { background: var(--danger-container); color: var(--danger); }

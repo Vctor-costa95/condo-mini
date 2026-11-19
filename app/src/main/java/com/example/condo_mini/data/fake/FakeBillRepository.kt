@@ -4,13 +4,14 @@ import com.example.condo_mini.data.pdf.BillPdfGenerator
 import com.example.condo_mini.data.pdf.UnitDocumentStore
 import com.example.condo_mini.domain.model.Bill
 import com.example.condo_mini.domain.model.BillStatus
+import com.example.condo_mini.domain.model.PaymentSource
 import com.example.condo_mini.domain.model.UnitDocument
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.repository.BillRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -30,10 +31,29 @@ class FakeBillRepository(
 
     private val documents = MutableStateFlow<List<UnitDocument>>(emptyList())
 
-    override fun observeBills(unit: String): Flow<List<Bill>> = flowOf(bills())
+    /** Baixas feitas (ou desfeitas) na demonstração: id → pago (true) ou aberto (false). */
+    private val paidOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+
+    override fun observeBills(unit: String): Flow<List<Bill>> = paidOverrides.map { bills() }
 
     override suspend fun getBill(billId: String, unit: String): Bill? =
         bills().firstOrNull { it.id == billId }
+
+    override suspend fun setPaid(billId: String, paid: Boolean): Result<Bill> {
+        paidOverrides.update { it + (billId to paid) }
+        return bills().firstOrNull { it.id == billId }?.let { Result.success(it) }
+            ?: Result.failure(IllegalArgumentException("Boleto não encontrado."))
+    }
+
+    private fun Bill.withOverride(): Bill = when (paidOverrides.value[id]) {
+        true -> copy(status = BillStatus.PAID, paidAt = LocalDate.now(), paidVia = PaymentSource.MANUAL)
+        false -> copy(
+            status = if (dueDate.isBefore(LocalDate.now())) BillStatus.OVERDUE else BillStatus.OPEN,
+            paidAt = null,
+            paidVia = null
+        )
+        null -> this
+    }
 
     override suspend fun billPdf(bill: Bill, payer: User): File = withContext(Dispatchers.IO) {
         documents.value
@@ -98,7 +118,7 @@ class FakeBillRepository(
                 barcode = "34191.79001 01043.510047 91020.150008 ${(8 + offset) % 10} " +
                     "9${reference.monthValue.toString().padStart(2, '0')}0000068540",
                 paidAt = if (status == BillStatus.PAID) dueDate.minusDays(2) else null
-            )
+            ).withOverride()
         }
     }
 }

@@ -28,6 +28,13 @@ class FakeSessionRepository(
         return Result.success(branded)
     }
 
+    // Sem servidor não há e-mail: a demonstração explica em vez de fingir que mandou.
+    override suspend fun requestPasswordReset(login: String): Result<String> =
+        Result.failure(IllegalStateException("Na demonstração não há envio de e-mail. Use uma das contas de teste."))
+
+    override suspend fun confirmPasswordReset(login: String, code: String, password: String): Result<Unit> =
+        Result.failure(IllegalStateException("Na demonstração não há envio de e-mail."))
+
     // As duas administradoras da demonstração, como no seed da API (lib/setup.php), sem logo.
     private fun demoBrand(user: User): Brand = when {
         user.role == UserRole.ADMIN || user.condoId in setOf("c1", "c2") -> PRIME

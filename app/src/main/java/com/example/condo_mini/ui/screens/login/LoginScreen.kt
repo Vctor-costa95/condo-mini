@@ -48,6 +48,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,9 +98,23 @@ fun LoginScreen(
     onTogglePassword: () -> Unit,
     onLoginClick: () -> Unit,
     onCreateAccountClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onPasswordReset: (login: String) -> Unit = {}
 ) {
     LightStatusBarIcons()
+    var showForgot by rememberSaveable { mutableStateOf(false) }
+    if (showForgot) {
+        val forgotViewModel: ForgotPasswordViewModel = viewModel()
+        LaunchedEffect(Unit) { forgotViewModel.start(uiState.login) }
+        ForgotPasswordSheet(
+            onDismiss = { showForgot = false },
+            onPasswordChanged = { login ->
+                showForgot = false
+                onPasswordReset(login)
+            },
+            viewModel = forgotViewModel
+        )
+    }
     val focusManager = LocalFocusManager.current
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
@@ -186,6 +206,13 @@ fun LoginScreen(
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall
                         )
+                    } else if (uiState.infoMessage != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = uiState.infoMessage,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -236,6 +263,7 @@ fun LoginScreen(
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .clickable(onClickLabel = "Criar senha nova") { showForgot = true }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -246,10 +274,19 @@ fun LoginScreen(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Esqueceu a senha? Fale com a administração do seu condomínio.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Esqueceu a senha?", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = "Receba um código no e-mail do cadastro e crie uma nova.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))

@@ -18,7 +18,9 @@ data class LoginUiState(
     val showPassword: Boolean = false,
     val isLoggedIn: Boolean = false,
     val isSubmitting: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    /** Aviso neutro abaixo dos campos (ex.: depois de criar senha nova). */
+    val infoMessage: String? = null
 )
 
 class LoginViewModel(
@@ -29,11 +31,18 @@ class LoginViewModel(
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
     fun onLoginChanged(value: String) {
-        _uiState.update { it.copy(login = value, errorMessage = null) }
+        _uiState.update { it.copy(login = value, errorMessage = null, infoMessage = null) }
     }
 
     fun onPasswordChanged(value: String) {
         _uiState.update { it.copy(password = value, errorMessage = null) }
+    }
+
+    /** Senha trocada pelo código do e-mail: o usuário já fica preenchido para entrar. */
+    fun onPasswordReset(login: String) {
+        _uiState.update {
+            LoginUiState(login = login, infoMessage = "Senha nova salva. Entre com ela.")
+        }
     }
 
     fun onTogglePassword() {

@@ -1,6 +1,7 @@
 package com.example.condo_mini.domain.model
 
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /** Como o espaço é reservado; a administração escolhe ao criar o espaço. */
 enum class BookingMode(val label: String, val description: String, val hint: String) {
@@ -90,8 +91,16 @@ data class Reservation(
     val startHour: Int = period?.startHour ?: 0,
     val endHour: Int = period?.endHour ?: 0,
     /** Nomes que a portaria deixa entrar para a reserva. */
-    val guests: List<String> = emptyList()
+    val guests: List<String> = emptyList(),
+    /** Convidados que a portaria marcou como chegados, com o horário (nome como na lista). */
+    val arrivals: Map<String, LocalDateTime> = emptyMap()
 ) {
+    /** A portaria marca chegadas só no dia, em reserva confirmada. */
+    val acceptsArrivals: Boolean
+        get() = status == ReservationStatus.CONFIRMED && date == LocalDate.now() && guests.isNotEmpty()
+
+    fun arrivedAt(name: String): LocalDateTime? = arrivals[name]
+
     /** Ainda dá para mexer nos convidados: a reserva segura o horário e não passou. */
     val canEditGuests: Boolean
         get() = (status == ReservationStatus.PENDING || status == ReservationStatus.CONFIRMED) &&

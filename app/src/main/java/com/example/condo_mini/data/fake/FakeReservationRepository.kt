@@ -193,6 +193,20 @@ class FakeReservationRepository : ReservationRepository {
         return Result.success(current.copy(guests = cleaned))
     }
 
+    override suspend fun setGuestArrival(reservationId: String, name: String, arrived: Boolean): Result<Reservation> {
+        delay(200)
+        val current = reservations.value.firstOrNull { it.id == reservationId }
+            ?: return Result.failure(IllegalArgumentException("Reserva não encontrada."))
+        if (!current.acceptsArrivals) {
+            return Result.failure(IllegalStateException("A chegada só pode ser marcada no dia da reserva."))
+        }
+        val updated = current.copy(
+            arrivals = if (arrived) current.arrivals + (name to java.time.LocalDateTime.now()) else current.arrivals - name
+        )
+        updateReservation(reservationId) { updated }
+        return Result.success(updated)
+    }
+
     /** Mesma limpeza do servidor: nomes aparados, sem vazios nem repetidos, até a capacidade. */
     private fun cleanGuests(guests: List<String>, area: CommonArea): Result<List<String>> {
         val names = guests.map { it.cleanGuestName() }.filter { it.isNotEmpty() }

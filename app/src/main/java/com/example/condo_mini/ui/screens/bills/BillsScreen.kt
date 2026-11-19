@@ -260,7 +260,7 @@ private fun BillAction(
     }
 }
 
-private fun BillStatus.tone(): StatusTone = when (this) {
+internal fun BillStatus.tone(): StatusTone = when (this) {
     BillStatus.OPEN -> StatusTone.WARNING
     BillStatus.OVERDUE -> StatusTone.ERROR
     BillStatus.PAID -> StatusTone.SUCCESS

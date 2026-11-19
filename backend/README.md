@@ -48,6 +48,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | Rota | Quem |
 |---|---|
 | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PATCH /me` | todos |
+| `POST /auth/password-reset` `{login}`, `POST /auth/password-reset/confirm` `{login, code, password}` | sem login: "Esqueci a senha". Manda um código de 6 dígitos para o e-mail do cadastro (vale 15 min, 5 tentativas, um pedido por minuto) e devolve o e-mail mascarado; o código certo troca a senha e encerra as sessões. Sem `mail` no `config.php`, responde 503; cadastro sem e-mail, 422 (`lib/recovery.php`) |
 | `GET /condos`, `POST /condos` | todos leem os seus / admin salva os da administradora; só a plataforma cria (com `companyId`) |
 | `PUT /condos/{id}/company` (`{"companyId"}`, vazio desaloca) | plataforma |
 | `GET /companies`, `POST /companies`, `DELETE /companies/{id}` (só sem condomínios) | plataforma |
@@ -65,10 +66,13 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `GET /reservations[?unit=]`, `POST /reservations` | morador com `unit`; síndico e portaria sem |
 | `GET /reservations?history=1[&unit=]`, `GET /service-bookings?history=1[&unit=]` | histórico com todos os status e datas, mais recente primeiro: morador com `unit`; síndico e admin sem (condomínio todo) |
 | `POST /reservations/{id}/cancel\|approve\|reject` | morador cancela / síndico aprova, recusa e cancela (com `reason` obrigatório) |
+| `POST /reservations/{id}/arrivals` `{name}`, `POST /reservations/{id}/arrivals/undo` `{name}` | portaria, síndico e admin, só no dia de uma reserva confirmada: marca (ou desfaz) a chegada de um nome da lista (sem diferença de maiúsculas e espaços). A primeira marcação avisa os moradores do apartamento. `reservation_json` traz `arrivals`: `[{name, arrivedAt}]`, em ordem de chegada |
 | `PUT /reservations/{id}/guests` | morador do apartamento (ou síndico e admin) troca a lista inteira de convidados (`guests`: lista de nomes), enquanto a reserva está pendente ou confirmada e não passou. O `POST /reservations` também aceita `guests`. Nomes aparados, sem repetidos, até a capacidade do espaço (máx. 200); a portaria lê pelo `GET /reservations` |
 | `GET /service-bookings[?unit=]`, `GET /service-bookings/taken-moves?date=`, `POST /service-bookings` | idem |
 | `POST /service-bookings/{id}/cancel\|approve\|reject` | idem |
-| `GET /bills?unit=`, `GET /bills/{id}`, `GET /bills/{id}/pdf` | morador do apartamento |
+| `GET /bills?unit=`, `GET /bills/{id}`, `GET /bills/{id}/pdf` | morador do apartamento. Com `?reference=AAAA-MM` e sem `unit`: admin e síndico listam os boletos do mês no condomínio. `paidVia` diz como foi a baixa (`MANUAL` ou `BANK_RETURN`) |
+| `POST /bills/{id}/pay` `{paidAt?}`, `POST /bills/{id}/unpay` | admin: baixa na mão (data de hoje se não vier) e desfaz; a baixa avisa os moradores |
+| `POST /bills/bank-return` (multipart: `file`, `preview=1` opcional) | admin: arquivo de retorno do banco, CNAB 240 (segmentos T e U) ou 400. Pagamentos são as ocorrências 06, 07, 08, 15 e 17. Cada um é ligado ao boleto em aberto de mesmo valor cujo campo livre (25 dígitos do meio da linha digitável) tem o trecho mais longo em comum com o nosso número (mínimo 6 dígitos, sem empate). Devolve `paid`, `alreadyPaid`, `unmatched`, `otherEntries` e `applied`; com `preview=1` não grava nada (`lib/bank_return.php`) |
 | `GET /unit-documents`, `POST /unit-documents` (multipart: `unit`, `reference`, `file` e, opcional, `barcode`), `DELETE /unit-documents/{id}` | admin. Com `barcode` (a linha digitável, 47 dígitos), a API confere os dígitos verificadores, tira valor e vencimento da própria linha e cria ou atualiza o boleto do mês (`bills`); `amount` e `dueDate` só entram quando a linha não traz. Boleto já pago continua pago. |
 | `GET /parcels[?unit=]`, `POST /parcels`, `POST /parcels/{id}/deliver` | morador lê / portaria registra e entrega |
 | `GET /occurrences[?unit=]`, `POST /occurrences` | morador registra / síndico vê todas |
@@ -140,8 +144,11 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
       'timezone' => 'America/Sao_Paulo',
       'max_upload_bytes' => 15 * 1024 * 1024,
       'push' => ['service_account_file' => '/home/u248494375/domains/tcpneus-logistica.com/condomini-firebase.json'],
+      'mail' => ['from' => '<caixa criada no hPanel, ex.: nao-responda@seudominio>', 'from_name' => 'Mini Condo'],
   ];
   ```
+  **E-mail ("Esqueci a senha"):** crie uma caixa de e-mail no hPanel (E-mails → Contas de e-mail) no mesmo domínio e ponha o endereço em `mail.from`. A API usa o `mail()` do PHP da Hostinger. Sem a chave `mail`, o app diz para falar com a administração. Localmente, `'mail' => ['log_file' => ...]` grava os e-mails num arquivo.
+
   **Tamanho dos arquivos:** a API aceita até o **menor** entre `max_upload_bytes` e os limites do PHP do servidor (`upload_max_filesize` e `post_max_size`, em hPanel → Avançado → Configuração do PHP), e o aviso "Arquivo grande demais. O limite é de X MB." já mostra esse número. Para PDFs grandes, suba os dois limites do PHP para 32M e ponha `'max_upload_bytes' => 30 * 1024 * 1024`. Quando o envio passa do `post_max_size`, o PHP descarta o corpo inteiro; a API reconhece isso (`reject_oversized_body`, em `lib/files.php`) em vez de responder "Escolha um condomínio". As fotos já chegam reduzidas pelo app.
 
   `srv880.hstgr.io` no host derruba a API inteira (500 em todas as rotas): ele só serve para conexão de fora. Com `__DIR__ . '/storage'` no lugar de `condomini-storage`, as fotos e PDFs já enviados somem do app.

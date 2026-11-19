@@ -96,6 +96,16 @@ CREATE TABLE IF NOT EXISTS sessions (
     CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- "Esqueci a senha": código de 6 dígitos mandado por e-mail; um ativo por pessoa.
+CREATE TABLE IF NOT EXISTS password_resets (
+    user_id    VARCHAR(36) NOT NULL PRIMARY KEY,
+    code_hash  CHAR(64)    NOT NULL,
+    expires_at DATETIME    NOT NULL,
+    attempts   TINYINT     NOT NULL DEFAULT 0,
+    created_at DATETIME    NOT NULL,
+    CONSTRAINT fk_resets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Celulares que recebem notificações (token do Firebase Cloud Messaging). Cada um
 -- pertence a uma sessão: sair da conta ou excluir o cadastro para os envios.
 CREATE TABLE IF NOT EXISTS devices (
@@ -179,6 +189,16 @@ CREATE TABLE IF NOT EXISTS reservations (
     CONSTRAINT fk_reservations_area FOREIGN KEY (area_id) REFERENCES common_areas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Convidado que a portaria marcou como chegado (nome igual ao da lista em reservations.guests).
+CREATE TABLE IF NOT EXISTS guest_arrivals (
+    reservation_id VARCHAR(36)  NOT NULL,
+    name           VARCHAR(80)  NOT NULL,
+    arrived_at     DATETIME     NOT NULL,
+    registered_by  VARCHAR(36)  NULL,
+    PRIMARY KEY (reservation_id, name),
+    CONSTRAINT fk_arrivals_reservation FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS service_bookings (
     id               VARCHAR(36)  NOT NULL PRIMARY KEY,
     condo_id         VARCHAR(36)  NOT NULL,
@@ -207,6 +227,10 @@ CREATE TABLE IF NOT EXISTS bills (
     status    ENUM('OPEN','PAID') NOT NULL DEFAULT 'OPEN',
     barcode   VARCHAR(80)   NOT NULL,
     paid_at   DATE          NULL,
+    -- Como foi dada a baixa: na mão (administração) ou pelo arquivo de retorno do banco.
+    paid_via    ENUM('MANUAL','BANK_RETURN') NULL,
+    paid_amount DECIMAL(10,2) NULL,
+    paid_by     VARCHAR(36)   NULL,
     UNIQUE KEY uq_bills_unit_ref (condo_id, unit, reference),
     CONSTRAINT fk_bills_condo FOREIGN KEY (condo_id) REFERENCES condominiums(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
