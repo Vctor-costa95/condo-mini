@@ -12,7 +12,11 @@ import java.io.File
  * Gera um PDF de DEMONSTRAÇÃO (A4) para os documentos de exemplo do condomínio,
  * com a mesma identidade visual do boleto. Some quando houver backend.
  */
-class DocumentPdfGenerator(private val context: Context) {
+class DocumentPdfGenerator(
+    private val context: Context,
+    // Marca da administradora de quem está usando o app; lida na hora de gerar.
+    private val brand: () -> PdfBrand = { PdfBrand.MiniCondo }
+) {
 
     // Mesmos tons de docs/design-system.md
     private val ink = 0xFF151B26.toInt()
@@ -57,11 +61,9 @@ class DocumentPdfGenerator(private val context: Context) {
     /** Desenha o cabeçalho e devolve o `y` onde o texto começa. */
     private fun drawHeader(canvas: Canvas, document: CondoDocument): Float {
         canvas.drawRect(0f, 0f, PAGE_W, 104f, fill(ink))
-        canvas.drawCircle(M + 26f, 52f, 26f, stroke(champagne, 1.2f))
-        canvas.drawCircle(M + 26f, 52f, 22f, fill(0xFF232B3A.toInt()))
-        canvas.drawText("M", M + 26f, 60f, text(22f, champagneLight, serif = true, center = true))
+        canvas.drawBrandSeal(brand(), M + 26f, 52f, champagne, 0xFF232B3A.toInt(), champagneLight)
         canvas.drawText("Residencial Mini Condo", M + 66f, 48f, text(18f, ivory, serif = true))
-        canvas.drawText("Documentos do condomínio", M + 66f, 66f, text(8.5f, 0xFFB7BCC6.toInt()))
+        canvas.drawText("Documentos do condomínio · ${brand().name}", M + 66f, 66f, text(8.5f, 0xFFB7BCC6.toInt()))
 
         var y = 150f
         canvas.drawText(document.category.sectionTitle.uppercase(), M, y, eyebrow(champagne))

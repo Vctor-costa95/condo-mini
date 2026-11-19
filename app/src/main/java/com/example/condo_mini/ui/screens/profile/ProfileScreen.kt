@@ -60,6 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
+import com.example.condo_mini.ui.components.BrandTile
 import com.example.condo_mini.ui.components.CondoCard
 import com.example.condo_mini.ui.components.Eyebrow
 import com.example.condo_mini.ui.components.IconBadge
@@ -125,14 +126,36 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(user.name, style = MaterialTheme.typography.headlineLarge)
             Spacer(modifier = Modifier.height(4.dp))
-            Eyebrow("${user.role.label} · ${user.unit}")
+            Eyebrow(listOf(user.role.label, user.unit).filter { it.isNotBlank() }.joinToString(" · "))
         }
 
         SectionHeader("Meus dados", modifier = Modifier.padding(horizontal = 4.dp))
         CondoCard(contentPadding = PaddingValues(vertical = 4.dp)) {
-            ProfileRow(Icons.Outlined.HomeWork, "Unidade", user.unit)
-            RowDivider()
+            // Administrador e porteiro não têm apartamento.
+            if (user.unit.isNotBlank()) {
+                ProfileRow(Icons.Outlined.HomeWork, "Unidade", user.unit)
+                RowDivider()
+            }
             ProfileRow(Icons.Outlined.Badge, "Perfil de acesso", user.role.label)
+        }
+
+        user.brand?.takeIf { it.isCompany }?.let { brand ->
+            SectionHeader("Administração", modifier = Modifier.padding(horizontal = 4.dp))
+            CondoCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BrandTile(brand = brand, size = 56.dp)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(brand.name, style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            if (user.role == UserRole.ADMIN) "Sua administradora" else "Administradora do condomínio",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         // O administrador gerencia vários condomínios e não tem um "seu".

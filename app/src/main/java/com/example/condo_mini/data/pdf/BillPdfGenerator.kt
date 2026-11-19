@@ -18,7 +18,11 @@ import java.util.Locale
  * Gera um boleto de DEMONSTRAÇÃO em PDF (A4) com a identidade visual do app.
  * Substituir pelo PDF oficial do banco/administradora quando houver backend.
  */
-class BillPdfGenerator(private val context: Context) {
+class BillPdfGenerator(
+    private val context: Context,
+    // Marca da administradora de quem está usando o app; lida na hora de gerar.
+    private val brand: () -> PdfBrand = { PdfBrand.MiniCondo }
+) {
 
     private val ptBr = Locale.forLanguageTag("pt-BR")
     private val currency = NumberFormat.getCurrencyInstance(ptBr)
@@ -56,11 +60,9 @@ class BillPdfGenerator(private val context: Context) {
 
         // Cabeçalho escuro com monograma
         canvas.drawRect(0f, 0f, PAGE_W.toFloat(), 104f, fill(ink))
-        canvas.drawCircle(M + 26f, 52f, 26f, stroke(champagne, 1.2f))
-        canvas.drawCircle(M + 26f, 52f, 22f, fill(0xFF232B3A.toInt()))
-        canvas.drawText("M", M + 26f, 60f, text(22f, champagneLight, serif = true, center = true))
+        canvas.drawBrandSeal(brand(), M + 26f, 52f, champagne, 0xFF232B3A.toInt(), champagneLight)
         canvas.drawText("Residencial Mini Condo", M + 66f, 48f, text(18f, ivory, serif = true))
-        canvas.drawText("CNPJ 12.345.678/0001-90 · Administração Mini Condo", M + 66f, 66f, text(8.5f, 0xFFB7BCC6.toInt()))
+        canvas.drawText("Administração ${brand().name}", M + 66f, 66f, text(8.5f, 0xFFB7BCC6.toInt()))
         canvas.drawText("BOLETO DE CONDOMÍNIO", PAGE_W - M, 44f, eyebrow(champagneLight, right = true))
         canvas.drawText(reference, PAGE_W - M, 66f, text(15f, ivory, serif = true, right = true))
 

@@ -49,8 +49,11 @@ class ApiSessionRepository(
     /** Abre com o cadastro salvo, sem esperar a rede; depois confere com o servidor. */
     override fun restore(): Boolean {
         val saved = store.load() ?: return false
+        val user = runCatching { saved.user.toUser() }.getOrElse {
+            store.clear()
+            return false
+        }
         api.token = saved.token
-        val user = saved.user.toUser()
         _currentUser.value = user.copy(unit = saved.unit.takeIf { it in user.units } ?: user.unit)
         scope.launch {
             // Cadastro pode ter mudado (apartamentos, perfil); um 401 aqui leva de volta ao login.
@@ -64,8 +67,13 @@ class ApiSessionRepository(
         val body = JSONObject(
             api.send("POST", "auth/login", JSONObject().put("login", login.trim()).put("password", password))
         )
-        api.token = body.getString("token")
-        body.getJSONObject("user").toUser().also {
+        val token = body.getString("token")
+        // Conta que não usa o app (plataforma): toUser recusa, e a sessão aberta no servidor é encerrada.
+        val user = runCatching { body.getJSONObject("user").toUser() }
+            .onFailure { scope.launch { runCatching { api.logout(token) } } }
+            .getOrThrow()
+        api.token = token
+        user.also {
             _currentUser.value = it
             save()
             scope.launch { onSignedIn() }

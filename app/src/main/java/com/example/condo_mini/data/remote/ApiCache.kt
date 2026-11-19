@@ -20,6 +20,9 @@ class ApiCache(context: Context) {
     /** PDFs baixados (boletos e documentos), na mesma pasta para sair junto no logout. */
     val pdfDir: File get() = File(dir, "pdfs")
 
+    /** Logo da administradora, também apagada ao sair da conta. */
+    val brandDir: File get() = File(dir, "brand")
+
     fun read(url: HttpUrl): Entry? {
         val file = fileFor(url)
         if (!file.exists()) return null

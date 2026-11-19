@@ -6,7 +6,7 @@ Plataforma (PLATFORM, nós) → Administradora → Condomínios → síndico / p
 
 A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios. O administrador (`ADMIN`) só vê os condomínios da administradora dele, e a logo da empresa aparece no app e no painel no lugar da nossa.
 
-**Onde está:** a fase 1 está **publicada na Hostinger** desde 15/11/2026 (migração 004 rodada pelo phpMyAdmin). A fase 2 (painel) está no `main`, falta publicar. No app Android, o botão de criar condomínio do administrador ainda aparece e dá 403 até a fase 3.
+**Onde está:** a fase 1 está **publicada na Hostinger** desde 15/11/2026 (migração 004 rodada pelo phpMyAdmin). A fase 2 (painel) foi publicada em 18/11/2026, junto com o pacote completo da API. A fase 3 (app Android) está no `main` desde 18/11; chega aos celulares no próximo APK (1.2).
 
 **Decisões tomadas** (dá para mudar):
 - só a plataforma cria condomínios;
@@ -50,7 +50,7 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 
 ---
 
-## ✅ Fase 2: painel web (feita em 15/11/2026, ainda não publicada)
+## ✅ Fase 2: painel web (feita em 15/11/2026, publicada em 18/11)
 
 - **Login:** entram `ADMIN` e `PLATFORM` (`js/main.js`). A plataforma abre em Administradoras, com o menu dela em cima e, embaixo, o condomínio aberto com Unidades, Cadastros e Espaços, para dar suporte em qualquer condomínio.
 - **Marca do admin:** a barra lateral mostra a logo e o nome da administradora (`brandTile`, em `js/ui.js`); sem logo, as iniciais sobre a cor dela. Rodapé com "Desenvolvido por Mini Condo". A tela de carregamento usa a última marca guardada no navegador.
@@ -63,25 +63,22 @@ A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios.
 
 **Para publicar:** enviar a pasta `painel/` inteira e o `lib/directory.php` (a rota nova). Não tem migração.
 
-## ⏭️ Fase 3: app Android
+## ✅ Fase 3: app Android (feita em 18/11/2026)
 
-0. **Esconder "criar condomínio" do administrador** na aba Unidades do app (hoje dá 403).
-1. **Não quebrar com `PLATFORM`:** hoje `UserRole.valueOf` em `data/remote/JsonMappers.kt` derruba o app. Adicionar `PLATFORM` ao enum (`domain/model/User.kt`) ou mostrar "use o painel".
-2. **Modelo:** criar `Brand(companyId, name, logoUrl, color)` em `User` ou na sessão, lido de `brand` no login e no `/me`. Guardar no cache da sessão para abrir sem internet.
-3. **Logo:** carregar e guardar no aparelho (ver se o Coil já está no projeto; senão, baixar com o OkHttp do `ApiClient` para o `ApiCache`). A URL tem `?v=`, então dá para guardar sem prazo.
-4. **Onde mostrar:**
-   - cabeçalho da Home (hoje está fixo "Mini Condo" em `ui/screens/home/HomeScreen.kt:64`);
-   - Perfil;
-   - topo dos PDFs (`data/pdf/BillPdfGenerator.kt` e `DocumentPdfGenerator.kt`);
-   - tela de abertura com a última logo guardada.
-5. **Login:** continua com a nossa marca e o "Desenvolvido por Mini Condo".
-6. **Repositórios Fake:** atualizar para as duas administradoras da demonstração.
+- **"Criar condomínio" fora do app:** o seletor de condomínios do administrador mostra "Para incluir um condomínio novo na carteira, fale com a Mini Condo." e, sem nenhum condomínio, Unidades explica que a Mini Condo ainda não incluiu nenhum.
+- **Conta `PLATFORM`:** não entra no app. `userRole()` em `data/remote/JsonMappers.kt` recusa com "A conta da plataforma usa o painel web, não o app." (e encerra a sessão aberta no servidor); perfil desconhecido pede para atualizar o app em vez de fechar. `PLATFORM` não foi para o enum, para não aparecer nos filtros de Cadastros.
+- **Modelo:** `Brand` (`domain/model/Brand.kt`) em `User.brand`, lido de `brand` no login e no `/me` e salvo junto com a sessão cifrada, então abre sem internet.
+- **Logo:** baixada uma vez por URL para `api-cache/brand/` (`data/remote/BrandLogo.kt`), apagada no logout; uma logo nova apaga a anterior.
+- **Onde aparece:** `BrandTile` (`ui/components/BrandTile.kt`), ao lado do avatar no topo de todas as abas, e o cartão "Administração" no Perfil. Fundo claro fixo para a logo funcionar nos dois temas; logo larga alarga o bloco (até 2,2×). Sem logo, iniciais sobre a cor da administradora. No topo dos PDFs de demonstração (`data/pdf/PdfBrand.kt`), a logo ou as iniciais e "Administração <nome>".
+- **Login:** continua com a marca Mini Condo. A tela de abertura é a do sistema (ícone do app), então não mostra a logo; como a sessão já guarda a marca, o topo aparece com ela desde a primeira tela.
+- **Fakes:** `FakeSessionRepository` dá a Prime (Jardins, Vista Mar e o administrador) e a Horizonte (Parque das Águas), como o seed da API.
+- Testado no emulador contra a API local: administrador da Prime com logo (topo, seletor, Perfil) e login da plataforma recusado com a mensagem.
 
 ## ⏭️ Antes de publicar na Hostinger
 
 - ✅ **Merge com o cadastro pelo app e o painel** (feito em 15/11): o aviso de pedido de cadastro vai só para os administradores da administradora do prédio, e aceitar ou recusar um pedido só vale nos prédios dela. O teste de fumaça cobre os dois.
-- ⚠️ **O painel atual tem o botão "criar condomínio"**, que dá 403 para o administrador depois desta fase. Fazer o item 3 da fase 2 antes de publicar, ou junto.
-- ✅ **Na produção** (passos 1 e 2 feitos em 15/11; 3 e 4 esperam a fase 2):
+- ✅ **"Criar condomínio" escondido do administrador** no painel (fase 2) e no app (fase 3).
+- **Na produção** (1 e 2 feitos em 15/11, 3 feito com a conta da plataforma; falta o 4):
   1. enviar `lib/`, `sql/`, `index.php` e `scripts/`;
   2. rodar `scripts/install.php` (aplica a 004, e a 003 se o cadastro pelo app ainda não tiver sido publicado);
   3. criar o nosso cadastro: `php scripts/platform-user.php <usuário> "<Nome>" --sql` no seu computador e colar o `INSERT` no phpMyAdmin;
