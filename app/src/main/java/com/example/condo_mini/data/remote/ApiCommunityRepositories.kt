@@ -106,6 +106,11 @@ class ApiReservationRepository(private val api: ApiClient, private val condoId: 
             .obj { it.toReservation() }
     }
 
+    override suspend fun setGuestArrival(reservationId: String, name: String, arrived: Boolean): Result<Reservation> = runCatching {
+        val path = if (arrived) "reservations/$reservationId/arrivals" else "reservations/$reservationId/arrivals/undo"
+        api.send("POST", path, JSONObject().put("name", name)).obj { it.toReservation() }
+    }
+
     override suspend fun cancel(reservationId: String) = api.quietly {
         api.send("POST", "reservations/$reservationId/cancel")
     }

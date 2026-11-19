@@ -513,14 +513,14 @@ private fun MyReservationCard(reservation: Reservation, onCancel: () -> Unit, on
         if (reservation.canEditGuests) {
             Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            GuestsRow(reservation.guests, onClick = onEditGuests)
+            GuestsRow(reservation.guests, arrived = reservation.arrivals.size, onClick = onEditGuests)
         }
     }
 }
 
 /** Rodapé do cartão: quem está na lista da portaria e o atalho para mexer nela. */
 @Composable
-private fun GuestsRow(guests: List<String>, onClick: () -> Unit) {
+private fun GuestsRow(guests: List<String>, arrived: Int, onClick: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
         Icon(
             Icons.Outlined.Groups,
@@ -530,7 +530,14 @@ private fun GuestsRow(guests: List<String>, onClick: () -> Unit) {
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(guestCountLabel(guests.size), style = MaterialTheme.typography.titleSmall)
+            Text(
+                guestCountLabel(guests.size) + when (arrived) {
+                    0 -> ""
+                    1 -> " · 1 chegou"
+                    else -> " · $arrived chegaram"
+                },
+                style = MaterialTheme.typography.titleSmall
+            )
             Text(
                 if (guests.isEmpty()) {
                     "Vai receber alguém? Avise a portaria."

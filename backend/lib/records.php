@@ -14,7 +14,25 @@ function bill_json(array $b): array
         'status' => $status,
         'barcode' => $b['barcode'],
         'paidAt' => $b['paid_at'],
+        // MANUAL (administração) ou BANK_RETURN (arquivo do banco); null para os antigos.
+        'paidVia' => $b['paid_via'] ?? null,
+        'unit' => $b['unit'],
     ];
+}
+
+/** Dá baixa e avisa os moradores do apartamento. */
+function mark_bill_paid(array $bill, string $paidAt, string $via, ?float $amount, string $byUserId): void
+{
+    exec_sql(
+        "UPDATE bills SET status = 'PAID', paid_at = ?, paid_via = ?, paid_amount = ?, paid_by = ? WHERE id = ?",
+        [$paidAt, $via, $amount, $byUserId, $bill['id']]
+    );
+    notify(
+        users_of_unit($bill['condo_id'], $bill['unit']),
+        'Pagamento confirmado',
+        'Boleto de ' . month_label($bill['reference']) . ' pago em ' . date('d/m', strtotime($paidAt)) . '. Obrigado!',
+        ['tab' => 'bills']
+    );
 }
 
 // ------------------------------------------------------------ linha digitável
@@ -237,10 +255,84 @@ function register_record_routes(Router $r): void
 {
     // ------------------------------------------------------------ boletos
 
+    // Com ?unit=, os do apartamento; com ?reference=AAAA-MM (administração), os do mês no condomínio.
     $r->add('GET', '/bills', function () {
+        $reference = query('reference', '');
+        if ($reference !== '' && query('unit', '') === '') {
+            require_role('ADMIN', 'MANAGER');
+            $list = rows('SELECT * FROM bills WHERE condo_id = ? AND reference = ? ORDER BY unit', [condo_id(), require_month($reference)]);
+            send_json(array_map('bill_json', $list));
+            return;
+        }
         $unit = require_unit_access(required_query('unit'));
         $list = rows('SELECT * FROM bills WHERE condo_id = ? AND unit = ? ORDER BY reference DESC', [condo_id(), $unit]);
         send_json(array_map('bill_json', $list));
+    });
+
+    // Baixa na mão: pago fora do boleto (Pix, dinheiro) ou antes de o retorno do banco chegar.
+    $r->add('POST', '/bills/{id}/pay', function (string $id) {
+        $me = require_role('ADMIN');
+        $bill = require_same_condo(row('SELECT * FROM bills WHERE id = ?', [$id]), 'Boleto não encontrado.');
+        if ($bill['status'] === 'PAID') {
+            throw new ApiError(409, 'Este boleto já está pago.');
+        }
+        $paidAt = optional_string('paidAt', 10) ?: today();
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $paidAt) || $paidAt > today()) {
+            throw new ApiError(422, 'Data de pagamento inválida.');
+        }
+        mark_bill_paid($bill, $paidAt, 'MANUAL', null, $me['id']);
+        send_json(bill_json(row('SELECT * FROM bills WHERE id = ?', [$id])));
+    });
+
+    // Desfaz uma baixa feita por engano; o boleto volta a aberto (ou vencido).
+    $r->add('POST', '/bills/{id}/unpay', function (string $id) {
+        require_role('ADMIN');
+        $bill = require_same_condo(row('SELECT * FROM bills WHERE id = ?', [$id]), 'Boleto não encontrado.');
+        exec_sql("UPDATE bills SET status = 'OPEN', paid_at = NULL, paid_via = NULL, paid_amount = NULL, paid_by = NULL WHERE id = ?", [$id]);
+        send_json(bill_json(row('SELECT * FROM bills WHERE id = ?', [$bill['id']])));
+    });
+
+    // Arquivo de retorno do banco. Com preview=1 só mostra o que faria; sem, dá baixa.
+    $r->add('POST', '/bills/bank-return', function () {
+        $me = require_role('ADMIN');
+        $condoId = condo_id();
+        $upload = $_FILES['file'] ?? null;
+        if (!is_array($upload) || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            throw new ApiError(422, 'Envie o arquivo de retorno do banco.');
+        }
+        if ($upload['size'] > 5 * 1024 * 1024) {
+            throw new ApiError(413, 'Arquivo grande demais para um retorno do banco.');
+        }
+        $payments = parse_bank_return((string) file_get_contents($upload['tmp_name']));
+        $apply = input('preview', '') !== '1';
+        $open = rows("SELECT * FROM bills WHERE condo_id = ? AND status = 'OPEN'", [$condoId]);
+        $paidBills = rows("SELECT * FROM bills WHERE condo_id = ? AND status = 'PAID'", [$condoId]);
+        $result = ['paid' => [], 'alreadyPaid' => [], 'unmatched' => [], 'otherEntries' => 0];
+        foreach ($payments as $p) {
+            if (!$p['isPayment']) {
+                $result['otherEntries']++;
+                continue;
+            }
+            $entry = ['line' => $p['line'], 'amount' => $p['paid'] ?: $p['face'], 'paidAt' => $p['date'], 'ourNumber' => ltrim($p['number'], '0')];
+            $bill = match_bill($p, $open);
+            if ($bill === null) {
+                $done = match_bill($p, $paidBills);
+                if ($done !== null) {
+                    $result['alreadyPaid'][] = $entry + ['unit' => $done['unit'], 'reference' => $done['reference']];
+                } else {
+                    $result['unmatched'][] = $entry;
+                }
+                continue;
+            }
+            // O mesmo boleto não recebe duas baixas no mesmo arquivo.
+            $open = array_values(array_filter($open, fn ($b) => $b['id'] !== $bill['id']));
+            $result['paid'][] = $entry + ['billId' => $bill['id'], 'unit' => $bill['unit'], 'reference' => $bill['reference']];
+            if ($apply) {
+                mark_bill_paid($bill, $p['date'] ?? today(), 'BANK_RETURN', $p['paid'] ?: null, $me['id']);
+            }
+        }
+        $result['applied'] = $apply;
+        send_json($result);
     });
 
     $r->add('GET', '/bills/{id}', function (string $id) {

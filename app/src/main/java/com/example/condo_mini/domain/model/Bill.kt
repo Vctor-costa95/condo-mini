@@ -16,5 +16,12 @@ data class Bill(
     val dueDate: LocalDate,
     val status: BillStatus,
     val barcode: String,
-    val paidAt: LocalDate? = null
+    val paidAt: LocalDate? = null,
+    /** Como foi a baixa: pelo arquivo do banco ou na mão pela administração; null nos antigos. */
+    val paidVia: PaymentSource? = null
 )
+
+enum class PaymentSource(val label: String) {
+    BANK_RETURN("pelo banco"),
+    MANUAL("pela administração")
+}

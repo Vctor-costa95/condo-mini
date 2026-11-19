@@ -14,6 +14,7 @@ import com.example.condo_mini.domain.model.Occurrence
 import com.example.condo_mini.domain.model.OccurrenceCategory
 import com.example.condo_mini.domain.model.OccurrenceMessage
 import com.example.condo_mini.domain.model.OccurrenceStatus
+import com.example.condo_mini.domain.model.PaymentSource
 import com.example.condo_mini.domain.model.Parcel
 import com.example.condo_mini.domain.model.ParcelStatus
 import com.example.condo_mini.domain.model.RepairKind
@@ -208,7 +209,9 @@ internal fun JSONObject.toReservation(): Reservation {
         rejectionReason = str("rejectionReason"),
         startHour = optInt("startHour", period?.startHour ?: 0),
         endHour = optInt("endHour", period?.endHour ?: 0),
-        guests = optJSONArray("guests")?.strings().orEmpty()
+        guests = optJSONArray("guests")?.strings().orEmpty(),
+        arrivals = optJSONArray("arrivals")?.objects().orEmpty()
+            .associate { it.getString("name") to it.dateTime("arrivedAt") }
     )
 }
 
@@ -233,7 +236,8 @@ internal fun JSONObject.toBill(): Bill = Bill(
     dueDate = LocalDate.parse(getString("dueDate")),
     status = BillStatus.valueOf(getString("status")),
     barcode = getString("barcode"),
-    paidAt = str("paidAt")?.let(LocalDate::parse)
+    paidAt = str("paidAt")?.let(LocalDate::parse),
+    paidVia = str("paidVia")?.let { via -> PaymentSource.entries.firstOrNull { it.name == via } }
 )
 
 /** [UnitDocument.filePath] guarda a URL do PDF na API. */

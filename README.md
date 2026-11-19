@@ -40,14 +40,16 @@ O login é **usuário e senha**. A conta nasce de dois jeitos:
 - **A administradora cadastra** a pessoa (no app ou no painel), com usuário, senha, perfil e apartamentos.
 - **O morador cria a própria conta** em "Criar conta", na tela de login: escolhe o prédio, o apartamento, e informa os dados com o usuário e a senha que quer usar. O pedido fica **aguardando** até a administradora (no app ou no painel) ou o **síndico do prédio** (no app) aceitar, podendo trocar o apartamento, ou recusar com um motivo. Enquanto isso, quem tenta entrar vê a situação do pedido.
 
+Quem esqueceu a senha toca em **Esqueceu a senha?** no login: recebe um **código de 6 números no e-mail do cadastro** (vale 15 minutos, 5 tentativas) e escolhe a senha nova; os outros aparelhos dessa conta saem. Sem e-mail no cadastro, a mensagem manda falar com a administração, que define uma senha nova em Cadastros.
+
 O perfil e os apartamentos vêm do cadastro. Depois de entrar, o celular **continua logado** até a pessoa tocar em "Sair da conta". Em **Perfil → Preferências → Tema**, cada um escolhe tema do sistema, claro ou escuro.
 
 ### Morador
 | Aba | O que faz |
 |---|---|
 | **Avisos** | Comunicados do síndico, com os fixados em destaque. |
-| **Reservas** | Reserva salão, churrasqueira e outros espaços. Conforme o espaço, a reserva é **por turno** (manhã, tarde, noite), **por hora** (hora de início e duração, dentro do horário de funcionamento) ou do **dia inteiro**. Horários ocupados, inclusive por pedidos ainda pendentes, aparecem bloqueados. Espaços com taxa esperam a aprovação do síndico. Quem vai receber gente monta a **lista de convidados** (nome por nome, até a capacidade do espaço), na hora de reservar ou depois, pelo cartão da reserva, até o dia do evento; a portaria vê a lista na Agenda. Também pede **mudança** ou **reparo** (internet, elétrica, hidráulica). Cada pedido fica na lista até o dia do evento; depois vai para o **Histórico** (atalho no topo da aba), que também mostra o que foi recusado ou cancelado pelo síndico, com o motivo. |
-| **Boletos** | Cobranças do mês (em aberto, vencido, pago), código de barras e o PDF do boleto. |
+| **Reservas** | Reserva salão, churrasqueira e outros espaços. Conforme o espaço, a reserva é **por turno** (manhã, tarde, noite), **por hora** (hora de início e duração, dentro do horário de funcionamento) ou do **dia inteiro**. Horários ocupados, inclusive por pedidos ainda pendentes, aparecem bloqueados. Espaços com taxa esperam a aprovação do síndico. Quem vai receber gente monta a **lista de convidados** (nome por nome, até a capacidade do espaço), na hora de reservar ou depois, pelo cartão da reserva, até o dia do evento; a portaria vê a lista na Agenda e, no dia, marca quem chegou: o morador recebe o aviso e vê no cartão quantos já chegaram. Também pede **mudança** ou **reparo** (internet, elétrica, hidráulica). Cada pedido fica na lista até o dia do evento; depois vai para o **Histórico** (atalho no topo da aba), que também mostra o que foi recusado ou cancelado pelo síndico, com o motivo. |
+| **Boletos** | Cobranças do mês (em aberto, vencido, pago), código de barras e o PDF do boleto. Quando a administradora dá baixa (pelo retorno do banco ou na mão), o boleto vira pago e chega o aviso "Pagamento confirmado". |
 | **Encomendas** | O que chegou na portaria, com foto e o **código de retirada** que ele mostra ao porteiro. |
 | **Ocorrências** | Registra problemas com até 3 fotos, acompanha pelo protocolo (OC-1045) e conversa com o síndico. |
 | **Perfil** | Dados de contato e **documentos do condomínio** (regimento, convenção, atas). |
@@ -66,7 +68,7 @@ Quem tem mais de um apartamento escolhe qual ver ao entrar e troca depois, tocan
 | Aba | O que faz |
 |---|---|
 | **Encomendas** | Registra a chegada com foto. Na entrega, digita o código que o morador mostra; o porteiro **não vê o código**. |
-| **Agenda** | Mudanças e reparos aprovados e reservas confirmadas para hoje e as próximas duas semanas. Cada reserva traz a **lista de convidados** do morador; a lista completa abre em ordem alfabética, com busca por nome (sem precisar de acento). Reserva sem lista avisa para confirmar pelo interfone. |
+| **Agenda** | Mudanças e reparos aprovados e reservas confirmadas para hoje e as próximas duas semanas. Cada reserva traz a **lista de convidados** do morador; a lista completa abre em ordem alfabética, com busca por nome (sem precisar de acento). Reserva sem lista avisa para confirmar pelo interfone. No **dia da reserva**, cada nome tem o botão **Chegou**: o morador é avisado na hora ("Bruno Lima chegou para Churrasqueira"), o cartão mostra quantos já chegaram e quem falta vem primeiro. Tocar no horário desfaz uma marcação por engano. |
 | **Moradores** | Quem mora em cada apartamento, com telefone. |
 | **Avisos** | O mesmo mural dos moradores. |
 
@@ -75,7 +77,7 @@ Atende vários condomínios e escolhe qual está gerenciando no topo da tela.
 
 | Aba | O que faz |
 |---|---|
-| **Unidades** | Edita o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês (no painel, todos de uma vez: veja abaixo). |
+| **Unidades** | Edita o condomínio e os blocos (andares, apartamentos por andar, coberturas). Envia o **PDF do boleto** de cada apartamento por mês (no painel, todos de uma vez: veja abaixo). No detalhe do apartamento, **Pagamentos** mostra os boletos com a situação e **Marcar como pago** (pagou por Pix, em dinheiro) ou **Desfazer**. |
 | **Cadastros** | Cria pessoas com usuário, senha, perfil e apartamentos. No topo ficam os **pedidos de cadastro** feitos pelo app: aceitar (conferindo ou trocando o apartamento) ou recusar com motivo. A aba mostra quantos esperam, e tocar na notificação de pedido novo abre esta tela já no prédio do pedido. |
 | **Espaços** | Cria espaços reserváveis (capacidade, taxa, regras, e se a reserva é por turno, por hora ou do dia inteiro) e interdita para manutenção. |
 
@@ -90,6 +92,12 @@ Em **Unidades → Enviar boletos do mês**, a administradora solta o PDF que o s
 4. Separa um PDF por apartamento e envia tudo. Cada morador recebe o aviso com valor e vencimento, e o boleto aparece no app.
 
 Enviar o PDF de um apartamento só (no detalhe da unidade) também lê a linha digitável; se não achar, pede para digitar.
+
+#### Baixa dos boletos (painel)
+O card **Pagos** de Unidades mostra quantos boletos do mês já foram pagos e quanto entrou, e cada apartamento no mapa ganha a etiqueta Pago, Em aberto ou Vencido. Há dois jeitos de dar baixa:
+
+1. **Retorno do banco** (botão no topo de Unidades): a administradora baixa no internet banking da conta do condomínio o **arquivo de retorno** (CNAB 240 ou 400, `.ret`/`.txt`) e solta no painel. Primeiro vem a **prévia**: o que vai ter baixa, o que já estava pago e os pagamentos **sem boleto** no sistema. Confirmando, todos viram pagos com a data do banco e os moradores são avisados. Cada pagamento é ligado ao boleto pelo **valor** e pelo **nosso número**, que fica no meio da linha digitável; se dois boletos empatam, o pagamento vai para "Sem boleto" em vez de arriscar.
+2. **Na mão**, no detalhe do apartamento: **Marcar como pago** (com a data de hoje) e **Desfazer baixa**. Serve para Pix ou dinheiro e para corrigir.
 
 ### Plataforma (nós)
 Cada administrador pertence a uma **administradora** e só vê os condomínios dela. Quem cadastra as administradoras, sobe a logo delas, cria os condomínios e aloca cada um a uma administradora é a **plataforma**, o perfil da equipe Mini Condo. Uma administradora suspensa não entra, nem quem mora nos prédios dela.
@@ -126,6 +134,8 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 | Encomenda registrada | Moradores do apartamento |
 | Aviso ou documento publicado | Todo o condomínio |
 | PDF do boleto enviado | Moradores do apartamento |
+| Boleto pago (retorno do banco ou baixa na mão) | Moradores do apartamento |
+| Convidado marcado como chegado na portaria | Moradores do apartamento |
 | Pedido de reserva com taxa, mudança ou reparo | Síndico |
 | Reserva, mudança ou reparo aprovado, recusado ou cancelado pelo síndico | Moradores do apartamento |
 | Pedido de cadastro feito pelo app | Administradores da administradora que cuida do prédio e o síndico dele |
@@ -187,13 +197,13 @@ O **painel web** vai junto no zip (`painel/`, com o `painel/.htaccess`) e fica e
 **O `config.php` do servidor** usa `'host' => '127.0.0.1'` para o banco. O endereço `srv880.hstgr.io` é só para conexão de fora (do seu PC) e, vindo do próprio servidor, o banco recusa: a API inteira cai com erro 500 *"Erro no servidor"*. Foi o que aconteceu em 16/11, quando o `config.php` feito para rodar o instalador do PC (`backend/dist/instalar-producao/`) foi parar no servidor. Esse erro 500 em todas as rotas, inclusive `/health`, quase sempre é a conexão com o banco: confira host, usuário e senha do `config.php`.
 
 ### Mudar a estrutura do banco
-Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras, 005 convidados da reserva), Há dois jeitos de aplicar uma migração nova:
+Mudanças em `backend/sql/schema.sql` precisam rodar no MySQL da Hostinger. Para bancos que já existem, cada mudança vem também como uma migração numerada em `backend/sql/migrations/` (001 reserva por hora, 002 dia inteiro, 003 pedidos de cadastro, 004 administradoras, 005 convidados da reserva, 006 chegada dos convidados, código de senha e baixa de boletos). Há dois jeitos de aplicar uma migração nova:
 
 - **À mão, no phpMyAdmin** (o jeito usado hoje): hPanel → Bancos de dados → phpMyAdmin, aba SQL. Rode o conteúdo do arquivo da migração e depois registre que ela foi feita, para o instalador não tentar de novo:
   ```sql
   INSERT INTO schema_migrations (name, applied_at) VALUES ('005-convidados-da-reserva.sql', NOW());
   ```
-  (troque pelo nome do arquivo da migração). Até a 005, todas estão aplicadas e registradas.
+  (troque pelo nome do arquivo da migração). Até a 005, todas estão aplicadas e registradas; a **006** ainda não.
 - **Pelo `install.php`**, que aplica sozinho as que faltam: libere seu IP por um momento em hPanel → Bancos de dados → **MySQL remoto**, rode `php scripts/install.php` no seu PC com um `config.php` apontando para `srv880.hstgr.io` e **remova a liberação** depois. Esse `config.php` é só do seu PC: **nunca suba ele para o servidor**.
 
 ### Testar a API
@@ -221,11 +231,9 @@ O token de login fica no celular **cifrado** com uma chave do próprio aparelho 
 
 ## 7. O que ainda não existe
 
-- **Baixa de pagamento.** O boleto nasce do PDF enviado (valor, vencimento e linha digitável), mas ainda não vira "pago" sozinho: falta ler o retorno do banco ou ligar no sistema de cobrança da administradora (Superlógica e outros têm API). Hoje ele aparece em aberto e depois vencido.
 - **Envio de boletos pelo app Android** com a leitura da linha digitável: no app, o PDF ainda entra sem valor e vencimento, e o morador só o vê se o boleto já existir. Use o painel.
+- **Integração com o sistema de cobrança** da administradora (Superlógica e outros têm API), para a baixa vir sozinha sem subir o retorno do banco.
 - **Pagamento pelo app** (Pix, cartão).
-- **Marcar a chegada de convidados** na portaria (hoje a lista é só para consulta) e avisar o morador quando alguém da lista entra.
-- **Recuperar senha** sozinho: hoje a administradora define uma senha nova no cadastro.
 - **Fazer ações sem internet** (reservar, registrar ocorrência, entregar encomenda): sem conexão, o app avisa e a pessoa tenta de novo. Ver e consultar funciona offline (seção 3).
 - **Versão iOS**, prevista para o início de 2027.
 - **Publicação na Play Store.**

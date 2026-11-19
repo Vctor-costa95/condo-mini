@@ -3,6 +3,7 @@ package com.example.condo_mini.ui.screens.admin.units
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.condo_mini.data.AppContainer
+import com.example.condo_mini.domain.model.Bill
 import com.example.condo_mini.domain.model.CondoUnit
 import com.example.condo_mini.domain.model.GROUND_FLOOR
 import com.example.condo_mini.domain.model.Condominium
@@ -12,12 +13,20 @@ import com.example.condo_mini.domain.model.User
 import com.example.condo_mini.domain.model.UserRole
 import com.example.condo_mini.domain.repository.BillRepository
 import com.example.condo_mini.domain.repository.DirectoryRepository
+import com.example.condo_mini.data.remote.userMessage
 import com.example.condo_mini.ui.util.formatMonth
 import com.example.condo_mini.ui.util.monthName
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -38,7 +47,9 @@ data class UnitDetail(
     val residents: List<User>,
     val documents: List<UnitDocument>,
     /** Moradores cadastrados ainda sem apartamento. */
-    val unassigned: List<User>
+    val unassigned: List<User>,
+    /** Boletos do apartamento, do mais recente ao mais antigo. */
+    val bills: List<Bill> = emptyList()
 )
 
 data class AdminUnitsUiState(
@@ -58,7 +69,7 @@ data class AdminUnitsUiState(
     val userMessage: String? = null
 )
 
-private data class Filters(val towerId: String?, val month: YearMonth, val openUnitId: String?)
+private data class Filters(val towerId: String?, val month: YearMonth, val openUnitId: String?, val openUnitLabel: String? = null)
 
 class AdminUnitsViewModel(
     private val directoryRepository: DirectoryRepository = AppContainer.directoryRepository,
@@ -71,6 +82,11 @@ class AdminUnitsViewModel(
     private val uploading = MutableStateFlow<Set<String>>(emptySet())
     private val userMessage = MutableStateFlow<String?>(null)
 
+    // Boletos só do apartamento aberto: a lista do condomínio inteiro não é carregada aqui.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val openBills: Flow<List<Bill>> = filters.map { it.openUnitLabel }.distinctUntilChanged()
+        .flatMapLatest { unit -> if (unit == null) flowOf(emptyList()) else billRepository.observeBills(unit).catch { emit(emptyList()) } }
+
     private val condo = combine(directoryRepository.observeCondos(), directoryRepository.selectedCondoId) { list, id ->
         list.firstOrNull { it.id == id }
     }
@@ -80,8 +96,8 @@ class AdminUnitsViewModel(
         directoryRepository.observeUsers(),
         billRepository.observeUnitDocuments(),
         filters,
-        combine(uploading, userMessage, ::Pair)
-    ) { condo, users, allDocuments, filters, (uploading, message) ->
+        combine(uploading, userMessage, openBills, ::Triple)
+    ) { condo, users, allDocuments, filters, (uploading, message, bills) ->
         val units = condo?.units.orEmpty()
         // Outro condomínio selecionado: a torre anterior deixa de existir e volta para a primeira.
         val tower = condo?.towers?.firstOrNull { it.id == filters.towerId } ?: condo?.towers?.firstOrNull()
@@ -119,7 +135,8 @@ class AdminUnitsViewModel(
                     unit = unit,
                     residents = residentsByUnit[unit.label].orEmpty(),
                     documents = documents.filter { it.unit == unit.label }.sortedByDescending { it.reference },
-                    unassigned = users.filter { it.role == UserRole.RESIDENT && it.units.isEmpty() }
+                    unassigned = users.filter { it.role == UserRole.RESIDENT && it.units.isEmpty() },
+                    bills = bills.sortedByDescending { it.reference }
                 )
             },
             uploading = uploading,
@@ -131,9 +148,20 @@ class AdminUnitsViewModel(
 
     fun onMonthSelected(month: YearMonth) = filters.update { it.copy(month = month) }
 
-    fun onOpenUnit(unit: CondoUnit) = filters.update { it.copy(openUnitId = unit.id) }
+    fun onOpenUnit(unit: CondoUnit) = filters.update { it.copy(openUnitId = unit.id, openUnitLabel = unit.label) }
 
-    fun onCloseUnit() = filters.update { it.copy(openUnitId = null) }
+    fun onCloseUnit() = filters.update { it.copy(openUnitId = null, openUnitLabel = null) }
+
+    /** Baixa na mão (pagou por Pix, em dinheiro) ou desfaz uma baixa feita por engano. */
+    fun onSetPaid(bill: Bill, paid: Boolean) {
+        viewModelScope.launch {
+            billRepository.setPaid(bill.id, paid)
+                .onSuccess {
+                    userMessage.value = if (paid) "Boleto de ${bill.reference.formatMonth()} marcado como pago." else "Baixa de ${bill.reference.formatMonth()} desfeita."
+                }
+                .onFailure { userMessage.value = it.userMessage() }
+        }
+    }
 
     /** [uri] vem do seletor de documentos do sistema. */
     fun onPdfPicked(unit: CondoUnit, uri: String) {

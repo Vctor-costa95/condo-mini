@@ -63,7 +63,8 @@ fun AppNavigation(
                         }
                     }
                 },
-                onCreateAccountClick = { navController.navigate(AppRoutes.SIGNUP) { launchSingleTop = true } }
+                onCreateAccountClick = { navController.navigate(AppRoutes.SIGNUP) { launchSingleTop = true } },
+                onPasswordReset = loginViewModel::onPasswordReset
             )
         }
 

@@ -38,6 +38,12 @@ interface SessionRepository {
     fun selectUnit(unit: String)
     fun logout()
     suspend fun updateContact(email: String, phone: String): Result<User>
+
+    /** "Esqueci a senha": manda um código ao e-mail do cadastro; devolve o e-mail mascarado ("an•••@email.com"). */
+    suspend fun requestPasswordReset(login: String): Result<String>
+
+    /** Troca a senha com o código do e-mail; as sessões em outros aparelhos são encerradas. */
+    suspend fun confirmPasswordReset(login: String, code: String, password: String): Result<Unit>
 }
 
 /** Cadastro pelo próprio morador, antes de ter login: escolhe o prédio e manda o pedido. */
@@ -87,6 +93,9 @@ interface ReservationRepository {
 
     /** Troca a lista de convidados que a portaria vê (a lista inteira). */
     suspend fun updateGuests(reservationId: String, guests: List<String>): Result<Reservation>
+
+    /** Portaria: [name] chegou ([arrived] = true, o morador é avisado) ou foi marcado por engano. */
+    suspend fun setGuestArrival(reservationId: String, name: String, arrived: Boolean): Result<Reservation>
 
     suspend fun cancel(reservationId: String)
 
@@ -148,6 +157,9 @@ interface BillRepository {
         sourceUri: String
     ): Result<UnitDocument>
     suspend fun deleteUnitDocument(documentId: String)
+
+    /** Administração: dá baixa na mão (pago hoje) ou desfaz uma baixa feita por engano. */
+    suspend fun setPaid(billId: String, paid: Boolean): Result<Bill>
 }
 
 /**

@@ -19,18 +19,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.EventAvailable
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Handyman
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -73,8 +76,12 @@ import com.example.condo_mini.ui.theme.CondoTheme
 import com.example.condo_mini.ui.util.formatWeekday
 import java.text.Normalizer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -105,9 +112,24 @@ data class DoormanScheduleUiState(
 class DoormanScheduleViewModel(
     sessionRepository: SessionRepository = AppContainer.sessionRepository,
     serviceBookingRepository: ServiceBookingRepository = AppContainer.serviceBookingRepository,
-    reservationRepository: ReservationRepository = AppContainer.reservationRepository,
+    private val reservationRepository: ReservationRepository = AppContainer.reservationRepository,
     directoryRepository: DirectoryRepository = AppContainer.directoryRepository
 ) : ViewModel() {
+
+    /** Chegadas sendo gravadas agora (reserva to nome): o botão espera em vez de repetir. */
+    private val _saving = MutableStateFlow<Set<Pair<String, String>>>(emptySet())
+    val saving: StateFlow<Set<Pair<String, String>>> = _saving.asStateFlow()
+
+    fun setArrival(reservation: Reservation, name: String, arrived: Boolean) {
+        val key = reservation.id to name
+        if (key in _saving.value) return
+        _saving.update { it + key }
+        viewModelScope.launch {
+            reservationRepository.setGuestArrival(reservation.id, name, arrived)
+                .onFailure { error -> AppContainer.apiClient?.report(error) }
+            _saving.update { it - key }
+        }
+    }
 
     val uiState: StateFlow<DoormanScheduleUiState> = sessionRepository.currentUser
         .flatMapLatest { user ->
@@ -151,10 +173,13 @@ fun DoormanScheduleRoute(
     viewModel: DoormanScheduleViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val saving by viewModel.saving.collectAsStateWithLifecycle()
     val context = LocalContext.current
     DoormanScheduleScreen(
         uiState = uiState,
+        saving = saving,
         onCall = { phone -> context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${phone.filter { it.isDigit() }}"))) },
+        onArrival = viewModel::setArrival,
         modifier = modifier
     )
 }
@@ -163,13 +188,19 @@ fun DoormanScheduleRoute(
 fun DoormanScheduleScreen(
     uiState: DoormanScheduleUiState,
     onCall: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    saving: Set<Pair<String, String>> = emptySet(),
+    onArrival: (Reservation, String, Boolean) -> Unit = { _, _, _ -> }
 ) {
     if (uiState.isLoading) {
         LoadingState(modifier)
         return
     }
-    var openList by remember { mutableStateOf<Reservation?>(null) }
+    // Guarda só o id: a lista aberta acompanha as chegadas que a portaria vai marcando.
+    var openListId by rememberSaveable { mutableStateOf<String?>(null) }
+    val openList = openListId?.let { id ->
+        (uiState.upcoming + uiState.today).flatMap { it.reservations }.firstOrNull { it.id == id }
+    }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 32.dp),
@@ -190,7 +221,7 @@ fun DoormanScheduleScreen(
             }
             items(day.entries, key = { it.booking.id }) { ScheduleCard(it, onCall) }
             items(day.reservations, key = { it.id }) { reservation ->
-                GuestListCard(reservation, onOpenList = { openList = reservation })
+                GuestListCard(reservation, onOpenList = { openListId = reservation.id })
             }
         }
         if (days.isEmpty()) {
@@ -206,7 +237,12 @@ fun DoormanScheduleScreen(
     }
 
     openList?.let { reservation ->
-        GuestListSheet(reservation, onDismiss = { openList = null })
+        GuestListSheet(
+            reservation = reservation,
+            saving = saving,
+            onArrival = { name, arrived -> onArrival(reservation, name, arrived) },
+            onDismiss = { openListId = null }
+        )
     }
 }
 
@@ -308,28 +344,63 @@ private fun GuestListCard(reservation: Reservation, onOpenList: () -> Unit) {
             Icon(Icons.Outlined.Groups, contentDescription = null, tint = scheme.tertiary, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(guestCountLabel(guests.size), style = MaterialTheme.typography.titleSmall)
+            if (reservation.arrivals.isNotEmpty()) {
+                Text(
+                    " · ${arrivedLabel(reservation.arrivals.size)}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = scheme.tertiary
+                )
+            }
         }
         Spacer(modifier = Modifier.height(6.dp))
-        guests.sortedWith(String.CASE_INSENSITIVE_ORDER).take(GUESTS_ON_CARD).forEach { name ->
-            Text(
-                name,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(start = 26.dp, top = 2.dp, bottom = 2.dp)
-            )
-        }
+        // Quem ainda não chegou primeiro: é por esses que a portaria procura.
+        guests.sortedWith(compareBy<String> { reservation.arrivedAt(it) != null }.thenBy(String.CASE_INSENSITIVE_ORDER) { it })
+            .take(GUESTS_ON_CARD)
+            .forEach { name ->
+                val arrived = reservation.arrivedAt(name) != null
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)) {
+                    if (arrived) {
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = "Chegou", tint = scheme.tertiary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                    } else {
+                        Spacer(modifier = Modifier.width(26.dp))
+                    }
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (arrived) scheme.onSurfaceVariant else scheme.onSurface
+                    )
+                }
+            }
         TextButton(onClick = onOpenList, modifier = Modifier.padding(start = 14.dp)) {
             Text(
-                if (guests.size > GUESTS_ON_CARD) "Ver os ${guests.size} e buscar nome" else "Abrir lista",
+                when {
+                    reservation.acceptsArrivals -> "Marcar quem chegou"
+                    guests.size > GUESTS_ON_CARD -> "Ver os ${guests.size} e buscar nome"
+                    else -> "Abrir lista"
+                },
                 color = scheme.tertiary
             )
         }
     }
 }
 
-/** Lista completa em ordem alfabética, com busca: o porteiro digita o nome de quem chegou. */
+private fun arrivedLabel(count: Int): String = if (count == 1) "1 chegou" else "$count chegaram"
+
+private val arrivalTime = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+
+/**
+ * Lista completa em ordem alfabética, com busca: o porteiro digita o nome de quem chegou.
+ * No dia da reserva, cada nome tem "Chegou" (avisa o morador); o horário desfaz se foi engano.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun GuestListSheet(reservation: Reservation, onDismiss: () -> Unit) {
+private fun GuestListSheet(
+    reservation: Reservation,
+    saving: Set<Pair<String, String>>,
+    onArrival: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
     var search by rememberSaveable { mutableStateOf("") }
     val sorted = remember(reservation.guests) { reservation.guests.sortedWith(String.CASE_INSENSITIVE_ORDER) }
     val shown = remember(sorted, search) {
@@ -346,7 +417,12 @@ private fun GuestListSheet(reservation: Reservation, onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(reservation.area.name, style = MaterialTheme.typography.headlineLarge)
             Text(
-                "${reservation.date.formatWeekday()} · ${reservation.timeLabel} · ${guestCountLabel(sorted.size)}",
+                listOfNotNull(
+                    reservation.date.formatWeekday(),
+                    reservation.timeLabel,
+                    guestCountLabel(sorted.size),
+                    reservation.arrivals.size.takeIf { it > 0 }?.let(::arrivedLabel)
+                ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -378,10 +454,29 @@ private fun GuestListSheet(reservation: Reservation, onDismiss: () -> Unit) {
                 }
             }
             items(shown) { name ->
+                val arrivedAt = reservation.arrivedAt(name)
+                val busy = (reservation.id to name) in saving
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
                     InitialsAvatar(name, size = 36.dp)
                     Spacer(modifier = Modifier.width(14.dp))
-                    Text(name, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (arrivedAt != null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    when {
+                        !reservation.acceptsArrivals -> Unit
+                        busy -> CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.padding(horizontal = 18.dp).size(20.dp))
+                        arrivedAt != null -> TextButton(onClick = { onArrival(name, false) }) {
+                            Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Chegou ${arrivedAt.format(arrivalTime)}", color = MaterialTheme.colorScheme.tertiary)
+                        }
+                        else -> OutlinedButton(onClick = { onArrival(name, true) }, shape = MaterialTheme.shapes.medium) {
+                            Text("Chegou")
+                        }
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(start = 50.dp))
             }

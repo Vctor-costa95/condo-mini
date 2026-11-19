@@ -9,6 +9,8 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
+// Mesmo fuso da API: "hoje" no teste é o hoje do servidor.
+date_default_timezone_set('America/Sao_Paulo');
 $base = rtrim($argv[1] ?? 'http://127.0.0.1:8080', '/');
 $failures = 0;
 
@@ -154,6 +156,25 @@ check('lista vazia volta a ser nenhum', call('PUT', "/reservations/{$g['id']}/gu
 call('POST', "/reservations/{$g['id']}/cancel", null, $resident);
 check('cancelada não muda a lista', call('PUT', "/reservations/{$g['id']}/guests", ['guests' => ['X']], $resident)[0] === 409);
 
+echo "Chegada de convidados\n";
+check('chegada só no dia da reserva', call('POST', "/reservations/{$g['id']}/arrivals", ['name' => 'Carla Dias'], $doorman)[0] === 409);
+[$s, $party] = call('POST', '/reservations', ['areaId' => 'a2', 'date' => date('Y-m-d'), 'period' => 'NIGHT', 'unit' => 'Apto 101 - Bloco A', 'guests' => ['Bruno Lima', 'Carla Dias']], $resident);
+if (($party['status'] ?? '') === 'PENDING') {
+    [, $party] = call('POST', "/reservations/{$party['id']}/approve", null, $manager);
+}
+check('reserva de hoje confirmada', in_array($s, [200, 201], true) && ($party['status'] ?? '') === 'CONFIRMED' && $party['arrivals'] === [], $party);
+[$s, $arr] = call('POST', "/reservations/{$party['id']}/arrivals", ['name' => '  carla   dias '], $doorman);
+check('portaria marca chegada (nome como na lista)', $s === 200 && count($arr['arrivals']) === 1 && $arr['arrivals'][0]['name'] === 'Carla Dias', $arr);
+check('nome fora da lista recusado', call('POST', "/reservations/{$party['id']}/arrivals", ['name' => 'Fulano'], $doorman)[0] === 422);
+check('morador não marca chegada', call('POST', "/reservations/{$party['id']}/arrivals", ['name' => 'Bruno Lima'], $resident)[0] === 403);
+check('marcar de novo não duplica', count(call('POST', "/reservations/{$party['id']}/arrivals", ['name' => 'Carla Dias'], $doorman)[1]['arrivals']) === 1);
+[, $mineNow] = call('GET', '/reservations?' . 'unit=' . rawurlencode('Apto 101 - Bloco A'), null, $resident);
+$seenParty = array_values(array_filter($mineNow, fn ($x) => $x['id'] === $party['id']))[0] ?? [];
+check('morador vê quem chegou', count($seenParty['arrivals'] ?? []) === 1 && !empty($seenParty['arrivals'][0]['arrivedAt']), $seenParty);
+[$s, $undo] = call('POST', "/reservations/{$party['id']}/arrivals/undo", ['name' => 'Carla Dias'], $doorman);
+check('portaria desfaz chegada', $s === 200 && $undo['arrivals'] === [], $undo);
+call('POST', "/reservations/{$party['id']}/cancel", null, $resident);
+
 echo "Mudanças e reparos\n";
 [$s, $move] = call('POST', '/service-bookings', ['type' => 'MOVE', 'date' => $farDay, 'period' => 'AFTERNOON', 'unit' => 'Apto 101 - Bloco A', 'provider' => 'Mudanças X'], $resident);
 check('pedido de mudança', $s === 201 && $move['status'] === 'PENDING', $move);
@@ -241,6 +262,56 @@ check('boleto sem valor pede o valor', call('POST', '/unit-documents', null, $ad
 [$s] = call('POST', '/unit-documents', null, $admin, $billUnit + ['barcode' => $boletoLine($factor, 0), 'amount' => '712,30']);
 $made = $billsOf();
 check('reenvio atualiza o mesmo boleto, com o valor informado', $s === 201 && count($made) === 1 && $made[0]['amount'] === 712.3, $made);
+
+echo "Baixa de boletos\n";
+// Mesmo valor no 1302, nosso número diferente: quem separa os dois é o campo livre.
+[$s] = call('POST', '/unit-documents', null, $admin, ['unit' => 'Apto 1302 - Bloco A'] + $billUnit + ['barcode' => $boletoLine($factor, 71230, '1790010205551004791020150')]);
+check('segundo boleto com o mesmo valor', $s === 201);
+[$s, $month] = call('GET', '/bills?condoId=c1&reference=2031-03', null, $admin);
+check('administração vê os boletos do mês', $s === 200 && count($month) === 2, $month);
+check('morador não lista o mês do condomínio', call('GET', '/bills?condoId=c1&reference=2031-03', null, $resident)[0] === 403);
+$bill1301 = array_values(array_filter($month, fn ($b) => $b['unit'] === 'Apto 1301 - Bloco A'))[0];
+$bill1302 = array_values(array_filter($month, fn ($b) => $b['unit'] === 'Apto 1302 - Bloco A'))[0];
+check('morador não dá baixa', call('POST', "/bills/{$bill1302['id']}/pay", null, $resident)[0] === 403);
+[$s, $manual] = call('POST', "/bills/{$bill1302['id']}/pay", ['paidAt' => date('Y-m-d')], $admin);
+check('baixa na mão', $s === 200 && $manual['status'] === 'PAID' && $manual['paidVia'] === 'MANUAL', $manual);
+check('baixa duas vezes recusada', call('POST', "/bills/{$bill1302['id']}/pay", null, $admin)[0] === 409);
+[$s, $undone] = call('POST', "/bills/{$bill1302['id']}/unpay", null, $admin);
+check('desfaz a baixa', $s === 200 && $undone['status'] !== 'PAID' && $undone['paidVia'] === null, $undone);
+
+$put = function (string &$line, int $from, string $value): void { $line = substr_replace($line, $value, $from - 1, strlen($value)); };
+$cnab400 = function (string $ourNumber, int $cents, string $code = '06') use ($put): string {
+    $l = str_repeat(' ', 400);
+    $put($l, 1, '1');
+    $put($l, 63, $ourNumber);
+    $put($l, 109, $code);
+    $put($l, 111, date('dmy'));
+    $put($l, 153, sprintf('%013d', $cents));
+    $put($l, 254, sprintf('%013d', $cents));
+    return $l;
+};
+$header400 = str_pad('02RETORNO01COBRANCA', 400);
+$retorno = implode("\r\n", [$header400, $cnab400('00101043', 71230), $cnab400('99999999', 5000), $cnab400('00102055', 71230, '02'), str_pad('9', 400)]);
+$retFile = ['name' => 'CN18113A.RET', 'type' => 'text/plain', 'data' => $retorno];
+[$s, $preview] = call('POST', '/bills/bank-return', null, $admin, ['condoId' => 'c1', 'preview' => '1', 'file' => $retFile]);
+check('retorno CNAB 400: prévia acha o boleto certo', $s === 200 && !$preview['applied'] && count($preview['paid']) === 1
+    && $preview['paid'][0]['unit'] === 'Apto 1301 - Bloco A' && count($preview['unmatched']) === 1 && $preview['otherEntries'] === 1, $preview);
+check('prévia não dá baixa', call('GET', "/bills/{$bill1301['id']}?condoId=c1", null, $admin)[1]['status'] !== 'PAID');
+[$s, $applied] = call('POST', '/bills/bank-return', null, $admin, ['condoId' => 'c1', 'file' => $retFile]);
+$after = call('GET', "/bills/{$bill1301['id']}?condoId=c1", null, $admin)[1];
+check('retorno dá baixa pelo banco', $s === 200 && $applied['applied'] && $after['status'] === 'PAID' && $after['paidVia'] === 'BANK_RETURN' && $after['paidAt'] === date('Y-m-d'), $after);
+check('mesmo retorno de novo: já pago', count(call('POST', '/bills/bank-return', null, $admin, ['condoId' => 'c1', 'file' => $retFile])[1]['alreadyPaid']) === 1);
+
+// CNAB 240: segmento T (título) e U (valor pago e data).
+$t = str_repeat(' ', 240); $put($t, 1, '341'); $put($t, 8, '3'); $put($t, 14, 'T'); $put($t, 16, '06');
+$put($t, 38, str_pad('00102055', 20)); $put($t, 82, sprintf('%015d', 71230));
+$u = str_repeat(' ', 240); $put($u, 1, '341'); $put($u, 8, '3'); $put($u, 14, 'U'); $put($u, 16, '06');
+$put($u, 78, sprintf('%015d', 71230)); $put($u, 138, date('dmY'));
+$h240 = str_repeat(' ', 240); $put($h240, 1, '34100000');
+$ret240 = ['name' => 'retorno.ret', 'type' => 'text/plain', 'data' => implode("\n", [$h240, $t, $u])];
+[$s, $r240] = call('POST', '/bills/bank-return', null, $admin, ['condoId' => 'c1', 'file' => $ret240]);
+check('retorno CNAB 240 dá baixa no 1302', $s === 200 && count($r240['paid']) === 1 && $r240['paid'][0]['unit'] === 'Apto 1302 - Bloco A', $r240);
+check('arquivo que não é retorno recusado', call('POST', '/bills/bank-return', null, $admin, ['condoId' => 'c1', 'file' => ['name' => 'x.txt', 'type' => 'text/plain', 'data' => "oi\n"]])[0] === 422);
 
 echo "Encomendas\n";
 $png = ['name' => 'foto.png', 'type' => 'image/png', 'data' => base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=')];
@@ -513,6 +584,36 @@ if ($pushLog !== null) {
     call('POST', '/notices', ['title' => 'Depois do logout', 'body' => 'x', 'category' => 'EVENT'], $manager);
     check('sair da conta para os envios ao aparelho', $pushed() === []);
 }
+
+// Com 'mail' => ['log_file' => ...] no config.php, passe o arquivo como terceiro argumento
+// para conferir o código que iria por e-mail.
+echo "Recuperar senha\n";
+$mailLog = $argv[3] ?? null;
+[, $who] = call('POST', '/users', ['condoId' => 'c1', 'name' => 'Rita Senha', 'role' => 'RESIDENT', 'login' => 'rita.senha', 'password' => 'antiga1', 'email' => 'rita@exemplo.com', 'units' => ['Apto 102 - Bloco A']], $admin);
+[, $noMail] = call('POST', '/users', ['condoId' => 'c1', 'name' => 'Sem Email', 'role' => 'RESIDENT', 'login' => 'sem.email', 'password' => 'antiga1', 'units' => ['Apto 102 - Bloco A']], $admin);
+$ritaToken = login('rita.senha', 'antiga1');
+check('usuário que não existe', call('POST', '/auth/password-reset', ['login' => 'ninguem.aqui'])[0] === 404);
+check('cadastro sem e-mail manda falar com a administração', call('POST', '/auth/password-reset', ['login' => 'sem.email'])[0] === 422);
+if ($mailLog !== null) {
+    @unlink($mailLog);
+    [$s, $sent] = call('POST', '/auth/password-reset', ['login' => 'Rita.Senha']);
+    check('código enviado, e-mail mascarado', $s === 200 && $sent['email'] === 'ri•••@exemplo.com', $sent);
+    check('pedir de novo logo em seguida espera', call('POST', '/auth/password-reset', ['login' => 'rita.senha'])[0] === 429);
+    preg_match('/^\s+(\d{6})$/m', (string) @file_get_contents($mailLog), $m);
+    $code = $m[1] ?? '';
+    check('e-mail com o código', strlen($code) === 6);
+    $wrong = $code === '000000' ? '111111' : '000000';
+    [$s, $err] = call('POST', '/auth/password-reset/confirm', ['login' => 'rita.senha', 'code' => $wrong, 'password' => 'nova123']);
+    check('código errado conta tentativa', $s === 422 && str_contains($err['error'] ?? '', '4 tentativas'), $err);
+    check('senha curta recusada', call('POST', '/auth/password-reset/confirm', ['login' => 'rita.senha', 'code' => $code, 'password' => '123'])[0] === 422);
+    check('código certo troca a senha', call('POST', '/auth/password-reset/confirm', ['login' => 'rita.senha', 'code' => " $code ", 'password' => 'nova123'])[0] === 200);
+    check('código não vale duas vezes', call('POST', '/auth/password-reset/confirm', ['login' => 'rita.senha', 'code' => $code, 'password' => 'outra123'])[0] === 410);
+    check('senha antiga não entra mais', call('POST', '/auth/login', ['login' => 'rita.senha', 'password' => 'antiga1'])[0] === 401);
+    login('rita.senha', 'nova123');
+    check('sessões antigas encerradas', call('GET', '/me', null, $ritaToken)[0] === 401);
+}
+call('DELETE', "/users/{$who['id']}", null, $admin);
+call('DELETE', "/users/{$noMail['id']}", null, $admin);
 
 echo "Sessão\n";
 check('logout', call('POST', '/auth/logout', null, $paulo)[0] === 200);

@@ -5,12 +5,21 @@ import { refreshSidebarBadge } from '../main.js';
 import { allFloors, floorLabel, towerUnits, unitsOn } from '../units.js';
 import { findBoletoLines, parseBoletoLine, readPdfText } from '../boletos.js';
 import { openBulkUpload } from './boletos-lote.js';
+import { openBankReturn } from './retorno-banco.js';
 import {
-    busy, button, confirmDialog, drawer, emptyState, formatBytes, formatDateTime, formError, h, icon,
+    busy, button, confirmDialog, drawer, emptyState, formatBrl, formatBytes, formatDateTime, formError, h, icon,
     loading, monthLabel, monthRef, mount, select, shortMonthLabel, toast
 } from '../ui.js';
 
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
+const BILL_STATUS = { OPEN: 'Em aberto', OVERDUE: 'Vencido', PAID: 'Pago' };
+const PAID_VIA = { MANUAL: 'pela administração', BANK_RETURN: 'pelo retorno do banco' };
+
+/** "2026-11-18" → "18/11/2026" */
+function formatDay(day) {
+    const [y, m, d] = String(day || '').split('-');
+    return d ? `${d}/${m}/${y}` : '';
+}
 
 export function renderUnits(container, { condo }) {
     let alive = true;
@@ -19,6 +28,8 @@ export function renderUnits(container, { condo }) {
         towerId: condo.towers[0]?.id || '',
         users: [],
         documents: [],
+        // Boletos com valor e situação dos três meses da tela, por mês ("2026-11" → lista).
+        bills: {},
         openUnit: null,
         refreshDrawer: null
     };
@@ -40,6 +51,14 @@ export function renderUnits(container, { condo }) {
                 h('p', {}, 'Envie os boletos do mês de uma vez e cuide de quem mora em cada apartamento. Clique num apartamento para abrir o detalhe.')
             ),
             h('div', { class: 'page-actions' },
+                button('Retorno do banco', {
+                    variant: 'secondary',
+                    iconName: 'check',
+                    onclick: () => openBankReturn({
+                        condo,
+                        onDone: () => load().then(render).catch((error) => toast(error.message, 'danger'))
+                    })
+                }),
                 button('Enviar boletos do mês', {
                     iconName: 'upload',
                     onclick: () => openBulkUpload({
@@ -52,12 +71,32 @@ export function renderUnits(container, { condo }) {
     }
 
     async function load() {
-        const [users, documents] = await Promise.all([
+        const [users, documents, ...bills] = await Promise.all([
             api.get('users', { condoId: condo.id }),
-            api.get('unit-documents', { condoId: condo.id })
+            api.get('unit-documents', { condoId: condo.id }),
+            ...months.map(([ref]) => api.get('bills', { condoId: condo.id, reference: ref }))
         ]);
         view.users = users;
         view.documents = documents;
+        view.bills = Object.fromEntries(months.map(([ref], index) => [ref, bills[index]]));
+    }
+
+    function billFor(label, month) {
+        return (view.bills[month] || []).find((bill) => bill.unit === label);
+    }
+
+    /** Quantos boletos do mês já foram pagos (pelo retorno do banco ou na mão). */
+    function paidCard() {
+        const bills = view.bills[view.month] || [];
+        const paid = bills.filter((bill) => bill.status === 'PAID');
+        const overdue = bills.filter((bill) => bill.status === 'OVERDUE').length;
+        return h('div', { class: 'card stat' },
+            h('p', { class: 'eyebrow' }, 'Pagos'),
+            h('p', { class: 'stat-value' }, String(paid.length), h('small', {}, ` / ${bills.length}`)),
+            h('p', { class: 'stat-sub' }, bills.length
+                ? [`${formatBrl(paid.reduce((sum, bill) => sum + bill.amount, 0))} recebidos`, overdue ? `${overdue} vencidos` : null].filter(Boolean).join(' · ')
+                : 'Nenhum boleto com valor neste mês')
+        );
     }
 
     function occupantsOf(label) {
@@ -87,6 +126,7 @@ export function renderUnits(container, { condo }) {
                     h('div', { class: 'progress', role: 'progressbar', 'aria-valuenow': percent, 'aria-valuemin': 0, 'aria-valuemax': 100 },
                         h('span', { style: { width: `${percent}%` } }))
                 ),
+                paidCard(),
                 h('div', { class: 'card stat' },
                     h('p', { class: 'eyebrow' }, 'Apartamentos'),
                     h('p', { class: 'stat-value' }, String(units.length)),
@@ -157,17 +197,19 @@ export function renderUnits(container, { condo }) {
     function unitCell(unit) {
         const people = occupantsOf(unit.label);
         const pdf = documentFor(unit.label, view.month);
+        const bill = billFor(unit.label, view.month);
         return h('button', {
             type: 'button',
             class: `unit-cell${people.length ? '' : ' vacant'}`,
-            'aria-label': `${unit.label}. ${people.length ? people.map((p) => p.name).join(', ') : 'Sem morador'}. ${pdf ? 'Boleto enviado' : 'Sem boleto'}.`,
+            'aria-label': `${unit.label}. ${people.length ? people.map((p) => p.name).join(', ') : 'Sem morador'}. ${pdf ? 'Boleto enviado' : 'Sem boleto'}${bill ? `, ${BILL_STATUS[bill.status].toLowerCase()}` : ''}.`,
             onclick: () => openUnit(unit)
         },
         h('span', { class: 'unit-top' },
             h('span', { class: 'unit-number' }, unit.number),
             pdf ? h('span', { class: 'unit-pdf ok' }, icon('check', 12), 'PDF') : h('span', { class: 'unit-pdf missing' }, 'sem PDF')
         ),
-        h('span', { class: 'unit-people' }, people.length ? people.map((p) => p.name.split(' ')[0]).join(', ') : 'Sem morador')
+        h('span', { class: 'unit-people' }, people.length ? people.map((p) => p.name.split(' ')[0]).join(', ') : 'Sem morador'),
+        bill ? h('span', { class: `unit-pay ${bill.status.toLowerCase()}` }, BILL_STATUS[bill.status]) : null
         );
     }
 
@@ -203,12 +245,13 @@ export function renderUnits(container, { condo }) {
                 h('section', { class: 'form-stack' },
                     h('div', { class: 'section-title' },
                         h('h3', {}, `Boleto de ${monthLabel(view.month).toLowerCase()}`),
-                        current ? h('span', { class: 'chip chip-success' }, 'Enviado') : h('span', { class: 'chip chip-neutral' }, 'Pendente')
+                        current ? h('span', { class: 'chip chip-success' }, 'PDF enviado') : h('span', { class: 'chip chip-neutral' }, 'Sem PDF')
                     ),
                     current
                         ? h('div', { class: 'list' },
                             documentRow(current, true))
                         : null,
+                    paymentRow(billFor(unit.label, view.month)),
                     dropzone(current)
                 ),
                 h('section', { class: 'form-stack' },
@@ -262,6 +305,60 @@ export function renderUnits(container, { condo }) {
                     mount(errorBox, formError(error.message));
                 }
             });
+        }
+
+        /**
+         * Situação do boleto do mês: em aberto, "Marcar como pago" (pagou por Pix, em dinheiro);
+         * pago, como foi a baixa e "Desfazer baixa" (volta a aparecer em aberto para o morador).
+         */
+        function paymentRow(bill) {
+            if (!bill) return null;
+            const paid = bill.status === 'PAID';
+            const tone = paid ? 'success' : bill.status === 'OVERDUE' ? 'danger' : 'warning';
+            return h('div', { class: 'list' },
+                h('div', { class: 'list-row' },
+                    h('span', { class: `chip chip-${tone}` }, BILL_STATUS[bill.status]),
+                    h('div', { class: 'grow' },
+                        h('strong', {}, formatBrl(bill.amount)),
+                        h('small', {}, paid
+                            ? [`pago em ${formatDay(bill.paidAt)}`, PAID_VIA[bill.paidVia]].filter(Boolean).join(' · ')
+                            : `vence em ${formatDay(bill.dueDate)}`)
+                    ),
+                    paid
+                        ? button('Desfazer baixa', {
+                            variant: 'ghost', small: true,
+                            onclick: async (event) => {
+                                const btn = event.currentTarget;
+                                const ok = await confirmDialog({
+                                    title: 'Desfazer a baixa?',
+                                    message: `O boleto de ${monthLabel(bill.reference).toLowerCase()} do ${unit.label} volta a aparecer em aberto para o morador.`,
+                                    confirmLabel: 'Desfazer baixa', danger: true
+                                });
+                                if (!ok) return;
+                                await run(btn, async () => {
+                                    await api.post(`bills/${bill.id}/unpay`, { condoId: condo.id });
+                                    await afterChange('Baixa desfeita.');
+                                });
+                            }
+                        })
+                        : button('Marcar como pago', {
+                            variant: 'secondary', small: true, iconName: 'check',
+                            onclick: async (event) => {
+                                const btn = event.currentTarget;
+                                const ok = await confirmDialog({
+                                    title: 'Marcar como pago?',
+                                    message: `O boleto de ${monthLabel(bill.reference).toLowerCase()} (${formatBrl(bill.amount)}) do ${unit.label} fica pago com a data de hoje, e os moradores são avisados. Use quando o pagamento não veio pelo retorno do banco.`,
+                                    confirmLabel: 'Marcar como pago'
+                                });
+                                if (!ok) return;
+                                await run(btn, async () => {
+                                    await api.post(`bills/${bill.id}/pay`, { condoId: condo.id });
+                                    await afterChange(`Boleto do ${unit.label} marcado como pago.`);
+                                });
+                            }
+                        })
+                )
+            );
         }
 
         function documentRow(doc, compact) {

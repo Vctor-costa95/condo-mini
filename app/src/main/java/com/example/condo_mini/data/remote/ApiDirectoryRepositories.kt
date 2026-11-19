@@ -98,6 +98,18 @@ class ApiSessionRepository(
             .let(::keepUnitAndSave)
     }
 
+    override suspend fun requestPasswordReset(login: String): Result<String> = runCatching {
+        JSONObject(api.send("POST", "auth/password-reset", JSONObject().put("login", login.trim()))).getString("email")
+    }
+
+    override suspend fun confirmPasswordReset(login: String, code: String, password: String): Result<Unit> = runCatching {
+        api.send(
+            "POST", "auth/password-reset/confirm",
+            JSONObject().put("login", login.trim()).put("code", code.trim()).put("password", password)
+        )
+        Unit
+    }
+
     /** Mantém o apartamento que o morador escolheu, se ele ainda for dele. */
     private fun keepUnitAndSave(fresh: User): User {
         val current = _currentUser.value ?: return fresh

@@ -61,9 +61,53 @@ function reservation_json(array $r): array
         'unit' => $r['unit'],
         'status' => $r['status'],
         'residentName' => $r['resident_name'],
-        'guests' => decode_guests($r['guests'] ?? null),
+        'guests' => $guests = decode_guests($r['guests'] ?? null),
+        'arrivals' => guest_arrivals($r['id'], $guests),
         'rejectionReason' => $r['rejection_reason'],
     ];
+}
+
+/**
+ * Convidados que a portaria marcou como chegados, na ordem de chegada, com o nome
+ * escrito como está na lista. Quem saiu da lista depois de chegar não aparece.
+ */
+function guest_arrivals(string $reservationId, array $guests): array
+{
+    if ($guests === []) {
+        return [];
+    }
+    $arrivals = [];
+    foreach (rows('SELECT name, arrived_at FROM guest_arrivals WHERE reservation_id = ? ORDER BY arrived_at', [$reservationId]) as $a) {
+        $name = guest_in_list($a['name'], $guests);
+        if ($name !== null) {
+            $arrivals[] = ['name' => $name, 'arrivedAt' => iso($a['arrived_at'])];
+        }
+    }
+    return $arrivals;
+}
+
+/** O nome como está na lista, ignorando maiúsculas e espaços a mais; null se não está. */
+function guest_in_list(string $name, array $guests): ?string
+{
+    $key = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $name)));
+    foreach ($guests as $guest) {
+        if (mb_strtolower($guest) === $key) {
+            return $guest;
+        }
+    }
+    return null;
+}
+
+/** Reserva em que a portaria pode marcar chegadas: confirmada e de hoje. */
+function require_arrival_day(array $reservation): array
+{
+    if ($reservation['status'] !== 'CONFIRMED') {
+        throw new ApiError(409, 'A reserva não está confirmada.');
+    }
+    if ($reservation['date'] !== today()) {
+        throw new ApiError(409, 'A chegada só pode ser marcada no dia da reserva.');
+    }
+    return $reservation;
 }
 
 /** Convidados guardados na reserva (JSON), como lista de nomes. */
@@ -521,6 +565,39 @@ function register_community_routes(Router $r): void
         $area = row('SELECT * FROM common_areas WHERE id = ?', [$reservation['area_id']]);
         exec_sql('UPDATE reservations SET guests = ? WHERE id = ?', [requested_guests($area), $id]);
         send_json(reservation_json(row('SELECT * FROM reservations WHERE id = ?', [$id])));
+    });
+
+    // A portaria marca que um convidado da lista entrou; os moradores do apartamento são avisados.
+    // Marcar de novo quem já chegou não avisa outra vez.
+    $r->add('POST', '/reservations/{id}/arrivals', function (string $id) {
+        $me = require_role('DOORMAN', 'MANAGER', 'ADMIN');
+        $reservation = require_arrival_day(find_reservation($id));
+        $name = guest_in_list(required_string('name', MAX_GUEST_NAME), decode_guests($reservation['guests']));
+        if ($name === null) {
+            throw new ApiError(422, 'Este nome não está na lista de convidados.');
+        }
+        $inserted = exec_sql(
+            'INSERT IGNORE INTO guest_arrivals (reservation_id, name, arrived_at, registered_by) VALUES (?, ?, ?, ?)',
+            [$id, $name, now_sql(), $me['id']]
+        );
+        if ($inserted > 0) {
+            $area = row('SELECT name FROM common_areas WHERE id = ?', [$reservation['area_id']]);
+            notify(
+                users_of_unit($reservation['condo_id'], $reservation['unit']),
+                'Convidado na portaria',
+                "$name chegou para " . ($area['name'] ?? 'a reserva') . ' · ' . reservation_slot_label($reservation),
+                ['tab' => 'reservations', 'id' => $id]
+            );
+        }
+        send_json(reservation_json($reservation));
+    });
+
+    // Desfaz uma chegada marcada por engano (sem aviso ao morador).
+    $r->add('POST', '/reservations/{id}/arrivals/undo', function (string $id) {
+        require_role('DOORMAN', 'MANAGER', 'ADMIN');
+        $reservation = require_arrival_day(find_reservation($id));
+        exec_sql('DELETE FROM guest_arrivals WHERE reservation_id = ? AND name = ?', [$id, required_string('name', MAX_GUEST_NAME)]);
+        send_json(reservation_json($reservation));
     });
 
     // Só pendentes: aprovar uma recusada ou cancelada poderia passar por cima de quem reservou depois.

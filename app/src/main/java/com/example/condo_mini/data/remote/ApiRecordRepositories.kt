@@ -65,6 +65,11 @@ class ApiBillRepository(
         return if (downloaded) target else withContext(Dispatchers.IO) { pdfGenerator.generate(bill, payer) }
     }
 
+    override suspend fun setPaid(billId: String, paid: Boolean): Result<Bill> = runCatching {
+        api.send("POST", "bills/$billId/${if (paid) "pay" else "unpay"}", JSONObject().put("condoId", condoId()))
+            .obj { it.toBill() }
+    }
+
     override fun observeUnitDocuments(): Flow<List<UnitDocument>> =
         api.live { api.get("unit-documents", mapOf("condoId" to condoId())).list { it.toUnitDocument() } }
 
