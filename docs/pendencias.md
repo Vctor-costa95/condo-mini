@@ -4,12 +4,9 @@ O que ficou para depois, em ordem de prioridade. Ao terminar um item, apague daq
 
 ## Corrigir (17/11)
 
-- [ ] **"Arquivo grande demais": falta a parte do servidor.** O código está resolvido (18/11): o app reduz as fotos antes de enviar e a API mostra o limite na mensagem, inclusive quando o PDF passa do `post_max_size` (antes respondia "Escolha um condomínio"). Para fechar:
-  1. publicar a API nova (zip completo, ver README);
-  2. no hPanel (Avançado → Configuração do PHP), subir `upload_max_filesize` e `post_max_size` para 32M;
-  3. no `config.php` do servidor, pôr `'max_upload_bytes' => 30 * 1024 * 1024`;
-  4. gerar um APK novo (1.2) para os testadores receberem a redução de fotos;
-  5. testar com um PDF de ~10 MB pelo painel.
+- [ ] **"Arquivo grande demais": fechar o teste.** O código está resolvido e publicado (18/11): o app reduz as fotos antes de enviar e a API mostra o limite na mensagem. Na Hostinger já estão a API nova e `'max_upload_bytes' => 30 * 1024 * 1024`; o `post_max_size` do servidor já passa de 35 MB (um envio de 35 MB sem login chegou até a checagem de login). Falta:
+  1. testar com um PDF de ~10 MB pelo painel. Se der erro, a mensagem mostra o limite real; se for menor que 30 MB, é o `upload_max_filesize` do hPanel (Avançado → Configuração do PHP), que deve ir para 32M;
+  2. gerar um APK novo (1.2) para os testadores receberem a redução de fotos.
 
 ## Publicar
 
