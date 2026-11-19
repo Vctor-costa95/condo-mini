@@ -13,7 +13,13 @@ const RESET_RESEND_SECONDS = 60;
  *   'from' => caixa de e-mail criada na Hostinger (ex.: nao-responda@seudominio.com.br),
  *   'from_name' => nome que aparece como remetente (padrão "Mini Condo"),
  *   'log_file' => opcional: grava os e-mails em vez de enviar (testes locais),
+ *   'smtp' => opcional, mas recomendado: [
+ *       'host' => 'smtp.hostinger.com', 'port' => 465, 'secure' => 'ssl' (ou 'tls' na 587, 'none' só em teste),
+ *       'user' => a mesma caixa de 'from', 'pass' => senha dessa caixa,
+ *   ],
  * ]
+ * Com 'smtp', o e-mail sai autenticado pela caixa (assinado pelo domínio, sem o
+ * "por srv....main-hosting.eu" no Gmail e com menos chance de spam); sem, vai pelo mail() do PHP.
  * Sem a chave 'mail', a recuperação por e-mail fica desligada.
  */
 function mail_config(): array
@@ -55,7 +61,91 @@ function send_mail(string $to, string $subject, string $text, ?string $html = nu
         }
         $body .= "--$boundary--\r\n";
     }
-    return mail($to, mb_encode_mimeheader($subject, 'UTF-8'), $body, implode("\r\n", $headers), '-f' . $from);
+    $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8');
+    if (isset($config['smtp'])) {
+        $domain = substr($from, strrpos($from, '@') + 1);
+        array_unshift(
+            $headers,
+            'Date: ' . date('r'),
+            'Message-ID: <' . bin2hex(random_bytes(16)) . "@$domain>",
+            "To: <$to>",
+            "Subject: $encodedSubject"
+        );
+        try {
+            smtp_send($config['smtp'], $from, $to, implode("\r\n", $headers) . "\r\n\r\n" . $body);
+            return true;
+        } catch (RuntimeException $e) {
+            error_log('[condomini] SMTP: ' . $e->getMessage());
+            return false;
+        }
+    }
+    return mail($to, $encodedSubject, $body, implode("\r\n", $headers), '-f' . $from);
+}
+
+/**
+ * Cliente SMTP mínimo (AUTH LOGIN), sem biblioteca: conecta, autentica com a caixa e
+ * entrega uma mensagem já montada. Lança RuntimeException com a resposta do servidor.
+ */
+function smtp_send(array $smtp, string $from, string $to, string $message): void
+{
+    $host = (string) ($smtp['host'] ?? 'smtp.hostinger.com');
+    $secure = (string) ($smtp['secure'] ?? 'ssl');
+    $port = (int) ($smtp['port'] ?? ($secure === 'ssl' ? 465 : 587));
+    $target = ($secure === 'ssl' ? 'ssl://' : 'tcp://') . "$host:$port";
+    $socket = @stream_socket_client($target, $errno, $errstr, 15, STREAM_CLIENT_CONNECT,
+        stream_context_create(['ssl' => ['peer_name' => $host]]));
+    if ($socket === false) {
+        throw new RuntimeException("sem conexão com $target: $errstr");
+    }
+    stream_set_timeout($socket, 15);
+    $read = function () use ($socket): array {
+        $text = '';
+        while (($line = fgets($socket, 1024)) !== false) {
+            $text .= $line;
+            if (strlen($line) < 4 || $line[3] !== '-') {
+                break;
+            }
+        }
+        return [(int) substr($text, 0, 3), trim($text)];
+    };
+    $command = function (?string $line, array $expect, bool $secret = false) use ($socket, $read): string {
+        if ($line !== null) {
+            fwrite($socket, $line . "\r\n");
+        }
+        [$code, $reply] = $read();
+        if (!in_array($code, $expect, true)) {
+            // Usuário e senha nunca vão para o log.
+            $shown = $line === null ? 'conexão' : ($secret ? '(login da caixa)' : $line);
+            throw new RuntimeException("$shown → $reply");
+        }
+        return $reply;
+    };
+    try {
+        $command(null, [220]);
+        $ehlo = 'EHLO ' . (gethostname() ?: 'localhost');
+        $command($ehlo, [250]);
+        if ($secure === 'tls') {
+            $command('STARTTLS', [220]);
+            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                throw new RuntimeException('STARTTLS falhou');
+            }
+            $command($ehlo, [250]);
+        }
+        if (($smtp['user'] ?? '') !== '') {
+            $command('AUTH LOGIN', [334]);
+            $command(base64_encode((string) $smtp['user']), [334], true);
+            $command(base64_encode((string) ($smtp['pass'] ?? '')), [235], true);
+        }
+        $command("MAIL FROM:<$from>", [250]);
+        $command("RCPT TO:<$to>", [250, 251]);
+        $command('DATA', [354]);
+        // Linha que começa com "." ganha outro ponto (o servidor tira de volta).
+        $data = preg_replace('/^\./m', '..', str_replace(["\r\n", "\n"], ["\n", "\r\n"], $message));
+        $command(rtrim($data, "\r\n") . "\r\n.", [250]);
+        $command('QUIT', [221]);
+    } finally {
+        fclose($socket);
+    }
 }
 
 /**

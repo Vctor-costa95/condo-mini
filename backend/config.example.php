@@ -24,5 +24,8 @@ return [
     // "Esqueci a senha": o código vai por e-mail. 'from' precisa ser uma caixa de e-mail
     // criada na Hostinger (hPanel → E-mails), no mesmo domínio. Sem esta chave, o app
     // diz para falar com a administração. Localmente: 'mail' => ['log_file' => caminho de um .log].
-    // 'mail' => ['from' => 'nao-responda@seudominio.com.br', 'from_name' => 'Mini Condo'],
+    // Com 'smtp' (recomendado), o e-mail sai autenticado pela caixa, sem o "por srv....main-hosting.eu" no Gmail.
+    // 'mail' => ['from' => 'nao-responda@seudominio.com.br', 'from_name' => 'Mini Condo',
+    //     'smtp' => ['host' => 'smtp.hostinger.com', 'port' => 465, 'secure' => 'ssl',
+    //                'user' => 'nao-responda@seudominio.com.br', 'pass' => 'senha da caixa']],
 ];

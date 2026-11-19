@@ -144,10 +144,12 @@ O teste de fumaça cobre login, permissões por perfil e os fluxos de cada tela;
       'timezone' => 'America/Sao_Paulo',
       'max_upload_bytes' => 15 * 1024 * 1024,
       'push' => ['service_account_file' => '/home/u248494375/domains/tcpneus-logistica.com/condomini-firebase.json'],
-      'mail' => ['from' => '<caixa criada no hPanel, ex.: nao-responda@seudominio>', 'from_name' => 'Mini Condo'],
+      'mail' => ['from' => 'avisos@tcpneus-logistica.com', 'from_name' => 'Mini Condo',
+                 'smtp' => ['host' => 'smtp.hostinger.com', 'port' => 465, 'secure' => 'ssl',
+                            'user' => 'avisos@tcpneus-logistica.com', 'pass' => '<senha da caixa avisos@>']],
   ];
   ```
-  **E-mail ("Esqueci a senha"):** crie uma caixa de e-mail no hPanel (E-mails → Contas de e-mail) no mesmo domínio e ponha o endereço em `mail.from`. A API usa o `mail()` do PHP da Hostinger. Sem a chave `mail`, o app diz para falar com a administração. Localmente, `'mail' => ['log_file' => ...]` grava os e-mails num arquivo.
+  **E-mail ("Esqueci a senha"):** crie uma caixa de e-mail no hPanel (E-mails → Contas de e-mail) no mesmo domínio e ponha o endereço em `mail.from` (hoje: `avisos@tcpneus-logistica.com`). Com `mail.smtp` e a senha da caixa, a API entrega pelo SMTP da Hostinger autenticada na caixa: o Gmail deixa de mostrar "por srv880.main-hosting.eu" e o e-mail tem menos chance de cair no spam. Sem `smtp`, usa o `mail()` do PHP. Se o envio falhar (senha errada, por exemplo), o app mostra "Não foi possível enviar o e-mail" e o motivo vai para o log de erros do PHP, sem a senha. No hPanel, em E-mails → Configurações de DNS, confira se SPF e DKIM estão ativos (o SPF já está). Sem a chave `mail`, o app diz para falar com a administração. Localmente, `'mail' => ['log_file' => ...]` grava os e-mails num arquivo.
 
   **Tamanho dos arquivos:** a API aceita até o **menor** entre `max_upload_bytes` e os limites do PHP do servidor (`upload_max_filesize` e `post_max_size`, em hPanel → Avançado → Configuração do PHP), e o aviso "Arquivo grande demais. O limite é de X MB." já mostra esse número. Para PDFs grandes, suba os dois limites do PHP para 32M e ponha `'max_upload_bytes' => 30 * 1024 * 1024`. Quando o envio passa do `post_max_size`, o PHP descarta o corpo inteiro; a API reconhece isso (`reject_oversized_body`, em `lib/files.php`) em vez de responder "Escolha um condomínio". As fotos já chegam reduzidas pelo app.
 
