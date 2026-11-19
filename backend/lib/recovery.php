@@ -21,10 +21,18 @@ function mail_config(): array
     return config()['mail'] ?? [];
 }
 
-function send_mail(string $to, string $subject, string $text): bool
+/**
+ * Manda em duas versões (multipart/alternative): o HTML com a identidade do app e o
+ * texto puro, que aparece em quem não mostra HTML e ajuda a não cair no spam.
+ */
+function send_mail(string $to, string $subject, string $text, ?string $html = null): bool
 {
     $config = mail_config();
     if (isset($config['log_file'])) {
+        if ($html !== null) {
+            // Para ver como fica: abra o .html ao lado do log no navegador.
+            file_put_contents($config['log_file'] . '.html', $html);
+        }
         return file_put_contents($config['log_file'], date('c') . " Para: $to\nAssunto: $subject\n$text\n\n", FILE_APPEND) !== false;
     }
     $from = (string) ($config['from'] ?? '');
@@ -32,14 +40,111 @@ function send_mail(string $to, string $subject, string $text): bool
         return false;
     }
     $name = mb_encode_mimeheader((string) ($config['from_name'] ?? 'Mini Condo'), 'UTF-8');
-    $headers = implode("\r\n", [
-        "From: $name <$from>",
-        "Reply-To: $from",
-        'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        'Content-Transfer-Encoding: 8bit',
-    ]);
-    return mail($to, mb_encode_mimeheader($subject, 'UTF-8'), $text, $headers, '-f' . $from);
+    $headers = ["From: $name <$from>", "Reply-To: $from", 'MIME-Version: 1.0'];
+    if ($html === null) {
+        $headers[] = 'Content-Type: text/plain; charset=UTF-8';
+        $headers[] = 'Content-Transfer-Encoding: base64';
+        $body = chunk_split(base64_encode($text));
+    } else {
+        $boundary = 'mc_' . bin2hex(random_bytes(12));
+        $headers[] = "Content-Type: multipart/alternative; boundary=\"$boundary\"";
+        $body = '';
+        foreach (['text/plain' => $text, 'text/html' => $html] as $type => $content) {
+            $body .= "--$boundary\r\nContent-Type: $type; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+                . chunk_split(base64_encode($content)) . "\r\n";
+        }
+        $body .= "--$boundary--\r\n";
+    }
+    return mail($to, mb_encode_mimeheader($subject, 'UTF-8'), $body, implode("\r\n", $headers), '-f' . $from);
+}
+
+/**
+ * E-mail do código, com a cara do app: topo azul-noite com a marca, o código grande
+ * num bloco champanhe e o aviso de segurança. Tabelas e estilos na linha porque é
+ * o que Gmail, Outlook e o Mail do iPhone entendem; fontes do sistema, sem nada de fora
+ * além da logo (PNG servido pelo próprio painel).
+ */
+function reset_code_email_html(string $firstName, string $login, string $context, string $code): string
+{
+    $e = fn (string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    $logo = base_url() . '/painel/img/email-icone.png';
+    $minutes = RESET_CODE_MINUTES;
+    $digits = implode('&nbsp;', str_split($code));
+    $serif = "Georgia, 'Times New Roman', serif";
+    $sans = "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    $who = $e($login) . ($context !== '' ? ' &middot; ' . $e($context) : '');
+    return <<<HTML
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Seu código Mini Condo</title>
+</head>
+<body style="margin:0;padding:0;background:#F0ECE4;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Seu código é {$code}. Ele vale por {$minutes} minutos.</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F0ECE4;">
+<tr><td align="center" style="padding:32px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E4DED3;">
+    <tr><td style="background:#151B26;background-image:linear-gradient(135deg,#232B3A,#151B26);padding:28px 32px;">
+      <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+        <td style="vertical-align:middle;"><img src="{$logo}" width="52" height="52" alt="" style="display:block;border:0;border-radius:12px;"></td>
+        <td style="vertical-align:middle;padding-left:14px;">
+          <div style="font-family:{$serif};font-size:22px;letter-spacing:3px;color:#F7F5F0;line-height:1;">MINI <span style="color:#D9BE8E;">CONDO</span></div>
+          <div style="font-family:{$sans};font-size:10px;letter-spacing:3px;color:#B7BCC6;margin-top:7px;">GESTÃO DE CONDOMÍNIOS</div>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="height:3px;background:#B08D57;font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td style="padding:36px 32px 8px;font-family:{$sans};color:#151B26;">
+      <div style="font-size:11px;letter-spacing:2.5px;font-weight:600;color:#B08D57;">CÓDIGO DE ACESSO</div>
+      <h1 style="margin:10px 0 0;font-family:{$serif};font-size:28px;font-weight:normal;line-height:1.2;color:#151B26;">Olá, {$e($firstName)}.</h1>
+      <p style="margin:14px 0 0;font-size:15px;line-height:1.6;color:#5E6675;">Recebemos um pedido para criar uma senha nova na sua conta do Mini Condo. Use o código abaixo no app.</p>
+    </td></tr>
+    <tr><td style="padding:24px 32px 4px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F3EADB;border:1px solid #E2CFAE;border-radius:14px;">
+        <tr><td align="center" style="padding:24px 16px 20px;">
+          <div style="font-family:{$sans};font-size:11px;letter-spacing:2px;color:#8C6A36;font-weight:600;">SEU CÓDIGO</div>
+          <div style="font-family:{$sans};font-size:36px;font-weight:600;letter-spacing:6px;font-variant-numeric:lining-nums tabular-nums;color:#151B26;margin-top:8px;">{$digits}</div>
+          <div style="font-family:{$sans};font-size:13px;color:#5E6675;margin-top:10px;">Vale por {$minutes} minutos</div>
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:24px 32px 0;font-family:{$sans};">
+      <div style="font-size:14px;font-weight:600;color:#151B26;">Como usar</div>
+      <p style="margin:8px 0 0;font-size:14px;line-height:1.6;color:#5E6675;">No app Mini Condo, na tela de login, toque em <strong style="color:#151B26;">Esqueceu a senha?</strong>, digite o código e escolha a senha nova. Depois disso, os outros celulares conectados à sua conta pedem login de novo.</p>
+      <p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#8C93A0;">Conta: {$who}</p>
+    </td></tr>
+    <tr><td style="padding:24px 32px 32px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F7F5F0;border-radius:12px;">
+        <tr><td style="padding:16px 18px;font-family:{$sans};font-size:13px;line-height:1.55;color:#5E6675;">
+          <strong style="color:#151B26;">Não foi você?</strong> Ignore este e-mail: sua senha continua a mesma. A equipe do Mini Condo e a administração do condomínio nunca pedem este código por telefone, WhatsApp ou e-mail.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
+    <tr><td align="center" style="padding:20px 16px 0;font-family:{$sans};font-size:12px;line-height:1.6;color:#8C93A0;">
+      Mini Condo &middot; Gestão de condomínios<br>
+      E-mail automático, enviado porque alguém pediu um código para esta conta. Não é preciso responder.
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>
+HTML;
+}
+
+/** "Residencial Jardins" para quem mora; o nome da administradora para o administrador. */
+function reset_email_context(array $user): string
+{
+    if (!empty($user['condo_id'])) {
+        return (string) (row('SELECT name FROM condominiums WHERE id = ?', [$user['condo_id']])['name'] ?? '');
+    }
+    $companyId = user_company_id($user);
+    return $companyId === null ? '' : (string) (row('SELECT name FROM companies WHERE id = ?', [$companyId])['name'] ?? '');
 }
 
 /** "ana.ribeiro@email.com" → "an•••@email.com", para a pessoa saber onde procurar. */
@@ -86,13 +191,17 @@ function register_recovery_routes(Router $r): void
             [$user['id'], reset_code_hash($user['id'], $code), date('Y-m-d H:i:s', time() + RESET_CODE_MINUTES * 60), now_sql()]
         );
         $first = explode(' ', trim((string) $user['name']))[0];
+        $context = reset_email_context($user);
         $sent = send_mail(
             $email,
             "Seu código Mini Condo: $code",
             "Olá, $first.\n\n"
             . "Seu código para criar uma senha nova no Mini Condo é:\n\n    $code\n\n"
-            . 'Ele vale por ' . RESET_CODE_MINUTES . " minutos. Digite no app, na tela de login, e escolha a senha nova.\n\n"
-            . "Se você não pediu, ignore este e-mail: sua senha continua a mesma.\n\n— Mini Condo"
+            . 'Ele vale por ' . RESET_CODE_MINUTES . " minutos. No app, na tela de login, toque em \"Esqueceu a senha?\", digite o código e escolha a senha nova.\n\n"
+            . 'Conta: ' . $user['login'] . ($context !== '' ? " · $context" : '') . "\n\n"
+            . "Não foi você? Ignore este e-mail: sua senha continua a mesma. Ninguém do Mini Condo ou da administração pede este código por telefone, WhatsApp ou e-mail.\n\n"
+            . "— Mini Condo · Gestão de condomínios",
+            reset_code_email_html($first, (string) $user['login'], $context, $code)
         );
         if (!$sent) {
             exec_sql('DELETE FROM password_resets WHERE user_id = ?', [$user['id']]);
