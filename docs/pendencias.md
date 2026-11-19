@@ -16,7 +16,6 @@ O que ficou para depois, em ordem de prioridade. Ao terminar um item, apague daq
 
 ## Publicar
 
-- [ ] **Mesclar a versão 1.1 no `main`.** A branch `claude/versao-1-1` tem `versionCode 2` / `versionName "1.1"` e o Perfil mostrando a versão real. O APK de release 1.1 já foi gerado a partir dela (`app/build/outputs/apk/release/MiniCondo-1.1.apk`) e foi compartilhado com os testadores.
 - [ ] **Completar o `config.php` do servidor.** Desde 16/11 ele usa `'storage_dir' => __DIR__ . '/storage'` e pode estar sem a chave `push`. Troque para `'storage_dir' => '/home/u248494375/condomini-storage'` (senão fotos de encomendas, PDFs e boletos já enviados somem do app) e confira o `'push'` apontando para o JSON do Firebase. O modelo completo está no `backend/README.md`, seção Hostinger.
 - [ ] **Trocar o nome da conta da plataforma** em produção ("Equipe Condo-mini" → "Equipe Mini Condo") pelo painel.
 
