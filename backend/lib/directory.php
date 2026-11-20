@@ -425,6 +425,7 @@ function register_directory_routes(Router $r): void
             set_user_units($userId, [$unit]);
             exec_sql('DELETE FROM signup_requests WHERE id = ?', [$request['id']]);
         });
+        send_signup_decision_email($request, true, $unit);
         send_json(user_json(row('SELECT * FROM users WHERE id = ?', [$userId])));
     });
 
@@ -433,6 +434,7 @@ function register_directory_routes(Router $r): void
         $request = find_signup_request($id);
         $reason = required_string('reason', 255);
         exec_sql("UPDATE signup_requests SET status = 'REJECTED', reject_reason = ? WHERE id = ?", [$reason, $request['id']]);
+        send_signup_decision_email($request, false, (string) $request['unit'], $reason);
         send_json(['ok' => true]);
     });
 

@@ -147,6 +147,8 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 
 Quem fez a ação não recebe a própria notificação.
 
+Quem pediu cadastro pelo app ainda não tem conta, então não recebe notificação no celular: se informou e-mail, recebe **"Cadastro aprovado"** (condomínio, apartamento e usuário) ou **"Pedido de cadastro não aprovado"** (com o motivo) assim que a administradora ou o síndico decide.
+
 ### Sem internet
 
 O app guarda no celular a última versão de cada tela que foi aberta com internet. Sem conexão, ele mostra esses dados, com uma faixa no topo: *"Sem conexão · mostrando dados de 14:32"*. Assim o morador ainda vê o **código da encomenda**, a **linha digitável e o PDF do boleto**, os avisos e as reservas. Quando a internet volta, tudo recarrega sozinho e a faixa some.

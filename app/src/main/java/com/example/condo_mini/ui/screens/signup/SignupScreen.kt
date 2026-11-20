@@ -432,7 +432,11 @@ private fun DoneStep(uiState: SignupUiState, onFinished: () -> Unit) {
         Text("Agora é com a administradora", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "Ela vai conferir seu pedido. Quando aprovar, entre com o usuário e a senha que você criou.",
+            if (uiState.email.isNotBlank()) {
+                "Ela vai conferir seu pedido. Avisaremos em ${uiState.email.trim()} quando ela decidir; aí é só entrar com o usuário e a senha que você criou."
+            } else {
+                "Ela vai conferir seu pedido. Quando aprovar, entre com o usuário e a senha que você criou."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
