@@ -393,6 +393,7 @@ function register_directory_routes(Router $r): void
             // condoId: o administrador pode estar vendo outro prédio; o app troca para este.
             ['tab' => 'signup_requests', 'id' => $request['id'], 'condoId' => $condoId]
         );
+        send_signup_email($request, 'received', $request['unit']);
         send_json(signup_request_json(row('SELECT * FROM signup_requests WHERE id = ?', [$request['id']])), 201);
     });
 
@@ -425,7 +426,7 @@ function register_directory_routes(Router $r): void
             set_user_units($userId, [$unit]);
             exec_sql('DELETE FROM signup_requests WHERE id = ?', [$request['id']]);
         });
-        send_signup_decision_email($request, true, $unit);
+        send_signup_email($request, 'approved', $unit);
         send_json(user_json(row('SELECT * FROM users WHERE id = ?', [$userId])));
     });
 
@@ -434,7 +435,7 @@ function register_directory_routes(Router $r): void
         $request = find_signup_request($id);
         $reason = required_string('reason', 255);
         exec_sql("UPDATE signup_requests SET status = 'REJECTED', reject_reason = ? WHERE id = ?", [$reason, $request['id']]);
-        send_signup_decision_email($request, false, (string) $request['unit'], $reason);
+        send_signup_email($request, 'rejected', (string) $request['unit'], $reason);
         send_json(['ok' => true]);
     });
 

@@ -147,7 +147,7 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 
 Quem fez a ação não recebe a própria notificação.
 
-Quem pediu cadastro pelo app ainda não tem conta, então não recebe notificação no celular: se informou e-mail, recebe **"Cadastro aprovado"** (condomínio, apartamento e usuário) ou **"Pedido de cadastro não aprovado"** (com o motivo) assim que a administradora ou o síndico decide.
+Quem pediu cadastro pelo app ainda não tem conta, então não recebe notificação no celular: se informou e-mail, recebe **"Boas-vindas ao Mini Condo"** logo depois do pedido (condomínio, apartamento e usuário, e que o aviso da decisão chega no mesmo e-mail) e, depois, **"Cadastro aprovado"** (condomínio, apartamento e usuário) ou **"Pedido de cadastro não aprovado"** (com o motivo) assim que a administradora ou o síndico decide.
 
 ### Sem internet
 

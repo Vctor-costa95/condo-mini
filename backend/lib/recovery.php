@@ -293,7 +293,7 @@ function notice_email_html(string $eyebrow, string $firstName, string $lead, arr
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
     <tr><td align="center" style="padding:20px 16px 0;font-family:{$sans};font-size:12px;line-height:1.6;color:#8C93A0;">
       Mini Condo &middot; Gestão de condomínios<br>
-      E-mail automático sobre o seu pedido de cadastro. Não é preciso responder.
+      E-mail automático sobre o seu cadastro. Não é preciso responder.
     </td></tr>
   </table>
 </td></tr>
@@ -303,8 +303,11 @@ function notice_email_html(string $eyebrow, string $firstName, string $lead, arr
 HTML;
 }
 
-/** Avisa quem pediu cadastro pelo app; sem e-mail no pedido, não faz nada. Falha não desfaz a decisão. */
-function send_signup_decision_email(array $request, bool $approved, string $unit, string $reason = ''): void
+/**
+ * Avisa quem pediu cadastro pelo app: 'received' (boas-vindas, logo depois do pedido),
+ * 'approved' ou 'rejected'. Sem e-mail no pedido, não faz nada; falha só vai para o log.
+ */
+function send_signup_email(array $request, string $kind, string $unit, string $reason = ''): void
 {
     $email = trim((string) ($request['email'] ?? ''));
     if ($email === '' || mail_config() === []) {
@@ -312,7 +315,13 @@ function send_signup_decision_email(array $request, bool $approved, string $unit
     }
     $condo = (string) (row('SELECT name FROM condominiums WHERE id = ?', [$request['condo_id']])['name'] ?? 'seu condomínio');
     $first = explode(' ', trim((string) $request['name']))[0];
-    if ($approved) {
+    if ($kind === 'received') {
+        $subject = 'Boas-vindas ao Mini Condo';
+        $lead = "Que bom ter você por aqui. Recebemos seu pedido de cadastro no $condo, e a administração vai conferir seus dados. Assim que ela decidir, avisamos neste e-mail.";
+        $details = ['Condomínio' => $condo, 'Apartamento' => $unit, 'Usuário' => (string) $request['login']];
+        $note = 'Enquanto isso, não é preciso fazer nada. Não fez este pedido? Ignore este e-mail ou avise a administração do condomínio.';
+        $eyebrow = 'BOAS-VINDAS';
+    } elseif ($kind === 'approved') {
         $subject = "Cadastro aprovado · $condo";
         $lead = "A administração aprovou seu cadastro no $condo. Você já pode entrar no app Mini Condo com o usuário e a senha que escolheu.";
         $details = ['Condomínio' => $condo, 'Apartamento' => $unit, 'Usuário' => (string) $request['login']];
