@@ -376,8 +376,22 @@ check('porteiro não vê pedidos', call('GET', '/signup-requests', null, $doorma
 [$s, $pending] = call('GET', '/signup-requests?condoId=c1', null, $admin);
 check('admin vê o pedido', $s === 200 && in_array($req['id'], array_column($pending, 'id'), true), $pending);
 check('admin não cria usuário com login de pedido pendente', call('GET', "/logins/available?login=pt.$suffix", null, $admin)[1]['available'] === false);
+// Com 'mail' => ['log_file' => ...] no config.php local, os e-mails vão para este arquivo.
+$mailLog = __DIR__ . '/../storage/mail-test.log';
+$mailSince = is_file($mailLog) ? filesize($mailLog) : 0;
+$newMail = function () use ($mailLog, &$mailSince): string {
+    clearstatcache();
+    $text = is_file($mailLog) ? (string) file_get_contents($mailLog, false, null, $mailSince) : '';
+    $mailSince += strlen($text);
+    return $text;
+};
 [$s, $approved] = call('POST', "/signup-requests/{$req['id']}/approve", ['unit' => 'Apto 1302 - Bloco A'], $admin);
 check('admin aceita trocando o apartamento', $s === 200 && $approved['role'] === 'RESIDENT' && $approved['units'] === ['Apto 1302 - Bloco A'], $approved);
+if (is_file($mailLog)) {
+    $mail = $newMail();
+    check('e-mail de aprovação com apartamento e usuário', str_contains($mail, 'Para: pedido@email.com') && str_contains($mail, 'Cadastro aprovado')
+        && str_contains($mail, 'Apto 1302 - Bloco A') && str_contains($mail, "pt.$suffix") && !str_contains($mail, 'segredo1'), $mail);
+}
 check('pedido aceito não aceita de novo', call('POST', "/signup-requests/{$req['id']}/approve", null, $admin)[0] === 404);
 $newResident = login("pt.$suffix", 'segredo1');
 [$s, $meNew] = call('GET', '/me', null, $newResident);
@@ -385,7 +399,12 @@ check('morador novo entra com a própria senha', $s === 200 && $meNew['unit'] ==
 call('DELETE', "/users/{$approved['id']}", null, $admin);
 [, $req2] = $signup("pr.$suffix");
 check('recusa exige motivo', call('POST', "/signup-requests/{$req2['id']}/reject", null, $admin)[0] === 422);
+$newMail();
 call('POST', "/signup-requests/{$req2['id']}/reject", ['reason' => 'Apartamento sem morador novo'], $admin);
+if (is_file($mailLog)) {
+    $mail = $newMail();
+    check('e-mail de recusa com o motivo', str_contains($mail, 'não aprovado') && str_contains($mail, 'Apartamento sem morador novo'), $mail);
+}
 [$s, $err] = call('POST', '/auth/login', ['login' => "pr.$suffix", 'password' => 'segredo1']);
 check('login recusado mostra o motivo', $s === 403 && str_contains($err['error'], 'Apartamento sem morador novo'), $err);
 [$s, $again] = $signup("pr.$suffix");

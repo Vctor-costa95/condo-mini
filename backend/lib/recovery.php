@@ -235,6 +235,106 @@ function reset_code_email_html(string $firstName, string $login, string $context
 HTML;
 }
 
+/**
+ * Aviso com a mesma cara do e-mail de código: marca no topo, título, parágrafo e um
+ * quadro champanhe com os dados (rótulo => valor). [$note] vai no rodapé cinza.
+ */
+function notice_email_html(string $eyebrow, string $firstName, string $lead, array $details, string $note, string $preheader): string
+{
+    $e = fn (string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    $logo = base_url() . '/painel/img/email-icone.png';
+    $serif = "Georgia, 'Times New Roman', serif";
+    $sans = "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    $rows = '';
+    foreach ($details as $label => $value) {
+        $rows .= "<tr><td style=\"padding:6px 0;font-family:{$sans};font-size:12px;letter-spacing:1.5px;color:#8C6A36;font-weight:600;width:42%;vertical-align:top;\">{$e(mb_strtoupper((string) $label))}</td>"
+            . "<td style=\"padding:6px 0;font-family:{$sans};font-size:15px;color:#151B26;vertical-align:top;\">{$e((string) $value)}</td></tr>";
+    }
+    return <<<HTML
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Mini Condo</title>
+</head>
+<body style="margin:0;padding:0;background:#F0ECE4;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{$e($preheader)}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F0ECE4;">
+<tr><td align="center" style="padding:32px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E4DED3;">
+    <tr><td style="background:#151B26;background-image:linear-gradient(135deg,#232B3A,#151B26);padding:28px 32px;">
+      <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+        <td style="vertical-align:middle;"><img src="{$logo}" width="52" height="52" alt="" style="display:block;border:0;border-radius:12px;"></td>
+        <td style="vertical-align:middle;padding-left:14px;">
+          <div style="font-family:{$serif};font-size:22px;letter-spacing:3px;color:#F7F5F0;line-height:1;">MINI <span style="color:#D9BE8E;">CONDO</span></div>
+          <div style="font-family:{$sans};font-size:10px;letter-spacing:3px;color:#B7BCC6;margin-top:7px;">GESTÃO DE CONDOMÍNIOS</div>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="height:3px;background:#B08D57;font-size:0;line-height:0;">&nbsp;</td></tr>
+    <tr><td style="padding:36px 32px 8px;font-family:{$sans};color:#151B26;">
+      <div style="font-size:11px;letter-spacing:2.5px;font-weight:600;color:#B08D57;">{$e($eyebrow)}</div>
+      <h1 style="margin:10px 0 0;font-family:{$serif};font-size:28px;font-weight:normal;line-height:1.2;color:#151B26;">Olá, {$e($firstName)}.</h1>
+      <p style="margin:14px 0 0;font-size:15px;line-height:1.6;color:#5E6675;">{$e($lead)}</p>
+    </td></tr>
+    <tr><td style="padding:24px 32px 4px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F3EADB;border:1px solid #E2CFAE;border-radius:14px;">
+        <tr><td style="padding:16px 20px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0">{$rows}</table></td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:24px 32px 32px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F7F5F0;border-radius:12px;">
+        <tr><td style="padding:16px 18px;font-family:{$sans};font-size:13px;line-height:1.55;color:#5E6675;">{$e($note)}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
+    <tr><td align="center" style="padding:20px 16px 0;font-family:{$sans};font-size:12px;line-height:1.6;color:#8C93A0;">
+      Mini Condo &middot; Gestão de condomínios<br>
+      E-mail automático sobre o seu pedido de cadastro. Não é preciso responder.
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>
+HTML;
+}
+
+/** Avisa quem pediu cadastro pelo app; sem e-mail no pedido, não faz nada. Falha não desfaz a decisão. */
+function send_signup_decision_email(array $request, bool $approved, string $unit, string $reason = ''): void
+{
+    $email = trim((string) ($request['email'] ?? ''));
+    if ($email === '' || mail_config() === []) {
+        return;
+    }
+    $condo = (string) (row('SELECT name FROM condominiums WHERE id = ?', [$request['condo_id']])['name'] ?? 'seu condomínio');
+    $first = explode(' ', trim((string) $request['name']))[0];
+    if ($approved) {
+        $subject = "Cadastro aprovado · $condo";
+        $lead = "A administração aprovou seu cadastro no $condo. Você já pode entrar no app Mini Condo com o usuário e a senha que escolheu.";
+        $details = ['Condomínio' => $condo, 'Apartamento' => $unit, 'Usuário' => (string) $request['login']];
+        $note = 'Esqueceu a senha? Na tela de login do app, toque em "Esqueceu a senha?" e receba um código neste e-mail.';
+        $eyebrow = 'CADASTRO APROVADO';
+    } else {
+        $subject = "Pedido de cadastro não aprovado · $condo";
+        $lead = "A administração do $condo não aprovou seu pedido de cadastro no Mini Condo.";
+        $details = ['Condomínio' => $condo, 'Apartamento' => $unit, 'Motivo' => $reason];
+        $note = 'Se achar que foi engano, fale com a administração ou a portaria do condomínio. Você pode fazer um pedido novo pelo app, em "Criar conta".';
+        $eyebrow = 'PEDIDO DE CADASTRO';
+    }
+    $text = "Olá, $first.\n\n$lead\n\n";
+    foreach ($details as $label => $value) {
+        $text .= "$label: $value\n";
+    }
+    $text .= "\n$note\n\n— Mini Condo · Gestão de condomínios";
+    if (!send_mail($email, $subject, $text, notice_email_html($eyebrow, $first, $lead, $details, $note, $lead))) {
+        error_log('[condomini] aviso de cadastro não enviado: ' . $request['id']);
+    }
+}
+
 /** "Residencial Jardins" para quem mora; o nome da administradora para o administrador. */
 function reset_email_context(array $user): string
 {
