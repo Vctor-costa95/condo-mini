@@ -360,11 +360,29 @@ $signup = fn (string $login, array $extra = []) => call('POST', '/signup', $extr
     'condoId' => 'c1', 'name' => 'Pedido Teste', 'email' => 'pedido@email.com', 'phone' => '(11) 90000-0000',
     'login' => $login, 'password' => 'segredo1', 'unit' => 'Apto 1301 - Bloco A',
 ]);
+// Com 'mail' => ['log_file' => ...] no config.php local, os e-mails vão para este arquivo.
+$mailLog = __DIR__ . '/../storage/mail-test.log';
+$mailSince = is_file($mailLog) ? filesize($mailLog) : 0;
+$newMail = function () use ($mailLog, &$mailSince): string {
+    clearstatcache();
+    $text = is_file($mailLog) ? (string) file_get_contents($mailLog, false, null, $mailSince) : '';
+    $mailSince += strlen($text);
+    return $text;
+};
 check('apartamento inexistente recusado', $signup("pt.$suffix", ['unit' => 'Apto 9999 - Bloco A'])[0] === 422);
 check('senha curta recusada', $signup("pt.$suffix", ['password' => '123'])[0] === 422);
 check('usuário já usado recusado', $signup('morador')[0] === 409);
+$newMail();
 [$s, $req] = $signup("pt.$suffix");
 check('pedido criado', $s === 201 && $req['status'] === 'PENDING', $req);
+if (is_file($mailLog)) {
+    $mail = $newMail();
+    check('e-mail de boas-vindas ao pedir cadastro', str_contains($mail, 'Para: pedido@email.com') && str_contains($mail, 'Boas-vindas')
+        && str_contains($mail, 'Apto 1301 - Bloco A') && str_contains($mail, "pt.$suffix") && !str_contains($mail, 'segredo1'), $mail);
+}
+[, $quiet] = $signup("pq.$suffix", ['email' => '']);
+check('pedido sem e-mail não manda nada', is_file($mailLog) ? $newMail() === '' : true);
+call('POST', "/signup-requests/{$quiet['id']}/reject", ['reason' => 'Teste automático'], $admin);
 check('mesmo usuário em outro pedido recusado', $signup("pt.$suffix")[0] === 409);
 [$s, $err] = call('POST', '/auth/login', ['login' => "pt.$suffix", 'password' => 'segredo1']);
 check('login pendente explica a espera', $s === 403 && str_contains($err['error'], 'aguardando'), $err);
@@ -376,15 +394,7 @@ check('porteiro não vê pedidos', call('GET', '/signup-requests', null, $doorma
 [$s, $pending] = call('GET', '/signup-requests?condoId=c1', null, $admin);
 check('admin vê o pedido', $s === 200 && in_array($req['id'], array_column($pending, 'id'), true), $pending);
 check('admin não cria usuário com login de pedido pendente', call('GET', "/logins/available?login=pt.$suffix", null, $admin)[1]['available'] === false);
-// Com 'mail' => ['log_file' => ...] no config.php local, os e-mails vão para este arquivo.
-$mailLog = __DIR__ . '/../storage/mail-test.log';
-$mailSince = is_file($mailLog) ? filesize($mailLog) : 0;
-$newMail = function () use ($mailLog, &$mailSince): string {
-    clearstatcache();
-    $text = is_file($mailLog) ? (string) file_get_contents($mailLog, false, null, $mailSince) : '';
-    $mailSince += strlen($text);
-    return $text;
-};
+$newMail();
 [$s, $approved] = call('POST', "/signup-requests/{$req['id']}/approve", ['unit' => 'Apto 1302 - Bloco A'], $admin);
 check('admin aceita trocando o apartamento', $s === 200 && $approved['role'] === 'RESIDENT' && $approved['units'] === ['Apto 1302 - Bloco A'], $approved);
 if (is_file($mailLog)) {
