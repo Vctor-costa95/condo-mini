@@ -6,7 +6,7 @@ Plataforma (PLATFORM, nós) → Administradora → Condomínios → síndico / p
 
 A plataforma cadastra as administradoras, sobe a logo delas e aloca os prédios. O administrador (`ADMIN`) só vê os condomínios da administradora dele, e a logo da empresa aparece no app e no painel no lugar da nossa.
 
-**Onde está:** a fase 1 está **publicada na Hostinger** desde 15/11/2026 (migração 004 rodada pelo phpMyAdmin). A fase 2 (painel) foi publicada em 18/11/2026, junto com o pacote completo da API. A fase 3 (app Android) está no `main` desde 18/11; chega aos celulares no próximo APK (1.2).
+**Onde está:** a fase 1 está **publicada na Hostinger** desde 15/11/2026 (migração 004 rodada pelo phpMyAdmin). A fase 2 (painel) foi publicada em 18/11/2026, junto com o pacote completo da API. A fase 3 (app Android) está no `main` desde 18/11 e vai aos celulares no APK 1.2, enviado aos testadores em 20/11.
 
 **Decisões tomadas** (dá para mudar):
 - só a plataforma cria condomínios;
