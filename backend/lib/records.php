@@ -212,7 +212,7 @@ function add_occurrence_message(string $id, bool $fromManagement, string $nextSt
     $me = current_user();
     $occurrence = require_same_condo(row('SELECT * FROM occurrences WHERE id = ?', [$id]), 'Ocorrência não encontrada.');
     if (!$fromManagement) {
-        require_unit_access($occurrence['unit']);
+        require_unit_records_access($occurrence['unit']);
     }
     $photos = own_file_ids((array) input('photoUrls', []), $occurrence['condo_id']);
     $text = required_string('text', 5000);
@@ -264,7 +264,7 @@ function register_record_routes(Router $r): void
             send_json(array_map('bill_json', $list));
             return;
         }
-        $unit = require_unit_access(required_query('unit'));
+        $unit = require_unit_records_access(required_query('unit'));
         $list = rows('SELECT * FROM bills WHERE condo_id = ? AND unit = ? ORDER BY reference DESC', [condo_id(), $unit]);
         send_json(array_map('bill_json', $list));
     });
@@ -337,14 +337,14 @@ function register_record_routes(Router $r): void
 
     $r->add('GET', '/bills/{id}', function (string $id) {
         $bill = require_same_condo(row('SELECT * FROM bills WHERE id = ?', [$id]), 'Boleto não encontrado.');
-        require_unit_access($bill['unit']);
+        require_unit_records_access($bill['unit']);
         send_json(bill_json($bill));
     });
 
     // PDF enviado pela administração para o mês do boleto; 404 quando não há.
     $r->add('GET', '/bills/{id}/pdf', function (string $id) {
         $bill = require_same_condo(row('SELECT * FROM bills WHERE id = ?', [$id]), 'Boleto não encontrado.');
-        require_unit_access($bill['unit']);
+        require_unit_records_access($bill['unit']);
         $file = row(
             'SELECT f.* FROM unit_documents d JOIN files f ON f.id = d.file_id
              WHERE d.condo_id = ? AND d.unit = ? AND d.reference = ?',
@@ -487,7 +487,7 @@ function register_record_routes(Router $r): void
             require_role('MANAGER', 'ADMIN');
             $list = rows('SELECT * FROM occurrences WHERE condo_id = ? ORDER BY created_at DESC', [$condoId]);
         } else {
-            require_unit_access($unit);
+            require_unit_records_access($unit);
             $list = rows('SELECT * FROM occurrences WHERE condo_id = ? AND unit = ? ORDER BY created_at DESC', [$condoId, $unit]);
         }
         send_json(array_map('occurrence_json', $list));
@@ -507,7 +507,7 @@ function register_record_routes(Router $r): void
                 required_string('description', 5000),
                 require_enum((string) input('category', ''), ['NOISE', 'MAINTENANCE', 'SECURITY', 'GARAGE', 'CLEANING', 'OTHER'], 'category'),
                 now_sql(),
-                require_unit_access(required_string('unit', 80)),
+                require_unit_records_access(required_string('unit', 80)),
                 $me['name'],
                 json_encode(own_file_ids((array) input('photoUrls', []), $condoId)),
             ]

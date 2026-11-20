@@ -72,6 +72,8 @@ Quem tem mais de um apartamento escolhe qual ver ao entrar e troca depois, tocan
 | **Moradores** | Quem mora em cada apartamento, com telefone. |
 | **Avisos** | O mesmo mural dos moradores. |
 
+A portaria não vê boletos nem ocorrências dos apartamentos: a API recusa, mesmo que alguém chame direto.
+
 ### Administradora
 Atende vários condomínios e escolhe qual está gerenciando no topo da tela.
 
@@ -265,6 +267,8 @@ app/src/main/java/com/example/condo_mini/
 backend/                  # API em PHP (ver backend/README.md)
 backend/painel/           # Painel web da administradora (HTML, CSS e JS, sem build)
 docs/design-system.md     # Cores, tipografia e componentes (referência para o iOS)
+docs/plano-capacidade.md  # Como a API aguenta mais gente ao mesmo tempo, em etapas
+docs/pendencias.md        # O que ficou para depois
 ```
 
 Compilar pela linha de comando (Windows):

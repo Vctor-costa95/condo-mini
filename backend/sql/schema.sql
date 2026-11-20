@@ -97,12 +97,15 @@ CREATE TABLE IF NOT EXISTS sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- "Esqueci a senha": código de 6 dígitos mandado por e-mail; um ativo por pessoa.
+-- codes_sent conta os códigos desde window_started_at (no máximo 5 a cada 24 horas).
 CREATE TABLE IF NOT EXISTS password_resets (
-    user_id    VARCHAR(36) NOT NULL PRIMARY KEY,
-    code_hash  CHAR(64)    NOT NULL,
-    expires_at DATETIME    NOT NULL,
-    attempts   TINYINT     NOT NULL DEFAULT 0,
-    created_at DATETIME    NOT NULL,
+    user_id           VARCHAR(36) NOT NULL PRIMARY KEY,
+    code_hash         CHAR(64)    NOT NULL,
+    expires_at        DATETIME    NOT NULL,
+    attempts          TINYINT     NOT NULL DEFAULT 0,
+    codes_sent        TINYINT     NOT NULL DEFAULT 1,
+    window_started_at DATETIME    NULL,
+    created_at        DATETIME    NOT NULL,
     CONSTRAINT fk_resets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
