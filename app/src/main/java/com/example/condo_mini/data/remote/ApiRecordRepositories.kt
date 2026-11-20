@@ -122,6 +122,11 @@ class ApiParcelRepository(private val api: ApiClient) : ParcelRepository {
     override suspend fun deliver(parcelId: String, code: String, deliveredBy: String): Result<Parcel> = runCatching {
         api.send("POST", "parcels/$parcelId/deliver", JSONObject().put("code", code.trim())).obj { it.toParcel() }
     }
+
+    override suspend fun remove(parcelId: String): Result<Unit> = runCatching {
+        api.send("DELETE", "parcels/$parcelId")
+        Unit
+    }
 }
 
 class ApiOccurrenceRepository(private val api: ApiClient, private val condoId: CondoProvider) : OccurrenceRepository {

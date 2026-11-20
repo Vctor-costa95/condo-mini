@@ -477,6 +477,25 @@ function register_record_routes(Router $r): void
         send_json(parcel_json(row('SELECT * FROM parcels WHERE id = ?', [$id])));
     });
 
+    // Registro feito por engano. Só enquanto aguarda: a entregue fica no histórico.
+    $r->add('DELETE', '/parcels/{id}', function (string $id) {
+        require_role('DOORMAN', 'MANAGER', 'ADMIN');
+        $parcel = require_same_condo(row('SELECT * FROM parcels WHERE id = ?', [$id]), 'Encomenda não encontrada.');
+        if ($parcel['status'] !== 'WAITING') {
+            throw new ApiError(409, 'Esta encomenda já foi entregue e fica no histórico.');
+        }
+        exec_sql('DELETE FROM parcels WHERE id = ?', [$id]);
+        delete_file($parcel['photo_file_id']);
+        // O morador já tinha sido avisado: sem isto, desceria atrás de uma encomenda que não existe.
+        notify(
+            users_of_unit($parcel['condo_id'], $parcel['unit']),
+            'Aviso de encomenda cancelado',
+            "{$parcel['description']} para o {$parcel['unit']} foi registrada por engano. Não há nada para retirar.",
+            ['tab' => 'parcels']
+        );
+        send_json(['ok' => true]);
+    });
+
     // ------------------------------------------------------------ ocorrências
 
     // Com ?unit=, as do apartamento; sem, todas do condomínio (síndico).

@@ -60,6 +60,9 @@ data class DoormanParcelsUiState(
     val delivering: ParcelRow? = null,
     val deliverError: String? = null,
     val isDelivering: Boolean = false,
+    val removing: ParcelRow? = null,
+    val removeError: String? = null,
+    val isRemoving: Boolean = false,
     val userMessage: String? = null
 )
 
@@ -70,6 +73,9 @@ private data class Ui(
     val deliveringId: String? = null,
     val deliverError: String? = null,
     val isDelivering: Boolean = false,
+    val removingId: String? = null,
+    val removeError: String? = null,
+    val isRemoving: Boolean = false,
     val userMessage: String? = null
 )
 
@@ -132,6 +138,9 @@ class DoormanParcelsViewModel(
             delivering = parcels.firstOrNull { it.id == ui.deliveringId }?.let(::row),
             deliverError = ui.deliverError,
             isDelivering = ui.isDelivering,
+            removing = parcels.firstOrNull { it.id == ui.removingId }?.let(::row),
+            removeError = ui.removeError,
+            isRemoving = ui.isRemoving,
             userMessage = ui.userMessage
         )
     }
@@ -205,6 +214,30 @@ class DoormanParcelsViewModel(
                 }
                 .onFailure { error ->
                     ui.update { it.copy(isDelivering = false, deliverError = error.message) }
+                }
+        }
+    }
+
+    fun onRemove(row: ParcelRow) = ui.update { it.copy(removingId = row.parcel.id, removeError = null) }
+
+    fun onDismissRemove() = ui.update { it.copy(removingId = null, removeError = null) }
+
+    fun onConfirmRemove() {
+        val id = ui.value.removingId ?: return
+        ui.update { it.copy(isRemoving = true, removeError = null) }
+        viewModelScope.launch {
+            parcelRepository.remove(id)
+                .onSuccess {
+                    ui.update {
+                        it.copy(
+                            removingId = null,
+                            isRemoving = false,
+                            userMessage = "Registro removido. O morador foi avisado."
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    ui.update { it.copy(isRemoving = false, removeError = error.userMessage()) }
                 }
         }
     }

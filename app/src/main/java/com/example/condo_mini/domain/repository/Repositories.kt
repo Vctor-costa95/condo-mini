@@ -225,6 +225,9 @@ interface ParcelRepository {
 
     /** Entrega ao morador; falha se [code] não for o código da encomenda. */
     suspend fun deliver(parcelId: String, code: String, deliveredBy: String): Result<Parcel>
+
+    /** Apaga um registro feito por engano; só vale para a que ainda aguarda retirada. */
+    suspend fun remove(parcelId: String): Result<Unit>
 }
 
 interface OccurrenceRepository {
