@@ -192,7 +192,7 @@ fun DoormanParcelsScreen(
                     OutlinedTextField(
                         value = uiState.query,
                         onValueChange = onQueryChanged,
-                        placeholder = { Text("Código de retirada ou apartamento") },
+                        placeholder = { Text("Buscar apartamento") },
                         leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                         singleLine = true,
                         shape = MaterialTheme.shapes.medium,
@@ -216,7 +216,7 @@ fun DoormanParcelsScreen(
                             icon = Icons.Default.Inventory2,
                             title = if (uiState.query.isNotBlank()) "Nada encontrado" else "Tudo entregue",
                             message = if (uiState.query.isNotBlank()) {
-                                "Confira o código com o morador ou busque pelo número do apartamento."
+                                "Confira o número do apartamento com o morador."
                             } else {
                                 "Nenhuma encomenda esperando retirada."
                             },
