@@ -74,6 +74,17 @@ class FakeParcelRepository(
         return Result.success(delivered)
     }
 
+    override suspend fun remove(parcelId: String): Result<Unit> {
+        delay(250)
+        val parcel = parcels.value.firstOrNull { it.id == parcelId }
+            ?: return Result.failure(IllegalArgumentException("Encomenda não encontrada."))
+        if (parcel.status != ParcelStatus.WAITING) {
+            return Result.failure(IllegalArgumentException("Esta encomenda já foi entregue e fica no histórico."))
+        }
+        parcels.update { list -> list.filterNot { it.id == parcelId } }
+        return Result.success(Unit)
+    }
+
     /** 4 dígitos, sem repetir entre as que ainda aguardam retirada. */
     private fun newCode(): String {
         val inUse = parcels.value.filter { it.status == ParcelStatus.WAITING }.map { it.pickupCode }.toSet()

@@ -67,7 +67,7 @@ Quem tem mais de um apartamento escolhe qual ver ao entrar e troca depois, tocan
 ### Portaria
 | Aba | O que faz |
 |---|---|
-| **Encomendas** | Registra a chegada com foto. Na entrega, digita o código que o morador mostra; o porteiro **não vê o código**. |
+| **Encomendas** | Registra a chegada com foto. Na entrega, digita o código que o morador mostra; o porteiro **não vê o código**. Registro feito por engano sai pelo menu **⋮ › Remover registro** enquanto aguarda retirada; o morador é avisado. A encomenda entregue fica no histórico. |
 | **Agenda** | Mudanças e reparos aprovados e reservas confirmadas para hoje e as próximas duas semanas. Cada reserva traz a **lista de convidados** do morador; a lista completa abre em ordem alfabética, com busca por nome (sem precisar de acento). Reserva sem lista avisa para confirmar pelo interfone. No **dia da reserva**, cada nome tem o botão **Chegou**: o morador é avisado na hora ("Bruno Lima chegou para Churrasqueira"), o cartão mostra quantos já chegaram e quem falta vem primeiro. Tocar no horário desfaz uma marcação por engano. |
 | **Moradores** | Quem mora em cada apartamento, com telefone. |
 | **Avisos** | O mesmo mural dos moradores. |
@@ -134,6 +134,7 @@ Toda tela funciona assim: o app pede, a API confere quem está pedindo (um morad
 | Quando | Quem recebe |
 |---|---|
 | Encomenda registrada | Moradores do apartamento |
+| Encomenda removida pela portaria (registro por engano) | Moradores do apartamento |
 | Aviso ou documento publicado | Todo o condomínio |
 | PDF do boleto enviado | Moradores do apartamento |
 | Boleto pago (retorno do banco ou baixa na mão) | Moradores do apartamento |

@@ -24,7 +24,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Search
@@ -35,6 +37,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -107,8 +110,19 @@ fun DoormanParcelsRoute(
         onQueryChanged = viewModel::onQueryChanged,
         onNewParcel = viewModel::onNewParcel,
         onDeliver = viewModel::onDeliver,
+        onRemove = viewModel::onRemove,
         modifier = modifier
     )
+
+    uiState.removing?.let { row ->
+        RemoveDialog(
+            row = row,
+            error = uiState.removeError,
+            isRemoving = uiState.isRemoving,
+            onConfirm = viewModel::onConfirmRemove,
+            onDismiss = viewModel::onDismissRemove
+        )
+    }
 
     uiState.form?.let { form ->
         RegisterParcelSheet(
@@ -142,6 +156,7 @@ fun DoormanParcelsScreen(
     onQueryChanged: (String) -> Unit,
     onNewParcel: () -> Unit,
     onDeliver: (ParcelRow) -> Unit,
+    onRemove: (ParcelRow) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var photoToView by rememberSaveable { mutableStateOf<String?>(null) }
@@ -213,7 +228,8 @@ fun DoormanParcelsScreen(
                     ParcelCard(
                         row = row,
                         onPhotoClick = row.parcel.photoUrl?.let { url -> { photoToView = url } },
-                        onDeliver = { onDeliver(row) }
+                        onDeliver = { onDeliver(row) },
+                        onRemove = { onRemove(row) }
                     )
                 }
             }
@@ -255,7 +271,7 @@ private fun Summary(uiState: DoormanParcelsUiState) {
 }
 
 @Composable
-private fun ParcelCard(row: ParcelRow, onPhotoClick: (() -> Unit)?, onDeliver: () -> Unit) {
+private fun ParcelCard(row: ParcelRow, onPhotoClick: (() -> Unit)?, onDeliver: () -> Unit, onRemove: () -> Unit) {
     val parcel = row.parcel
     val waiting = parcel.status == ParcelStatus.WAITING
     val scheme = MaterialTheme.colorScheme
@@ -305,6 +321,27 @@ private fun ParcelCard(row: ParcelRow, onPhotoClick: (() -> Unit)?, onDeliver: (
                 Text("Aguardando retirada", style = MaterialTheme.typography.labelLarge, color = scheme.tertiary, modifier = Modifier.weight(1f))
                 OutlinedButton(onClick = onDeliver, shape = MaterialTheme.shapes.medium) {
                     Text("Entregar", style = MaterialTheme.typography.labelLarge)
+                }
+                // Escondido no menu: é exceção, e não pode ficar ao alcance de um toque errado.
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Outlined.MoreVert, contentDescription = "Mais opções", tint = scheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false },
+                        containerColor = scheme.surfaceContainerLow
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Remover registro", color = scheme.error) },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = scheme.error) },
+                            onClick = {
+                                menuOpen = false
+                                onRemove()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -493,6 +530,51 @@ private fun VolumeSelector(selected: String, onSelect: (String) -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun RemoveDialog(
+    row: ParcelRow,
+    error: String?,
+    isRemoving: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = scheme.background,
+        title = { Text("Remover registro?", style = MaterialTheme.typography.headlineSmall) },
+        text = {
+            Column {
+                Text(listOf(row.parcel.description, row.parcel.carrier).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "${row.parcel.unit} · chegou ${row.parcel.arrivedAt.relative()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Use quando a encomenda foi registrada por engano. O morador recebe um aviso de que não há nada para retirar.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                error?.let {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(it, color = scheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !isRemoving) {
+                Text("Remover", color = if (isRemoving) scheme.outline else scheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar", color = scheme.onSurface)
+            }
+        }
+    )
 }
 
 @Composable

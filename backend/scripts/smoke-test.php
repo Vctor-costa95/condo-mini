@@ -326,6 +326,12 @@ check('código errado recusado', call('POST', "/parcels/{$parcel['id']}/deliver"
 [$s, $delivered] = call('POST', "/parcels/{$parcel['id']}/deliver", ['code' => $code], $doorman);
 check('entrega com código', $s === 200 && $delivered['status'] === 'PICKED_UP', $delivered);
 check('foto acessível ao morador', call('GET', '/files/' . $photo['id'], null, $resident)[0] === 200);
+check('entregue não pode ser removida', call('DELETE', "/parcels/{$parcel['id']}", null, $doorman)[0] === 409);
+[$s, $wrong] = call('POST', '/parcels', ['unit' => 'Apto 101 - Bloco A', 'description' => 'Envelope'], $doorman);
+check('morador não remove encomenda', call('DELETE', "/parcels/{$wrong['id']}", null, $resident)[0] === 403);
+check('portaria remove registro feito por engano', call('DELETE', "/parcels/{$wrong['id']}", null, $doorman)[0] === 200);
+[$s, $mine] = call('GET', '/parcels?unit=' . rawurlencode('Apto 101 - Bloco A'), null, $resident);
+check('removida some da lista do morador', !in_array($wrong['id'], array_column($mine, 'id'), true), $mine);
 
 echo "Ocorrências\n";
 [$s, $occ] = call('POST', '/occurrences', ['title' => 'Teste', 'description' => 'Descrição', 'category' => 'NOISE', 'unit' => 'Apto 101 - Bloco A', 'photoUrls' => [$photo['url']]], $resident);

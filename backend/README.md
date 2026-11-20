@@ -74,7 +74,7 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `POST /bills/{id}/pay` `{paidAt?}`, `POST /bills/{id}/unpay` | admin: baixa na mão (data de hoje se não vier) e desfaz; a baixa avisa os moradores |
 | `POST /bills/bank-return` (multipart: `file`, `preview=1` opcional) | admin: arquivo de retorno do banco, CNAB 240 (segmentos T e U) ou 400. Pagamentos são as ocorrências 06, 07, 08, 15 e 17. Cada um é ligado ao boleto em aberto de mesmo valor cujo campo livre (25 dígitos do meio da linha digitável) tem o trecho mais longo em comum com o nosso número (mínimo 6 dígitos, sem empate). Devolve `paid`, `alreadyPaid`, `unmatched`, `otherEntries` e `applied`; com `preview=1` não grava nada (`lib/bank_return.php`) |
 | `GET /unit-documents`, `POST /unit-documents` (multipart: `unit`, `reference`, `file` e, opcional, `barcode`), `DELETE /unit-documents/{id}` | admin. Com `barcode` (a linha digitável, 47 dígitos), a API confere os dígitos verificadores, tira valor e vencimento da própria linha e cria ou atualiza o boleto do mês (`bills`); `amount` e `dueDate` só entram quando a linha não traz. Boleto já pago continua pago. |
-| `GET /parcels[?unit=]`, `POST /parcels`, `POST /parcels/{id}/deliver` | morador lê / portaria registra e entrega |
+| `GET /parcels[?unit=]`, `POST /parcels`, `POST /parcels/{id}/deliver`, `DELETE /parcels/{id}` | morador lê / portaria registra, entrega e remove registro feito por engano (só enquanto aguarda; a entregue fica no histórico, 409) |
 | `GET /occurrences[?unit=]`, `POST /occurrences` | morador registra / síndico vê todas; a portaria recebe 403 |
 | `POST /occurrences/{id}/respond\|request-details` | síndico |
 | `POST /occurrences/{id}/reply` | morador |
@@ -90,6 +90,7 @@ O app registra o celular em `POST /devices` (`{"token", "platform"}`) depois de 
 | Evento | Quem recebe |
 |---|---|
 | Encomenda registrada | moradores do apartamento (sem o código de retirada) |
+| Encomenda removida pela portaria | moradores do apartamento |
 | Aviso ou documento publicado | todo o condomínio |
 | Boleto (PDF) enviado | moradores do apartamento |
 | Reserva com taxa, pedido de mudança ou reparo | síndico |
