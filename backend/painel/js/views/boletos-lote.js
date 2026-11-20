@@ -2,13 +2,13 @@
 // descobre o apartamento, o valor e o vencimento de cada boleto. Só as exceções pedem atenção.
 
 import { api } from '../api.js';
+import { maxUploadBytes, maxUploadLabel } from '../state.js';
 import { analyzeFiles, itemPdf, parseBoletoLine, renderPages } from '../boletos.js';
 import { condoUnits } from '../units.js';
 import {
     busy, button, confirmDialog, drawer, formatBrl, formError, h, icon, input, monthLabel, monthRef, mount, select, toast
 } from '../ui.js';
 
-const MAX_PDF_BYTES = 15 * 1024 * 1024;
 const PARALLEL = 3;
 const brDate = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
 
@@ -275,7 +275,7 @@ export function openBulkUpload({ condo, month, documents, onDone }) {
                 status.set(item.id, 'sending');
                 try {
                     const pdf = await itemPdf(item);
-                    if (pdf.size > MAX_PDF_BYTES) throw new Error('PDF passa de 15 MB.');
+                    if (pdf.size > maxUploadBytes()) throw new Error(`PDF passa de ${maxUploadLabel()}.`);
                     const form = new FormData();
                     form.append('condoId', condo.id);
                     form.append('unit', item.unit.label);
