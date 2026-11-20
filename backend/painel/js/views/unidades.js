@@ -1,6 +1,7 @@
 // Unidades: boletos do mês, mapa de cada bloco e o detalhe do apartamento (PDF e moradores).
 
 import { api } from '../api.js';
+import { maxUploadBytes, maxUploadLabel } from '../state.js';
 import { refreshSidebarBadge } from '../main.js';
 import { allFloors, floorLabel, towerUnits, unitsOn } from '../units.js';
 import { findBoletoLines, parseBoletoLine, readPdfText } from '../boletos.js';
@@ -11,7 +12,6 @@ import {
     loading, monthLabel, monthRef, mount, select, shortMonthLabel, toast
 } from '../ui.js';
 
-const MAX_PDF_BYTES = 15 * 1024 * 1024;
 const BILL_STATUS = { OPEN: 'Em aberto', OVERDUE: 'Vencido', PAID: 'Pago' };
 const PAID_VIA = { MANUAL: 'pela administração', BANK_RETURN: 'pelo retorno do banco' };
 
@@ -409,7 +409,7 @@ export function renderUnits(container, { condo }) {
             },
             icon('upload', 26),
             h('strong', {}, current ? 'Substituir o PDF deste mês' : 'Enviar o PDF deste mês'),
-            h('small', {}, 'Arraste o arquivo aqui ou clique para escolher. Só PDF, até 15 MB.'),
+            h('small', {}, `Arraste o arquivo aqui ou clique para escolher. Só PDF, até ${maxUploadLabel()}.`),
             fileInput
             );
             fileInput.addEventListener('change', () => fileInput.files[0] && upload(fileInput.files[0]));
@@ -418,7 +418,7 @@ export function renderUnits(container, { condo }) {
                 mount(errorBox);
                 const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
                 if (!isPdf) return mount(errorBox, formError('Escolha um arquivo PDF.'));
-                if (file.size > MAX_PDF_BYTES) return mount(errorBox, formError('O PDF passa de 15 MB. Diminua o arquivo e tente de novo.'));
+                if (file.size > maxUploadBytes()) return mount(errorBox, formError(`O PDF passa de ${maxUploadLabel()}. Diminua o arquivo e tente de novo.`));
                 if (current) {
                     const ok = await confirmDialog({
                         title: 'Substituir boleto?',

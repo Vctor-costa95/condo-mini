@@ -44,6 +44,17 @@ export function selectCondo(id) {
     notify();
 }
 
+/** Maior arquivo que a API aceita (vem do /me); 15 MB se o servidor ainda não informa. */
+export function maxUploadBytes() {
+    return state.user?.maxUploadBytes || 15 * 1024 * 1024;
+}
+
+/** O limite em texto para as mensagens: "30 MB", "12,5 MB". */
+export function maxUploadLabel() {
+    const mb = maxUploadBytes() / (1024 * 1024);
+    return `${Number.isInteger(mb) ? mb : mb.toFixed(1).replace('.', ',')} MB`;
+}
+
 export function setUser(user) {
     state.user = user;
     notify();

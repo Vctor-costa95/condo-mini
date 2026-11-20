@@ -23,7 +23,8 @@ function user_json(array $u): array
 /** O próprio cadastro, com a marca da administradora para o app e o painel mostrarem. */
 function me_json(array $u): array
 {
-    return user_json($u) + ['brand' => brand_json(user_company_id($u))];
+    // maxUploadBytes: o painel avisa antes de enviar, com o mesmo limite que a API aplica.
+    return user_json($u) + ['brand' => brand_json(user_company_id($u)), 'maxUploadBytes' => upload_limit_bytes()];
 }
 
 function condo_json(array $c): array
