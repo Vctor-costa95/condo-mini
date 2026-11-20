@@ -34,7 +34,7 @@ function mail_config(): array
  * Manda em duas versões (multipart/alternative): o HTML com a identidade do app e o
  * texto puro, que aparece em quem não mostra HTML e ajuda a não cair no spam.
  */
-function send_mail(string $to, string $subject, string $text, ?string $html = null): bool
+function send_mail(string $to, string $subject, string $text, ?string $html = null, array $inline = []): bool
 {
     $config = mail_config();
     // Endereço gravado antes da validação pode ter quebra de linha: nunca vai para o SMTP.
@@ -44,7 +44,10 @@ function send_mail(string $to, string $subject, string $text, ?string $html = nu
     }
     if (isset($config['log_file'])) {
         if ($html !== null) {
-            // Para ver como fica: abra o .html ao lado do log no navegador.
+            // Para ver como fica: abra o .html ao lado do log no navegador (as imagens vão embutidas).
+            foreach ($inline as $cid => $image) {
+                $html = str_replace("cid:$cid", "data:{$image['type']};base64," . base64_encode($image['data']), $html);
+            }
             file_put_contents($config['log_file'] . '.html', $html);
         }
         return file_put_contents($config['log_file'], date('c') . " Para: $to\nAssunto: $subject\n$text\n\n", FILE_APPEND) !== false;
@@ -61,13 +64,28 @@ function send_mail(string $to, string $subject, string $text, ?string $html = nu
         $body = chunk_split(base64_encode($text));
     } else {
         $boundary = 'mc_' . bin2hex(random_bytes(12));
-        $headers[] = "Content-Type: multipart/alternative; boundary=\"$boundary\"";
-        $body = '';
+        $alternative = '';
         foreach (['text/plain' => $text, 'text/html' => $html] as $type => $content) {
-            $body .= "--$boundary\r\nContent-Type: $type; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+            $alternative .= "--$boundary\r\nContent-Type: $type; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
                 . chunk_split(base64_encode($content)) . "\r\n";
         }
-        $body .= "--$boundary--\r\n";
+        $alternative .= "--$boundary--\r\n";
+        if ($inline === []) {
+            $headers[] = "Content-Type: multipart/alternative; boundary=\"$boundary\"";
+            $body = $alternative;
+        } else {
+            // Imagens dentro da mensagem (cid:): aparecem sem o leitor buscar nada fora,
+            // então não caem no "imagens bloqueadas" do Outlook e do Gmail.
+            $related = 'mr_' . bin2hex(random_bytes(12));
+            $headers[] = "Content-Type: multipart/related; boundary=\"$related\"; type=\"multipart/alternative\"";
+            $body = "--$related\r\nContent-Type: multipart/alternative; boundary=\"$boundary\"\r\n\r\n$alternative\r\n";
+            foreach ($inline as $cid => $image) {
+                $body .= "--$related\r\nContent-Type: {$image['type']}; name=\"{$image['name']}\"\r\nContent-Transfer-Encoding: base64\r\n"
+                    . "Content-ID: <$cid>\r\nContent-Disposition: inline; filename=\"{$image['name']}\"\r\n\r\n"
+                    . chunk_split(base64_encode($image['data'])) . "\r\n";
+            }
+            $body .= "--$related--\r\n";
+        }
     }
     $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8');
     if (isset($config['smtp'])) {
@@ -156,16 +174,106 @@ function smtp_send(array $smtp, string $from, string $to, string $message): void
     }
 }
 
+/** cid da logo dentro do e-mail. */
+const EMAIL_LOGO_CID = 'marca@minicondo';
+
+/**
+ * Marca do topo do e-mail: a da administradora que cuida do prédio (nome, logo e cor),
+ * como no app; sem administradora ou sem logo, a do Mini Condo. A logo vai embutida.
+ * @return array{name: string, platform: bool, color: string, logo: array{type: string, data: string, name: string}}
+ */
+function email_brand(?string $companyId): array
+{
+    $brand = [
+        'name' => 'Mini Condo',
+        'platform' => true,
+        'color' => '#B08D57',
+        'logo' => ['type' => 'image/png', 'data' => (string) @file_get_contents(__DIR__ . '/../painel/img/email-icone.png'), 'name' => 'mini-condo.png'],
+    ];
+    $company = $companyId === null ? null : row('SELECT * FROM companies WHERE id = ?', [$companyId]);
+    if ($company === null) {
+        return $brand;
+    }
+    $brand['name'] = (string) $company['name'];
+    $brand['platform'] = false;
+    if (preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $company['brand_color'])) {
+        $brand['color'] = (string) $company['brand_color'];
+    }
+    $file = $company['logo_file'] === null ? '' : logo_dir() . '/' . basename((string) $company['logo_file']);
+    $data = $file !== '' && is_file($file) ? (string) file_get_contents($file) : '';
+    if ($data !== '') {
+        $type = array_search(strtolower(pathinfo($file, PATHINFO_EXTENSION)), LOGO_TYPES, true) ?: 'image/png';
+        // WebP não abre no Outlook do Windows: vira PNG quando o servidor tem o GD.
+        if ($type === 'image/webp' && function_exists('imagecreatefromwebp')) {
+            $image = @imagecreatefromwebp($file);
+            if ($image !== false) {
+                imagesavealpha($image, true);
+                ob_start();
+                imagepng($image);
+                $data = (string) ob_get_clean();
+                $type = 'image/png';
+            }
+        }
+        $brand['logo'] = ['type' => $type, 'data' => $data, 'name' => 'logo.' . LOGO_TYPES[$type]];
+    }
+    return $brand;
+}
+
+/** As imagens que o send_mail embute para o topo desta marca. */
+function email_brand_inline(array $brand): array
+{
+    return $brand['logo']['data'] === '' ? [] : [EMAIL_LOGO_CID => $brand['logo']];
+}
+
+/** Topo azul-noite com a logo num quadro claro (qualquer logo fica legível) e o nome. */
+function email_header_html(array $brand): string
+{
+    $e = fn (string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    $serif = "Georgia, 'Times New Roman', serif";
+    $sans = "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    $cid = EMAIL_LOGO_CID;
+    $name = $brand['platform']
+        ? 'MINI <span style="color:#D9BE8E;">CONDO</span>'
+        : $e(mb_strtoupper($brand['name']));
+    $logo = '';
+    if ($brand['logo']['data'] !== '') {
+        $logo = $brand['platform']
+            ? "<td style=\"vertical-align:middle;padding-right:14px;\"><img src=\"cid:{$cid}\" width=\"52\" height=\"52\" alt=\"\" style=\"display:block;border:0;border-radius:12px;\"></td>"
+            : "<td style=\"vertical-align:middle;padding-right:14px;\"><table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\"><tr><td style=\"background:#F7F5F0;border-radius:12px;padding:6px;\">"
+                . "<img src=\"cid:{$cid}\" height=\"44\" alt=\"{$e($brand['name'])}\" style=\"display:block;border:0;height:44px;width:auto;max-width:150px;\"></td></tr></table></td>";
+    }
+    return <<<HTML
+    <tr><td style="background:#151B26;background-image:linear-gradient(135deg,#232B3A,#151B26);padding:28px 32px;">
+      <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+        {$logo}
+        <td style="vertical-align:middle;">
+          <div style="font-family:{$serif};font-size:22px;letter-spacing:3px;color:#F7F5F0;line-height:1.15;">{$name}</div>
+          <div style="font-family:{$sans};font-size:10px;letter-spacing:3px;color:#B7BCC6;margin-top:7px;">GESTÃO DE CONDOMÍNIOS</div>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="height:3px;background:{$brand['color']};font-size:0;line-height:0;">&nbsp;</td></tr>
+HTML;
+}
+
+/** Rodapé: em nome da administradora, quando há uma. */
+function email_footer_from(array $brand): string
+{
+    return $brand['platform'] ? 'Mini Condo &middot; Gestão de condomínios'
+        : htmlspecialchars($brand['name'], ENT_QUOTES, 'UTF-8') . ' &middot; pelo app Mini Condo';
+}
+
 /**
  * E-mail do código, com a cara do app: topo azul-noite com a marca, o código grande
  * num bloco champanhe e o aviso de segurança. Tabelas e estilos na linha porque é
  * o que Gmail, Outlook e o Mail do iPhone entendem; fontes do sistema, sem nada de fora
  * além da logo (PNG servido pelo próprio painel).
  */
-function reset_code_email_html(string $firstName, string $login, string $context, string $code): string
+function reset_code_email_html(string $firstName, string $login, string $context, string $code, array $brand): string
 {
     $e = fn (string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-    $logo = base_url() . '/painel/img/email-icone.png';
+    $header = email_header_html($brand);
+    $from = email_footer_from($brand);
     $minutes = RESET_CODE_MINUTES;
     $digits = implode('&nbsp;', str_split($code));
     $serif = "Georgia, 'Times New Roman', serif";
@@ -185,16 +293,7 @@ function reset_code_email_html(string $firstName, string $login, string $context
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F0ECE4;">
 <tr><td align="center" style="padding:32px 16px;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E4DED3;">
-    <tr><td style="background:#151B26;background-image:linear-gradient(135deg,#232B3A,#151B26);padding:28px 32px;">
-      <table role="presentation" cellspacing="0" cellpadding="0"><tr>
-        <td style="vertical-align:middle;"><img src="{$logo}" width="52" height="52" alt="" style="display:block;border:0;border-radius:12px;"></td>
-        <td style="vertical-align:middle;padding-left:14px;">
-          <div style="font-family:{$serif};font-size:22px;letter-spacing:3px;color:#F7F5F0;line-height:1;">MINI <span style="color:#D9BE8E;">CONDO</span></div>
-          <div style="font-family:{$sans};font-size:10px;letter-spacing:3px;color:#B7BCC6;margin-top:7px;">GESTÃO DE CONDOMÍNIOS</div>
-        </td>
-      </tr></table>
-    </td></tr>
-    <tr><td style="height:3px;background:#B08D57;font-size:0;line-height:0;">&nbsp;</td></tr>
+{$header}
     <tr><td style="padding:36px 32px 8px;font-family:{$sans};color:#151B26;">
       <div style="font-size:11px;letter-spacing:2.5px;font-weight:600;color:#B08D57;">CÓDIGO DE ACESSO</div>
       <h1 style="margin:10px 0 0;font-family:{$serif};font-size:28px;font-weight:normal;line-height:1.2;color:#151B26;">Olá, {$e($firstName)}.</h1>
@@ -224,7 +323,7 @@ function reset_code_email_html(string $firstName, string $login, string $context
   </table>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
     <tr><td align="center" style="padding:20px 16px 0;font-family:{$sans};font-size:12px;line-height:1.6;color:#8C93A0;">
-      Mini Condo &middot; Gestão de condomínios<br>
+      {$from}<br>
       E-mail automático, enviado porque alguém pediu um código para esta conta. Não é preciso responder.
     </td></tr>
   </table>
@@ -239,10 +338,11 @@ HTML;
  * Aviso com a mesma cara do e-mail de código: marca no topo, título, parágrafo e um
  * quadro champanhe com os dados (rótulo => valor). [$note] vai no rodapé cinza.
  */
-function notice_email_html(string $eyebrow, string $firstName, string $lead, array $details, string $note, string $preheader): string
+function notice_email_html(string $eyebrow, string $firstName, string $lead, array $details, string $note, string $preheader, array $brand): string
 {
     $e = fn (string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-    $logo = base_url() . '/painel/img/email-icone.png';
+    $header = email_header_html($brand);
+    $from = email_footer_from($brand);
     $serif = "Georgia, 'Times New Roman', serif";
     $sans = "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     $rows = '';
@@ -264,16 +364,7 @@ function notice_email_html(string $eyebrow, string $firstName, string $lead, arr
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F0ECE4;">
 <tr><td align="center" style="padding:32px 16px;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E4DED3;">
-    <tr><td style="background:#151B26;background-image:linear-gradient(135deg,#232B3A,#151B26);padding:28px 32px;">
-      <table role="presentation" cellspacing="0" cellpadding="0"><tr>
-        <td style="vertical-align:middle;"><img src="{$logo}" width="52" height="52" alt="" style="display:block;border:0;border-radius:12px;"></td>
-        <td style="vertical-align:middle;padding-left:14px;">
-          <div style="font-family:{$serif};font-size:22px;letter-spacing:3px;color:#F7F5F0;line-height:1;">MINI <span style="color:#D9BE8E;">CONDO</span></div>
-          <div style="font-family:{$sans};font-size:10px;letter-spacing:3px;color:#B7BCC6;margin-top:7px;">GESTÃO DE CONDOMÍNIOS</div>
-        </td>
-      </tr></table>
-    </td></tr>
-    <tr><td style="height:3px;background:#B08D57;font-size:0;line-height:0;">&nbsp;</td></tr>
+{$header}
     <tr><td style="padding:36px 32px 8px;font-family:{$sans};color:#151B26;">
       <div style="font-size:11px;letter-spacing:2.5px;font-weight:600;color:#B08D57;">{$e($eyebrow)}</div>
       <h1 style="margin:10px 0 0;font-family:{$serif};font-size:28px;font-weight:normal;line-height:1.2;color:#151B26;">Olá, {$e($firstName)}.</h1>
@@ -292,7 +383,7 @@ function notice_email_html(string $eyebrow, string $firstName, string $lead, arr
   </table>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
     <tr><td align="center" style="padding:20px 16px 0;font-family:{$sans};font-size:12px;line-height:1.6;color:#8C93A0;">
-      Mini Condo &middot; Gestão de condomínios<br>
+      {$from}<br>
       E-mail automático sobre o seu cadastro. Não é preciso responder.
     </td></tr>
   </table>
@@ -313,7 +404,9 @@ function send_signup_email(array $request, string $kind, string $unit, string $r
     if ($email === '' || mail_config() === []) {
         return;
     }
-    $condo = (string) (row('SELECT name FROM condominiums WHERE id = ?', [$request['condo_id']])['name'] ?? 'seu condomínio');
+    $condoRow = row('SELECT name, company_id FROM condominiums WHERE id = ?', [$request['condo_id']]);
+    $condo = (string) ($condoRow['name'] ?? 'seu condomínio');
+    $brand = email_brand($condoRow['company_id'] ?? null);
     $first = explode(' ', trim((string) $request['name']))[0];
     if ($kind === 'received') {
         $subject = 'Boas-vindas ao Mini Condo';
@@ -339,7 +432,9 @@ function send_signup_email(array $request, string $kind, string $unit, string $r
         $text .= "$label: $value\n";
     }
     $text .= "\n$note\n\n— Mini Condo · Gestão de condomínios";
-    if (!send_mail($email, $subject, $text, notice_email_html($eyebrow, $first, $lead, $details, $note, $lead))) {
+    $text = str_replace('— Mini Condo · Gestão de condomínios', '— ' . ($brand['platform'] ? 'Mini Condo · Gestão de condomínios' : "{$brand['name']} · pelo app Mini Condo"), $text);
+    $html = notice_email_html($eyebrow, $first, $lead, $details, $note, $lead, $brand);
+    if (!send_mail($email, $subject, $text, $html, email_brand_inline($brand))) {
         error_log('[condomini] aviso de cadastro não enviado: ' . $request['id']);
     }
 }
@@ -421,6 +516,7 @@ function register_recovery_routes(Router $r): void
         );
         $first = explode(' ', trim((string) $user['name']))[0];
         $context = reset_email_context($user);
+        $brand = email_brand(user_company_id($user));
         $sent = send_mail(
             $email,
             "Seu código Mini Condo: $code",
@@ -430,7 +526,8 @@ function register_recovery_routes(Router $r): void
             . 'Conta: ' . $user['login'] . ($context !== '' ? " · $context" : '') . "\n\n"
             . "Não foi você? Ignore este e-mail: sua senha continua a mesma. Ninguém do Mini Condo ou da administração pede este código por telefone, WhatsApp ou e-mail.\n\n"
             . "— Mini Condo · Gestão de condomínios",
-            reset_code_email_html($first, (string) $user['login'], $context, $code)
+            reset_code_email_html($first, (string) $user['login'], $context, $code, $brand),
+            email_brand_inline($brand)
         );
         if (!$sent) {
             // Invalida o código e libera pedir outro na hora, sem zerar a contagem do dia.
