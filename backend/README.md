@@ -47,8 +47,8 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 
 | Rota | Quem |
 |---|---|
-| `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PATCH /me` | todos |
-| `POST /auth/password-reset` `{login}`, `POST /auth/password-reset/confirm` `{login, code, password}` | sem login: "Esqueci a senha". Manda um código de 6 dígitos para o e-mail do cadastro (vale 15 min, 5 tentativas, um pedido por minuto) e devolve o e-mail mascarado; o código certo troca a senha e encerra as sessões. Sem `mail` no `config.php`, responde 503; cadastro sem e-mail, 422 (`lib/recovery.php`) |
+| `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PATCH /me` | todos. O e-mail (aqui, no cadastro e em `POST /users`) precisa ser válido: sem quebra de linha nem `<` `>`, porque vai direto para o SMTP (`is_valid_email`, em `lib/core.php`) |
+| `POST /auth/password-reset` `{login}`, `POST /auth/password-reset/confirm` `{login, code, password}` | sem login: "Esqueci a senha". Manda um código de 6 dígitos para o e-mail do cadastro (vale 15 min, 5 tentativas por código, um pedido por minuto e no máximo 5 códigos a cada 24 horas; a tentativa é gasta numa só instrução, então pedidos em paralelo não passam do limite) e devolve o e-mail mascarado; o código certo troca a senha e encerra as sessões. Sem `mail` no `config.php`, responde 503; cadastro sem e-mail, 422 (`lib/recovery.php`) |
 | `GET /condos`, `POST /condos` | todos leem os seus / admin salva os da administradora; só a plataforma cria (com `companyId`) |
 | `PUT /condos/{id}/company` (`{"companyId"}`, vazio desaloca) | plataforma |
 | `GET /companies`, `POST /companies`, `DELETE /companies/{id}` (só sem condomínios) | plataforma |
@@ -70,12 +70,12 @@ Respostas em JSON; erros vêm como `{"error": "mensagem"}` com status 4xx. Datas
 | `PUT /reservations/{id}/guests` | morador do apartamento (ou síndico e admin) troca a lista inteira de convidados (`guests`: lista de nomes), enquanto a reserva está pendente ou confirmada e não passou. O `POST /reservations` também aceita `guests`. Nomes aparados, sem repetidos, até a capacidade do espaço (máx. 200); a portaria lê pelo `GET /reservations` |
 | `GET /service-bookings[?unit=]`, `GET /service-bookings/taken-moves?date=`, `POST /service-bookings` | idem |
 | `POST /service-bookings/{id}/cancel\|approve\|reject` | idem |
-| `GET /bills?unit=`, `GET /bills/{id}`, `GET /bills/{id}/pdf` | morador do apartamento. Com `?reference=AAAA-MM` e sem `unit`: admin e síndico listam os boletos do mês no condomínio. `paidVia` diz como foi a baixa (`MANUAL` ou `BANK_RETURN`) |
+| `GET /bills?unit=`, `GET /bills/{id}`, `GET /bills/{id}/pdf` | morador do apartamento, síndico e admin (a portaria recebe 403). Com `?reference=AAAA-MM` e sem `unit`: admin e síndico listam os boletos do mês no condomínio. `paidVia` diz como foi a baixa (`MANUAL` ou `BANK_RETURN`) |
 | `POST /bills/{id}/pay` `{paidAt?}`, `POST /bills/{id}/unpay` | admin: baixa na mão (data de hoje se não vier) e desfaz; a baixa avisa os moradores |
 | `POST /bills/bank-return` (multipart: `file`, `preview=1` opcional) | admin: arquivo de retorno do banco, CNAB 240 (segmentos T e U) ou 400. Pagamentos são as ocorrências 06, 07, 08, 15 e 17. Cada um é ligado ao boleto em aberto de mesmo valor cujo campo livre (25 dígitos do meio da linha digitável) tem o trecho mais longo em comum com o nosso número (mínimo 6 dígitos, sem empate). Devolve `paid`, `alreadyPaid`, `unmatched`, `otherEntries` e `applied`; com `preview=1` não grava nada (`lib/bank_return.php`) |
 | `GET /unit-documents`, `POST /unit-documents` (multipart: `unit`, `reference`, `file` e, opcional, `barcode`), `DELETE /unit-documents/{id}` | admin. Com `barcode` (a linha digitável, 47 dígitos), a API confere os dígitos verificadores, tira valor e vencimento da própria linha e cria ou atualiza o boleto do mês (`bills`); `amount` e `dueDate` só entram quando a linha não traz. Boleto já pago continua pago. |
 | `GET /parcels[?unit=]`, `POST /parcels`, `POST /parcels/{id}/deliver` | morador lê / portaria registra e entrega |
-| `GET /occurrences[?unit=]`, `POST /occurrences` | morador registra / síndico vê todas |
+| `GET /occurrences[?unit=]`, `POST /occurrences` | morador registra / síndico vê todas; a portaria recebe 403 |
 | `POST /occurrences/{id}/respond\|request-details` | síndico |
 | `POST /occurrences/{id}/reply` | morador |
 | `GET /documents`, `GET /documents/{id}`, `POST /documents` (multipart), `DELETE /documents/{id}` | todos leem / síndico publica |

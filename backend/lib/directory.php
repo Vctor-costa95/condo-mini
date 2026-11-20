@@ -134,8 +134,8 @@ function validate_signup_fields(string $login, string $password, string $email):
     if (mb_strlen($password) < 6) {
         throw new ApiError(422, 'A senha precisa ter pelo menos 6 caracteres.');
     }
-    if ($email !== '' && !str_contains($email, '@')) {
-        throw new ApiError(422, 'E-mail inválido.');
+    if ($email !== '' && !is_valid_email($email)) {
+        throw new ApiError(422, 'E-mail inválido. Confira como está escrito.');
     }
 }
 
@@ -218,7 +218,7 @@ function register_directory_routes(Router $r): void
     $r->add('PATCH', '/me', function () {
         $me = current_user();
         exec_sql('UPDATE users SET email = ?, phone = ? WHERE id = ?', [
-            optional_string('email', 160), optional_string('phone', 40), $me['id'],
+            optional_email(), optional_string('phone', 40), $me['id'],
         ]);
         send_json(me_json(row('SELECT * FROM users WHERE id = ?', [$me['id']])));
     });
@@ -474,7 +474,7 @@ function register_directory_routes(Router $r): void
             'company_id' => $companyId,
             'name' => required_string('name', 120),
             'role' => $role,
-            'email' => optional_string('email', 160),
+            'email' => optional_email(),
             'phone' => optional_string('phone', 40),
             'login' => $login,
             'login_key' => login_key($login),

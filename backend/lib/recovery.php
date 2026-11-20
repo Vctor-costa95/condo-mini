@@ -7,6 +7,9 @@ declare(strict_types=1);
 const RESET_CODE_MINUTES = 15;
 const RESET_MAX_ATTEMPTS = 5;
 const RESET_RESEND_SECONDS = 60;
+// Códigos por pessoa a cada 24 horas. Com 5 tentativas cada, são 25 chutes por dia no
+// máximo (antes, um código novo por minuto zerava as tentativas).
+const RESET_MAX_CODES_PER_DAY = 5;
 
 /**
  * config.php → 'mail' => [
@@ -34,6 +37,11 @@ function mail_config(): array
 function send_mail(string $to, string $subject, string $text, ?string $html = null): bool
 {
     $config = mail_config();
+    // Endereço gravado antes da validação pode ter quebra de linha: nunca vai para o SMTP.
+    if (!is_valid_email($to)) {
+        error_log('[condomini] e-mail recusado: endereço inválido');
+        return false;
+    }
     if (isset($config['log_file'])) {
         if ($html !== null) {
             // Para ver como fica: abra o .html ao lado do log no navegador.
@@ -267,18 +275,40 @@ function register_recovery_routes(Router $r): void
         }
         $user = user_for_reset();
         $email = trim((string) $user['email']);
-        if ($email === '' || !str_contains($email, '@')) {
+        if ($email === '' || !is_valid_email($email)) {
             throw new ApiError(422, 'Seu cadastro não tem e-mail. Fale com a administração do condomínio para trocar a senha.');
         }
         require_company_active($user);
-        $previous = row('SELECT created_at FROM password_resets WHERE user_id = ?', [$user['id']]);
+        $previous = row('SELECT created_at, codes_sent, window_started_at FROM password_resets WHERE user_id = ?', [$user['id']]);
         if ($previous !== null && strtotime($previous['created_at']) > time() - RESET_RESEND_SECONDS) {
             throw new ApiError(429, 'Acabamos de enviar um código. Confira o e-mail ou espere um minuto para pedir outro.');
         }
+        $windowStart = date('Y-m-d H:i:s', time() - 86400);
+        if ($previous !== null && $previous['window_started_at'] !== null && $previous['window_started_at'] > $windowStart
+            && (int) $previous['codes_sent'] >= RESET_MAX_CODES_PER_DAY) {
+            throw new ApiError(429, 'Você já pediu ' . RESET_MAX_CODES_PER_DAY . ' códigos nas últimas 24 horas. Tente amanhã ou fale com a administração do condomínio.');
+        }
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // Código novo zera as tentativas, mas não a contagem de códigos do dia. No MySQL,
+        // as atribuições do UPDATE valem na ordem: codes_sent olha a janela antiga.
         exec_sql(
-            'REPLACE INTO password_resets (user_id, code_hash, expires_at, attempts, created_at) VALUES (?, ?, ?, 0, ?)',
-            [$user['id'], reset_code_hash($user['id'], $code), date('Y-m-d H:i:s', time() + RESET_CODE_MINUTES * 60), now_sql()]
+            'INSERT INTO password_resets (user_id, code_hash, expires_at, attempts, codes_sent, window_started_at, created_at)
+             VALUES (:id, :hash, :expires, 0, 1, :window, :created)
+             ON DUPLICATE KEY UPDATE
+                code_hash = VALUES(code_hash), expires_at = VALUES(expires_at), attempts = 0,
+                codes_sent = IF(window_started_at > :cutoff, codes_sent + 1, 1),
+                window_started_at = IF(window_started_at > :cutoff2, window_started_at, VALUES(window_started_at)),
+                created_at = VALUES(created_at)',
+            [
+                'id' => $user['id'],
+                'hash' => reset_code_hash($user['id'], $code),
+                'expires' => date('Y-m-d H:i:s', time() + RESET_CODE_MINUTES * 60),
+                // Sem EMULATE_PREPARES, cada marcador só pode aparecer uma vez.
+                'window' => now_sql(),
+                'created' => now_sql(),
+                'cutoff' => $windowStart,
+                'cutoff2' => $windowStart,
+            ]
         );
         $first = explode(' ', trim((string) $user['name']))[0];
         $context = reset_email_context($user);
@@ -294,7 +324,11 @@ function register_recovery_routes(Router $r): void
             reset_code_email_html($first, (string) $user['login'], $context, $code)
         );
         if (!$sent) {
-            exec_sql('DELETE FROM password_resets WHERE user_id = ?', [$user['id']]);
+            // Invalida o código e libera pedir outro na hora, sem zerar a contagem do dia.
+            exec_sql(
+                "UPDATE password_resets SET expires_at = '2000-01-01 00:00:00', created_at = '2000-01-01 00:00:00' WHERE user_id = ?",
+                [$user['id']]
+            );
             throw new ApiError(502, 'Não foi possível enviar o e-mail agora. Tente de novo em instantes.');
         }
         send_json(['ok' => true, 'email' => masked_email($email), 'minutes' => RESET_CODE_MINUTES]);
@@ -308,13 +342,18 @@ function register_recovery_routes(Router $r): void
         if (mb_strlen($password) < 6) {
             throw new ApiError(422, 'A senha precisa ter pelo menos 6 caracteres.');
         }
+        // Gasta a tentativa antes de comparar, numa só instrução: pedidos em paralelo não
+        // conseguem passar todos pela checagem de "ainda tem tentativa".
+        $claimed = exec_sql(
+            'UPDATE password_resets SET attempts = attempts + 1 WHERE user_id = ? AND attempts < ? AND expires_at > ?',
+            [$user['id'], RESET_MAX_ATTEMPTS, now_sql()]
+        );
         $reset = row('SELECT * FROM password_resets WHERE user_id = ?', [$user['id']]);
-        if ($reset === null || strtotime($reset['expires_at']) < time() || (int) $reset['attempts'] >= RESET_MAX_ATTEMPTS) {
+        if ($claimed !== 1 || $reset === null) {
             throw new ApiError(410, 'Este código venceu. Peça um código novo.');
         }
         if (!hash_equals($reset['code_hash'], reset_code_hash($user['id'], $code))) {
-            exec_sql('UPDATE password_resets SET attempts = attempts + 1 WHERE user_id = ?', [$user['id']]);
-            $left = RESET_MAX_ATTEMPTS - (int) $reset['attempts'] - 1;
+            $left = RESET_MAX_ATTEMPTS - (int) $reset['attempts'];
             throw new ApiError(422, $left > 0
                 ? "Código incorreto. Confira o e-mail ($left " . ($left === 1 ? 'tentativa restante' : 'tentativas restantes') . ').'
                 : 'Código incorreto. Peça um código novo.');

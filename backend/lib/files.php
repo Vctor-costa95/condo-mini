@@ -187,6 +187,10 @@ function register_file_routes(Router $r): void
                 throw new ApiError(404, 'Arquivo não encontrado.');
             }
         }
+        // A portaria abre as fotos das encomendas, mas não os PDFs de boleto.
+        if (current_user()['role'] === 'DOORMAN' && row('SELECT 1 FROM unit_documents WHERE file_id = ?', [$id]) !== null) {
+            throw new ApiError(404, 'Arquivo não encontrado.');
+        }
         send_file(file_path($file), $file['mime'], $file['original_name']);
     });
 }

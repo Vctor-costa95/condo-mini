@@ -142,6 +142,25 @@ function optional_string(string $key, int $maxLength = 255): string
     return mb_substr(trim((string) input($key, '')), 0, $maxLength);
 }
 
+/**
+ * E-mail num formato que dá para entregar. Recusa quebras de linha e "<" ">": o
+ * endereço vai direto para os comandos SMTP e para o cabeçalho "To:".
+ */
+function is_valid_email(string $email): bool
+{
+    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false && !preg_match('/[\x00-\x1F\x7F<>]/', $email);
+}
+
+/** Campo de e-mail opcional: vazio passa; preenchido precisa ser válido. */
+function optional_email(string $key = 'email'): string
+{
+    $email = optional_string($key, 160);
+    if ($email !== '' && !is_valid_email($email)) {
+        throw new ApiError(422, 'E-mail inválido. Confira como está escrito.');
+    }
+    return $email;
+}
+
 function query(string $key, ?string $default = null): ?string
 {
     $value = $_GET[$key] ?? $default;
@@ -415,6 +434,18 @@ function require_unit_access(string $unit): string
         throw new ApiError(403, 'Apartamento de outro cadastro.');
     }
     return $unit;
+}
+
+/**
+ * Boletos e ocorrências são do morador com a administração: a portaria não vê nem
+ * abre. Reservas e convidados continuam com require_unit_access, que a portaria usa.
+ */
+function require_unit_records_access(string $unit): string
+{
+    if (current_user()['role'] === 'DOORMAN') {
+        throw new ApiError(403, 'A portaria não tem acesso a boletos e ocorrências.');
+    }
+    return require_unit_access($unit);
 }
 
 /** Como o nome aparece para os moradores: "Síndico - Carlos Andrade", "Porteiro José". */
